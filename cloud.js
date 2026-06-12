@@ -26,7 +26,15 @@
 // 6. En Authentication → Settings → Dominios autorizados, añade el dominio
 //    donde publicaste la app (p. ej. aquasense.netlify.app).
 // ═════════════════════════════════════════════════════════════
-const FIREBASE_CONFIG = null;
+const FIREBASE_CONFIG =  {
+  apiKey: "AIzaSyBGJKIg9SDqv7CJSx-TB-Q7KtRzy5U88-w",
+  authDomain: "aquasense1-d059a.firebaseapp.com",
+  projectId: "aquasense1-d059a",
+  storageBucket: "aquasense1-d059a.firebasestorage.app",
+  messagingSenderId: "259308806928",
+  appId: "1:259308806928:web:c1662f248115335d433b95",
+  measurementId: "G-J1N9E7VR43"
+};
 
 window.CLOUD = (() => {
   const SDK = "https://www.gstatic.com/firebasejs/10.14.1/";
