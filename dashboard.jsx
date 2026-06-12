@@ -1,0 +1,963 @@
+// Dashboard — Liquid Glass: reef status hero + AI update, params, lighting, livestock, gallery
+const PARAM_ICON = {
+  ph: "Beaker", kh: "TestTube", phosphate: "FlaskConical", calcium: "Atom",
+  nitrate: "Droplets", nitrite: "Droplets", ammonia: "Droplets",
+  temperature: "Thermometer", salinity: "Sailboat",
+};
+
+// ---- AquaBot command engine ----
+// Entiende órdenes en lenguaje natural (ES/EN) y las aplica a la app:
+// lecturas, rutinas, alertas/recordatorios, habitantes e iluminación.
+// Todo lo que toca pasa por AquaStore → persiste en local y se sincroniza
+// con la nube cuando hay sesión de Google conectada.
+const PARAM_ALIASES = {
+  ph: "ph", kh: "kh", alcalinidad: "kh", alkalinity: "kh", dkh: "kh",
+  fosfato: "phosphate", fosfatos: "phosphate", po4: "phosphate", "po₄": "phosphate", phosphate: "phosphate", phosphates: "phosphate",
+  calcio: "calcium", ca: "calcium", calcium: "calcium",
+  nitrato: "nitrate", nitratos: "nitrate", no3: "nitrate", nitrate: "nitrate", nitrates: "nitrate",
+  nitrito: "nitrite", nitritos: "nitrite", no2: "nitrite", nitrite: "nitrite",
+  amonio: "ammonia", amoniaco: "ammonia", ammonia: "ammonia", nh3: "ammonia", nh4: "ammonia",
+  temperatura: "temperature", temp: "temperature", temperature: "temperature",
+  salinidad: "salinity", salinity: "salinity", sal: "salinity",
+};
+const cap1 = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
+function applyAquaCommand(raw) {
+  const S = window.AquaStore;
+  if (!S) return null;
+  const msg = raw.trim();
+  const low = msg.toLowerCase();
+  let m;
+
+  // 1) Registrar lectura: "registra kh 7.5" · "anota el ph en 8.1" · "log calcium 420"
+  m = low.match(/(?:registra|anota|apunta|log|record)\s+(?:el\s+|la\s+|los\s+)?([a-zá-ú₄0-9]+)\s*(?:en|a|at|:|=)?\s*(\d+(?:[.,]\d+)?)/i);
+  if (m && PARAM_ALIASES[m[1]]) {
+    const k = PARAM_ALIASES[m[1]];
+    const v = parseFloat(m[2].replace(",", "."));
+    S.logReading(k, v);
+    const p = window.AQUA.CURRENT_PARAMETERS[k];
+    const st = p.status === "ok" ? T("óptimo", "optimal") : p.status === "warn" ? T("a vigilar", "watch") : T("crítico", "critical");
+    return T(
+      `✓ Registré ${p.label} = ${v}${p.unit ? " " + p.unit : ""} — estado ${st}. Dashboard y bitácora actualizados.`,
+      `✓ Logged ${p.label} = ${v}${p.unit ? " " + p.unit : ""} — status ${st}. Dashboard and logbook updated.`
+    );
+  }
+
+  // 2) Nueva rutina: "agrega rutina limpiar cristales semanal"
+  m = msg.match(/(?:agrega|añade|crea|add|create|new)\s+(?:una\s+)?(?:rutina|tarea|routine|task)\s+(?:de\s+|of\s+)?(.+)/i);
+  if (m) {
+    let text = m[1].trim().replace(/[.!]$/, "");
+    let freq = T("según necesidad", "as needed");
+    const f = text.match(/\s+(diari[oa](?:mente)?|semanal(?:mente)?|quincenal|mensual|cada\s+[\wáéíóú\s]+|daily|weekly|biweekly|monthly)$/i);
+    if (f) { freq = f[1]; text = text.slice(0, f.index).trim(); }
+    const r = { id: "ru" + Date.now(), task: cap1(text), detail: T("Añadida vía AquaBot", "Added via AquaBot"), frequency: freq, nextDue: "today", time: "12:00", icon: "CalendarCheck" };
+    S.addRoutine(r);
+    return T(
+      `✓ Rutina creada: «${r.task}» (${freq}). Ya aparece en Rutinas y en el timeline del dashboard.`,
+      `✓ Routine created: “${r.task}” (${freq}). It's now in Routines and on the dashboard timeline.`
+    );
+  }
+
+  // 3) Recordatorio/alerta: "recuérdame comprar sal" · "avísame revisar la bomba"
+  m = msg.match(/(?:recu[eé]rdame|av[ií]same|crea\s+(?:una\s+)?alerta(?:\s+de)?|remind\s+me\s+(?:to\s+)?|add\s+alert)\s*:?\s*(.+)/i);
+  if (m) {
+    const a = {
+      id: "ua" + Date.now(), severity: "info", badge: T("RECORDATORIO", "REMINDER"),
+      title: cap1(m[1].trim().replace(/[.!]$/, "")),
+      body: T("Creado por ti vía AquaBot.", "Created by you via AquaBot."),
+      cta: T("Marcar hecho", "Mark done"), tag: "AquaBot",
+    };
+    S.addAlert(a);
+    return T(
+      `✓ Anotado: «${a.title}». Lo dejé en el centro de alertas — el badge ya lo cuenta.`,
+      `✓ Noted: “${a.title}”. It's in the alert center — the badge counts it now.`
+    );
+  }
+
+  // 4) Nuevo habitante: "agrega un pez royal gramma" · "añade coral zoa"
+  m = msg.match(/(?:agrega|añade|add)\s+(?:un\s+|una\s+|a\s+)?(pez|coral|caracol|cangrejo|invertebrado|fish|snail|crab|invert)\s+(.+)/i);
+  if (m) {
+    const kindMap = { pez: "fish", fish: "fish", coral: "corals", caracol: "cuc", cangrejo: "cuc", invertebrado: "cuc", snail: "cuc", crab: "cuc", invert: "cuc" };
+    const kind = kindMap[m[1].toLowerCase()] || "fish";
+    const item = {
+      id: "ui" + Date.now(), name: cap1(m[2].trim().replace(/[.!]$/, "")), scientific: "",
+      added: window.AQUA.MOCK_TODAY, status: "ok",
+      note: T("Añadido vía AquaBot — en observación", "Added via AquaBot — under observation"),
+    };
+    S.addInhabitant(kind, item);
+    const kindLabel = { fish: T("Peces", "Fish"), corals: T("Corales", "Corals"), cuc: "CUC" }[kind];
+    return T(
+      `✓ ${item.name} añadido a Habitantes (${kindLabel}). Súbele una foto desde su tarjeta cuando puedas.`,
+      `✓ ${item.name} added to Livestock (${kindLabel}). Drop a photo on its card when you can.`
+    );
+  }
+
+  // 5) Estado de un habitante: "el hammer está mal" · "birdsnest looks better"
+  m = low.match(/(.+?)\s+(?:está|esta|is|se\s+ve|looks?)\s+(blanqueando|bleaching|mal|peor|worse|bad|mejor|better|bien|fine|ok|recuper\w+|expandid[oa]|decaíd[oa]|dying)/);
+  if (m) {
+    const found = S.findInhabitant(m[1].replace(/^(el|la|los|las|mi|mis|the|my)\s+/i, ""));
+    if (found) {
+      const word = m[2];
+      const status = /blanque|bleach|mal|peor|worse|bad|decaíd|dying/.test(word) ? "danger"
+        : /mejor|better|recuper/.test(word) ? "warn" : "ok";
+      S.updateInhabitant(found.id, { status, note: T("Tu actualización: ", "Your update: ") + msg });
+      let extra = "";
+      if (status === "danger") {
+        S.addAlert({
+          id: "ua" + Date.now(), severity: "warn", badge: T("AVISO", "NOTICE"),
+          title: T(`${found.name} reportado en mal estado`, `${found.name} reported in bad shape`),
+          body: msg, cta: T("Ver habitantes", "View livestock"), tag: T("Habitante", "Livestock"),
+        });
+        extra = T(" También creé un aviso en alertas para darle seguimiento.", " I also raised a notice in alerts to track it.");
+      }
+      return T(
+        `✓ Actualicé el estado de ${found.name}.${extra}`,
+        `✓ Updated ${found.name}'s status.${extra}`
+      );
+    }
+  }
+
+  // 6) Rutina completada: "ya alimenté las BTAs" · "completé el cambio de agua"
+  m = low.match(/(?:ya\s+|complet[eé]\s+(?:el\s+|la\s+)?|hice\s+(?:el\s+|la\s+)?|termin[eé]\s+|done\s+|finished\s+)(.+)/);
+  if (m) {
+    const words = m[1].split(/\s+/).filter((w) => w.length > 3);
+    const r = window.AQUA.ROUTINES.find((rt) => {
+      const t = rt.task.toLowerCase();
+      return words.some((w) => t.includes(w));
+    });
+    if (r) {
+      if (!S.ud.routinesDone[r.id]) S.toggleRoutine(r.id);
+      return T(`✓ «${r.task}» marcada como completada. Bien ahí.`, `✓ “${r.task}” marked complete. Nice.`);
+    }
+  }
+
+  // 7) Iluminación: "cambia la luz a semana 3" · "lighting week 4"
+  m = low.match(/(?:luz|luces|iluminaci[oó]n|light\w*)[^.]*?(?:semana|week)\s*([1-4])/) ||
+      low.match(/(?:semana|week)\s*([1-4])[^.]*?(?:luz|luces|iluminaci[oó]n|light)/);
+  if (m) {
+    S.setLightingWeek(+m[1]);
+    const wk = window.AQUA.LIGHTING_SCHEDULE[+m[1] - 1];
+    return T(
+      `✓ Programa de luz cambiado a semana ${m[1]} (B/C al ${wk.channels.B}%). Revisa la página de Iluminación.`,
+      `✓ Lighting schedule set to week ${m[1]} (B/C at ${wk.channels.B}%). Check the Lighting page.`
+    );
+  }
+
+  return null; // no es una orden → responde como chat
+}
+
+// ---- AI plumbing ----
+// Rule-based fallback so the chat stays useful when the in-page Claude helper
+// isn't available (standalone HTML, plain browser). Answers are computed from
+// the same tank context the real prompt carries.
+function localAquaBot(q) {
+  const m = q.toLowerCase();
+  if (/\bkh\b|buffer|alcalin|alkalin|dkh/.test(m)) return T(
+    "Con KH en 7.0 dKH, dosifica 7 ml de Reef Buffer hoy (calculado para los 23 gal reales). Eso sube ~0.3 dKH/día — nunca más de 1 dKH/día. Re-mide en 24 h y repite hasta estabilizar en 8–8.5.",
+    "With KH at 7.0 dKH, dose 7 ml of Reef Buffer today (computed for the real 23 gal). That raises ~0.3 dKH/day — never exceed 1 dKH/day. Re-test in 24 h and repeat until stable at 8–8.5."
+  );
+  if (/birdsnest|blanque|bleach|seriatopora|sps/.test(m)) return T(
+    "El Birdsnest es tu coral más sensible: KH 7.0 + el apagón de 6 h explican el blanqueo. Prioridad: estabilizar KH en 8–8.5, flujo moderado y no lo muevas. Si la base conserva tejido, puede recuperarse en 2–3 semanas.",
+    "The Birdsnest is your most sensitive coral: KH 7.0 plus the 6 h outage explain the bleaching. Priority: stabilize KH at 8–8.5, moderate flow, and don't move it. If the base keeps tissue it can recover in 2–3 weeks."
+  );
+  if (/fosfat|phosphat|po4|po₄|algas|algae/.test(m)) return T(
+    "PO₄ en 0.25 ppm (meta 0.03–0.10): deja actuar el PhosGuard 48 h más, haz un cambio de 25% (5–6 gal) y reduce la alimentación a la mitad esta semana. Re-mide en 3 días.",
+    "PO₄ at 0.25 ppm (target 0.03–0.10): give PhosGuard 48 h more, do a 25% water change (5–6 gal) and halve feeding this week. Re-test in 3 days."
+  );
+  if (/cambio|water change|agua|rodi/.test(m)) return T(
+    "Cambio de 25%: 5–6 gal de RODI + Instant Ocean a 1.025 SG y 79 °F, quincenal. Con los fosfatos altos conviene adelantarlo a esta semana. Matt's Corals vende RODI a $0.75/gal.",
+    "25% change: 5–6 gal RODI + Instant Ocean at 1.025 SG and 79 °F, biweekly. With phosphates high, move it up to this week. Matt's Corals sells RODI at $0.75/gal."
+  );
+  if (/\bph\b/.test(m)) return T(
+    "El pH 7.9 es consecuencia de la KH baja — corrige primero la alcalinidad y el pH subirá solo. Más aireación y agitación de superficie ayudan; no persigas el pH con químicos.",
+    "pH 7.9 follows from the low KH — fix alkalinity first and pH will rise on its own. More aeration and surface agitation help; don't chase pH with chemicals."
+  );
+  return T(
+    "Estoy en modo demo sin conexión: pregúntame por el KH y la dosis de buffer, el Birdsnest, los fosfatos o los cambios de agua. Con la app conectada respondo cualquier consulta con IA real.",
+    "I'm in offline demo mode: ask me about KH and buffer dosing, the Birdsnest, phosphates or water changes. When the app is connected I answer anything with real AI."
+  );
+}
+
+async function callAquaBot(userMessage) {
+  // Primero: ¿es una orden? (registrar, agregar, recordar…) — se ejecuta
+  // en la app directamente, online u offline.
+  const command = applyAquaCommand(userMessage);
+  if (command) {
+    await new Promise((r) => setTimeout(r, 450));
+    return command;
+  }
+  if (!window.claude?.complete) {
+    await new Promise((r) => setTimeout(r, 800));
+    return localAquaBot(userMessage);
+  }
+  const lang = window.__lang === "en" ? "inglés" : "español";
+  const system = `Eres AquaBot, asistente IA de AquaSense para acuarios marinos.
+CONTEXTO: Tanque marino 20G High, 23 gal reales con sump, Columbus Ohio.
+Parámetros: pH 7.9 (bajo), KH 7.0 dKH (bajo), Fosfatos 0.25 ppm (alto), Calcio 400 mg/L (ok), Nitratos 5 ppm.
+Alertas: Birdsnest blanqueando por KH bajo, ATO al 15%, fosfatos en ascenso.
+Equipo: Smatfarm G5 95W, Fluval Sea Nano, ATO, PhosGuard hace 2 días, Reef Buffer Seachem.
+Usuario: Jeffrey, nuevo en salado, experimentado en dulce.
+REGLAS:
+- Responde en ${lang}, máximo 3-4 oraciones (es un widget).
+- Siempre menciona cantidades específicas (ml/g) usando 23 gal reales.
+- Tono experto pero accesible, como reefer veterano.`;
+  try {
+    const text = await window.claude.complete({
+      messages: [{ role: "user", content: `[Sistema]\n${system}\n\n[Pregunta]\n${userMessage}` }],
+    });
+    return (text || "").trim() || T("No pude procesar tu pregunta. Intenta de nuevo.", "I couldn't process that. Try again.");
+  } catch (e) {
+    return localAquaBot(userMessage);
+  }
+}
+
+// ---- Reef Status & AI Update hero ----
+function ReefStatusHero({ onNavigate }) {
+  const { TANK_CONFIG } = window.AQUA;
+  const [input, setInput] = React.useState("");
+  const [reply, setReply] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+  const [attachment, setAttachment] = React.useState(null);
+  const fileRef = React.useRef(null);
+
+  const send = async () => {
+    const msg = input.trim();
+    if (!msg || loading) return;
+    setLoading(true);
+    setReply("");
+    const r = await callAquaBot(msg);
+    setReply(r);
+    setLoading(false);
+  };
+
+  const onFile = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => setAttachment(ev.target.result);
+    reader.readAsDataURL(file);
+  };
+
+  return (
+    <Card className="overflow-hidden">
+      <div className="flex items-center justify-between px-5 pt-4 pb-3">
+        <h2 className="text-[17px] font-semibold tracking-tight text-[var(--ink)]">
+          {T("Estado del reef & actualización IA", "Reef Status & AI Update")}
+        </h2>
+        <span className="text-[11px] text-[var(--ink-3)]">{fmtLongDate(window.AQUA.MOCK_TODAY)}</span>
+      </div>
+
+      {/* Tank banner — user photo slot with overlay */}
+      <div className="relative mx-4 rounded-3xl overflow-hidden" style={{ height: 180 }}>
+        <PhotoSlot
+          id="photo-tank-hero"
+          radius={24}
+          placeholder={T("Toca o suelta aquí una foto panorámica de tu tanque — se guarda y queda fija", "Tap or drop a wide photo of your tank — it's saved and stays")}
+          style={{ position: "absolute", inset: 0 }}
+        />
+        <div className="absolute inset-x-0 bottom-0 h-24 pointer-events-none" style={{ background: "linear-gradient(to top, rgba(8,22,34,0.65), transparent)" }} />
+        <div className="absolute left-4 bottom-3 pointer-events-none">
+          <div className="text-[22px] font-semibold text-white tracking-tight" style={{ textShadow: "0 1px 8px rgba(0,0,0,0.45)" }}>{TANK_CONFIG.name}</div>
+          <div className="mt-1 flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10.5px] font-semibold uppercase tracking-[0.06em]" style={{ background: "rgba(245,158,11,0.92)", color: "#3A2A05" }}>
+              <span className="w-1.5 h-1.5 rounded-full bg-[#3A2A05]" />
+              {T("Estado: Necesita atención", "Status: Needs attention")}
+            </span>
+          </div>
+        </div>
+        <div className="absolute right-3 bottom-3 pointer-events-none hidden sm:block">
+          <span className="text-[10.5px] text-white/85 px-2 py-1 rounded-full" style={{ background: "rgba(8,22,34,0.45)", backdropFilter: "blur(8px)" }}>
+            {T("2 parámetros fuera de rango · 1 alerta crítica", "2 parameters out of range · 1 critical alert")}
+          </span>
+        </div>
+      </div>
+
+      {/* Quick update / ask AI */}
+      <div className="px-5 pt-4 pb-5">
+        <div className="flex items-center justify-between mb-2.5">
+          <div className="text-[13px] font-semibold text-[var(--ink)]">{T("Actualización rápida / Pregunta a la IA", "Quick Update / Ask AI")}</div>
+          <div className="hidden md:flex items-center gap-2 max-w-[46%]">
+            <div className="grid place-items-center w-6 h-6 rounded-full shrink-0" style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)" }}>
+              <L name="Sparkles" size={11} style={{ color: "var(--accent)" }} />
+            </div>
+            <p className="text-[11px] text-[var(--ink-2)] leading-snug truncate">
+              {T("AquaBot: el KH bajó otra vez — ¿te paso el plan de dosificación?", "AquaBot: KH dropped again — want today's dosing plan?")}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") send(); }}
+              placeholder={T("Describe lo que observas o pregunta sobre un coral…", "Describe current observations or ask about a coral…")}
+              className="w-full glass-strong rounded-full pl-4 pr-10 py-2.5 text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)] border border-[var(--glass-border)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-border)]"
+            />
+            <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[var(--ink-3)]"><L name="Sparkles" size={15} /></span>
+          </div>
+          <Button variant="primary" icon={loading ? undefined : "Send"} loading={loading} onClick={send}>{T("Enviar", "Post")}</Button>
+        </div>
+
+        <div className="flex items-center gap-2 mt-2.5">
+          <Button variant="secondary" size="sm" icon="ImageUp" onClick={() => fileRef.current?.click()}>
+            {T("Subir foto/video", "Upload Photo/Video")}
+          </Button>
+          <input ref={fileRef} type="file" accept="image/*,video/*" className="hidden" onChange={onFile} />
+          {attachment && (
+            <span className="inline-flex items-center gap-1.5 text-[11px] text-[var(--ink-2)]">
+              <img src={attachment} alt="" className="w-7 h-7 rounded-lg object-cover border border-[var(--hairline)]" />
+              {T("adjunto listo", "attachment ready")}
+              <button onClick={() => setAttachment(null)} className="text-[var(--ink-3)] hover:text-[var(--ink)]"><L name="X" size={11} /></button>
+            </span>
+          )}
+          <button onClick={() => onNavigate("ai")} className="ml-auto text-[11.5px] text-[var(--accent)] hover:opacity-80 inline-flex items-center gap-1">
+            {T("Abrir chat completo", "Open full chat")} <L name="ArrowRight" size={11} />
+          </button>
+        </div>
+
+        {(loading || reply) && (
+          <div className="mt-3 rounded-2xl px-3.5 py-2.5 text-[12.5px] leading-relaxed text-[var(--ink)]" style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)" }}>
+            <span className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-semibold mb-1" style={{ color: "var(--accent)" }}>
+              <L name="Sparkles" size={11} /> AquaBot
+            </span>
+            <div>{loading ? T("Analizando tu tanque…", "Analyzing your tank…") : reply}</div>
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+// ---- Tank vitals strip ----
+function TankVitalsStrip() {
+  const { CURRENT_PARAMETERS, TANK_CONFIG, MOCK_TODAY } = window.AQUA;
+  const daysRunning = Math.round((new Date(MOCK_TODAY) - new Date(TANK_CONFIG.setupDate)) / 86400000);
+  const stats = [
+    { label: "Temp", value: `${CURRENT_PARAMETERS.temperature.value}°F`, icon: "Thermometer", color: "#0E9F6E" },
+    { label: T("Salinidad", "Salinity"), value: CURRENT_PARAMETERS.salinity.value, icon: "Sailboat", color: "#0E9F6E" },
+    { label: T("Volumen", "Volume"), value: `${TANK_CONFIG.realVolume} gal`, icon: "Container", color: "var(--ink-2)" },
+    { label: T("Días activo", "Days running"), value: String(daysRunning), icon: "Calendar", color: "var(--ink-2)" },
+    { label: T("Salud", "Health"), value: "82 / 100", icon: "Heart", color: "#C77F00" },
+    { label: T("Ciclado", "Cycle"), value: T("completo", "complete"), icon: "CheckCircle2", color: "#0E9F6E" },
+  ];
+  return (
+    <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
+      {stats.map((s) => (
+        <div key={s.label} className="glass rounded-2xl px-3 py-2 flex items-center gap-2">
+          <L name={s.icon} size={13} style={{ color: s.color }} />
+          <div className="min-w-0">
+            <div className="text-[9.5px] uppercase tracking-wider text-[var(--ink-3)] font-medium">{s.label}</div>
+            <div className="text-[12px] text-[var(--ink)] tabular-nums truncate font-medium" style={{ fontFamily: "DM Mono, monospace" }}>{s.value}</div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ---- Water Parameters Log (ring gauges, like the reference) ----
+function WaterParamsCard({ onNavigate }) {
+  const { CURRENT_PARAMETERS, HISTORY } = window.AQUA;
+  const [logOpen, setLogOpen] = React.useState(false);
+  const ReadingModal = window.LogReadingModal;
+  const rings = [
+    { k: "ph",        display: CURRENT_PARAMETERS.ph.value.toFixed(1), label: "pH" },
+    { k: "temperature", display: `${CURRENT_PARAMETERS.temperature.value}°`, label: "Temp" },
+    { k: "kh",        display: CURRENT_PARAMETERS.kh.value.toFixed(1), label: "KH" },
+    { k: "calcium",   display: CURRENT_PARAMETERS.calcium.value, label: "Ca" },
+    { k: "phosphate", display: CURRENT_PARAMETERS.phosphate.value.toFixed(2), label: "PO₄" },
+    { k: "nitrate",   display: CURRENT_PARAMETERS.nitrate.value, label: "NO₃" },
+  ];
+  const statusSub = (st) => st === "ok" ? T("Óptimo", "Optimal") : st === "warn" ? T("Vigilar", "Watch") : T("Crítico", "Critical");
+  const chartKeys = ["ph", "kh", "phosphate"];
+  const chartColors = { ph: "#3B82F6", kh: "#C77F00", phosphate: "#DC4458" };
+
+  return (
+    <Card className="p-5">
+      <SectionHeader
+        kicker={T("Registro de agua", "Water Log")}
+        title={T("Parámetros del agua", "Water Parameters Log")}
+        action={
+          <button onClick={() => onNavigate("parameters")} className="text-[11.5px] text-[var(--accent)] hover:opacity-80 inline-flex items-center gap-1">
+            {T("Historial completo", "Full history")} <L name="ArrowRight" size={11} />
+          </button>
+        }
+      />
+
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-4">
+        {rings.map(({ k, display, label }) => {
+          const p = CURRENT_PARAMETERS[k];
+          return (
+            <RingGauge
+              key={k}
+              value={p.value}
+              min={p.idealMin - (p.idealMax - p.idealMin)}
+              max={p.idealMax + (p.idealMax - p.idealMin) * 0.5}
+              status={p.status}
+              display={display}
+              label={label}
+              sub={statusSub(p.status)}
+            />
+          );
+        })}
+      </div>
+
+      {/* 14-day mini multiline */}
+      <div className="rounded-2xl bg-[var(--well)] border border-[var(--hairline)] p-3 min-w-0">
+        <div className="flex items-center justify-between mb-1 flex-wrap gap-x-3 gap-y-1">
+          <span className="text-[10px] uppercase tracking-wider text-[var(--ink-3)] font-medium">{T("Últimos 14 días", "Last 14 days")}</span>
+          <div className="flex items-center gap-2.5 flex-wrap">
+            {chartKeys.map((k) => (
+              <span key={k} className="inline-flex items-center gap-1 text-[9.5px] text-[var(--ink-2)] whitespace-nowrap">
+                <span className="w-2 h-[3px] rounded-full" style={{ background: chartColors[k] }} />
+                {CURRENT_PARAMETERS[k].label}
+              </span>
+            ))}
+          </div>
+        </div>
+        <svg viewBox="0 0 560 72" className="w-full h-auto" preserveAspectRatio="none">
+          {chartKeys.map((k) => {
+            const data = HISTORY[k];
+            const min = Math.min(...data), max = Math.max(...data);
+            const range = max - min || 1;
+            const pts = data.map((v, i) => `${(i / (data.length - 1)) * 552 + 4},${64 - ((v - min) / range) * 52 + 4}`).join(" ");
+            return <polyline key={k} points={pts} fill="none" stroke={chartColors[k]} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" opacity="0.85" />;
+          })}
+        </svg>
+      </div>
+
+      <div className="mt-3 flex items-center gap-2">
+        <Button variant="primary" size="sm" icon="Plus" onClick={() => setLogOpen(true)}>{T("Nueva lectura", "Add New Reading")}</Button>
+        <Button variant="ghost" size="sm" icon="Camera" onClick={() => onNavigate("inhabitants")}>{T("Diagnóstico foto", "Photo diagnosis")}</Button>
+      </div>
+      {logOpen && ReadingModal && <ReadingModal paramKeys={Object.keys(CURRENT_PARAMETERS)} onClose={() => setLogOpen(false)} />}
+    </Card>
+  );
+}
+
+// ---- Lighting Schedule card ----
+function LightingScheduleCard({ onNavigate }) {
+  const { LIGHTING_SCHEDULE, LIGHT_CHANNELS } = window.AQUA;
+  const wk = LIGHTING_SCHEDULE[(window.AquaStore?.lightingWeek || 2) - 1];
+  // 24h cycle gradient: night → ramp 7-11 → peak → ramp down 15-21 → night
+  const cycleGradient = "linear-gradient(90deg, #283A66 0%, #283A66 27%, #7FB4D9 38%, #FDF3C9 47%, #FDF6D8 58%, #F4C77E 72%, #4A5A92 88%, #283A66 100%)";
+
+  return (
+    <Card className="p-5">
+      <SectionHeader
+        kicker={T("Iluminación", "Lighting")}
+        title={T("Programa de luz", "Lighting Schedule")}
+        action={
+          <button onClick={() => onNavigate("lighting")} className="text-[11.5px] text-[var(--accent)] hover:opacity-80 inline-flex items-center gap-1">
+            {T("Ajustar", "Adjust")} <L name="Sliders" size={11} />
+          </button>
+        }
+      />
+
+      {/* Day cycle bar */}
+      <div className="relative h-7 rounded-full overflow-hidden border border-[var(--hairline)]" style={{ background: cycleGradient }}>
+        <div className="absolute top-1/2 -translate-y-1/2 grid place-items-center w-5 h-5 rounded-full bg-white shadow-md" style={{ left: "44%" }}>
+          <L name="Sun" size={12} style={{ color: "#C77F00" }} strokeWidth={2} />
+        </div>
+        <div className="absolute top-1/2 -translate-y-1/2 grid place-items-center w-5 h-5 rounded-full shadow-md" style={{ left: "88%", background: "#1E2B52" }}>
+          <L name="Moon" size={11} style={{ color: "#BFD0F2" }} strokeWidth={2} />
+        </div>
+      </div>
+      <div className="flex justify-between mt-1.5 px-1 text-[9.5px] text-[var(--ink-3)] tabular-nums" style={{ fontFamily: "DM Mono, monospace" }}>
+        {["00:00", "06:00", "12:00", "18:00", "24:00"].map((t) => <span key={t}>{t}</span>)}
+      </div>
+
+      {/* Fixture row */}
+      <div className="mt-3 glass-strong rounded-2xl p-3.5 flex items-start gap-3">
+        <div className="grid place-items-center w-11 h-11 rounded-xl shrink-0" style={{ background: "var(--well)", border: "1px solid var(--hairline)" }}>
+          <L name="Lamp" size={18} className="text-[var(--ink-2)]" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-[13.5px] font-semibold text-[var(--ink)]">Smatfarm G5 95W</div>
+          <div className="text-[11px] text-[var(--ink-2)] mt-0.5">
+            {T("Tipo: LED · Fase: Aclimatación semana", "Type: LED · Phase: Acclimation week")} {wk.week}
+          </div>
+          <div className="text-[11px] text-[var(--ink-2)]">
+            {T("Horario: 07:00 – 21:00 (rampa azul+blanco)", "Schedule: 7a – 9p (blue+white ramp)")}
+          </div>
+        </div>
+      </div>
+
+      {/* Channels */}
+      <div className="grid grid-cols-6 gap-1.5 mt-3">
+        {LIGHT_CHANNELS.map((ch) => {
+          const pct = wk.channels[ch.key];
+          return (
+            <div key={ch.key} className="rounded-xl bg-[var(--well)] border border-[var(--hairline)] p-1.5 text-center">
+              <div className="relative h-10 rounded-md overflow-hidden" style={{ background: "rgba(10,30,48,0.12)" }}>
+                <div className="absolute bottom-0 left-0 right-0" style={{ height: `${pct}%`, background: `linear-gradient(180deg, ${ch.color}, ${ch.color}88)` }} />
+              </div>
+              <div className="text-[9px] mt-1 text-[var(--ink-2)] tabular-nums font-medium" style={{ fontFamily: "DM Mono, monospace" }}>{ch.key} {pct}%</div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="mt-3 flex items-center justify-between text-[10.5px] text-[var(--ink-2)]">
+        <span className="inline-flex items-center gap-1.5"><L name="CalendarClock" size={12} /> {T("Próximo ajuste: 29 may (sem 3)", "Next adjustment: May 29 (wk 3)")}</span>
+        <span className="tabular-nums" style={{ fontFamily: "DM Mono, monospace" }}>+15% B/C</span>
+      </div>
+    </Card>
+  );
+}
+
+// ---- Livestock inventory (with photo slots) ----
+function LivestockRow({ item, kind, onNavigate }) {
+  const s = STATUS_COLOR[item.status];
+  // La miniatura es interactiva (subir foto), así que el contenedor no puede
+  // ser un <button>: el área de texto navega, la foto sube imagen.
+  return (
+    <div className="w-full flex items-center gap-2.5 p-1.5 rounded-2xl hover:bg-[var(--hover)] transition-colors">
+      <PhotoSlot id={`photo-${item.id}`} radius={12} style={{ width: 40, height: 40, flexShrink: 0 }} />
+      <button onClick={() => onNavigate("inhabitants")} className="flex-1 min-w-0 text-left cursor-pointer">
+        <div className="text-[12.5px] font-medium text-[var(--ink)] truncate">{item.name}</div>
+        <div className="text-[10.5px] text-[var(--ink-2)] truncate">{item.note}</div>
+      </button>
+      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: s.fg }} />
+    </div>
+  );
+}
+
+function LivestockInventory({ onNavigate }) {
+  const { INHABITANTS } = window.AQUA;
+  const corals = INHABITANTS.corals.slice(0, 4);
+  const others = [...INHABITANTS.fish.slice(0, 3), ...INHABITANTS.cuc.slice(0, 1)];
+  const total = INHABITANTS.fish.length + INHABITANTS.corals.length + INHABITANTS.cuc.length;
+
+  return (
+    <Card className="p-5">
+      <SectionHeader
+        kicker={T("Habitantes", "Livestock")}
+        title={T("Inventario de vida", "Livestock Inventory")}
+        action={
+          <button onClick={() => onNavigate("inhabitants")} className="text-[11.5px] text-[var(--accent)] hover:opacity-80 inline-flex items-center gap-1">
+            {T("Ver todos", "View All")} ({total}) <L name="ArrowRight" size={11} />
+          </button>
+        }
+      />
+      <div className="grid sm:grid-cols-2 gap-x-4 gap-y-1">
+        <div>
+          <div className="text-[10px] uppercase tracking-[0.1em] text-[var(--ink-3)] font-semibold mb-1.5 px-1.5">{T("Corales", "Corals")}</div>
+          <div className="flex flex-col gap-0.5">
+            {corals.map((c) => <LivestockRow key={c.id} item={c} kind="coral" onNavigate={onNavigate} />)}
+          </div>
+        </div>
+        <div>
+          <div className="text-[10px] uppercase tracking-[0.1em] text-[var(--ink-3)] font-semibold mb-1.5 px-1.5">{T("Peces / Inverts", "Inverts/Fish")}</div>
+          <div className="flex flex-col gap-0.5">
+            {others.map((f) => <LivestockRow key={f.id} item={f} kind="fish" onNavigate={onNavigate} />)}
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+// ---- Gallery strip ----
+function GalleryStrip() {
+  return (
+    <Card className="p-5">
+      <SectionHeader
+        kicker={T("Galería", "Gallery")}
+        title={T("Fotos del tanque", "Tank photos")}
+        action={<span className="text-[10.5px] text-[var(--ink-3)]">{T("Toca o arrastra — se guardan solas", "Tap or drag — they save automatically")}</span>}
+      />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {[1, 2, 3, 4].map((n) => (
+          <PhotoSlot
+            key={n}
+            id={`photo-gallery-${n}`}
+            radius={18}
+            placeholder={T(`Foto ${n}`, `Photo ${n}`)}
+            style={{ width: "100%", aspectRatio: "4 / 3", position: "relative" }}
+          />
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+// ---- Alert card (used here + AlertsPage) ----
+function AlertCard({ alert, onDismiss, onCTA, index = 0 }) {
+  const s = STATUS_COLOR[alert.severity];
+  return (
+    <div
+      className="relative rounded-3xl p-4 overflow-hidden transition-all glass"
+      style={{ animation: `fadeUp 0.45s cubic-bezier(.2,.7,.3,1) ${index * 80}ms both` }}
+    >
+      <div className="absolute left-0 top-4 bottom-4 w-[3px] rounded-r-full" style={{ background: s.fg, opacity: 0.85 }} />
+      <div className="flex items-start gap-3 pl-1.5">
+        <div className="grid place-items-center w-8 h-8 rounded-xl shrink-0 mt-0.5" style={{ background: s.bg, border: `1px solid ${s.border}` }}>
+          <L name={alert.severity === "danger" ? "AlertOctagon" : alert.severity === "warn" ? "AlertTriangle" : "Info"} size={14} style={{ color: s.fg }} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <span className="text-[9.5px] uppercase tracking-[0.12em] font-semibold px-1.5 py-0.5 rounded-md" style={{ background: s.bg, border: `1px solid ${s.border}`, color: s.fg }}>{alert.badge}</span>
+            <span className="text-[9.5px] uppercase tracking-wider text-[var(--ink-3)]">{alert.tag}</span>
+          </div>
+          <h3 className="text-[13.5px] font-semibold text-[var(--ink)] mb-1">{alert.title}</h3>
+          <p className="text-[12px] text-[var(--ink-2)] leading-relaxed mb-2">{alert.body}</p>
+
+          {alert.progress != null && (
+            <div className="mb-2.5 mt-1">
+              <div className="flex items-center justify-between text-[10px] text-[var(--ink-2)] mb-1">
+                <span>{T("Nivel reservorio", "Reservoir level")}</span>
+                <span className="tabular-nums" style={{ fontFamily: "DM Mono, monospace" }}>{alert.progress}%</span>
+              </div>
+              <div className="h-1.5 rounded-full bg-[var(--well)] overflow-hidden">
+                <div className="h-full rounded-full" style={{ width: `${alert.progress}%`, background: s.fg }} />
+              </div>
+            </div>
+          )}
+
+          <button onClick={onCTA} className="inline-flex items-center gap-1 text-[12px] font-medium hover:opacity-80 transition-opacity" style={{ color: s.fg }}>
+            {alert.cta} <L name="ArrowRight" size={12} />
+          </button>
+        </div>
+        <button
+          onClick={onDismiss}
+          aria-label={T("Descartar alerta", "Dismiss alert")}
+          className="p-1.5 rounded-full text-[var(--ink-3)] hover:bg-[var(--hover)] hover:text-[var(--ink-2)] transition-colors shrink-0"
+        >
+          <L name="X" size={13} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ---- Routines timeline ----
+function RoutineItem({ routine, done, onToggle, isFirst, isLast, urgent }) {
+  const tag = { label: fmtDue(routine.nextDue), color: routine.nextDue === "today" ? "warn" : "info" };
+  const ts = STATUS_COLOR[tag.color];
+  const nodeColor = urgent ? "#C77F00" : "var(--ink-3)";
+
+  return (
+    <div className="relative flex gap-3 group">
+      <div className="relative w-4 shrink-0 flex justify-center">
+        {!isFirst && <span className="absolute top-0 bottom-1/2 w-px bg-[var(--hairline)]" />}
+        {!isLast && <span className="absolute top-1/2 bottom-0 w-px bg-[var(--hairline)]" />}
+        <span
+          className="relative mt-3.5 w-3 h-3 rounded-full transition-all"
+          style={{
+            background: done ? "#0E9F6E" : urgent ? nodeColor : "transparent",
+            border: `1.5px solid ${done ? "#0E9F6E" : nodeColor}`,
+            boxShadow: urgent && !done ? `0 0 0 4px rgba(245,158,11,0.12)` : "none",
+          }}
+        />
+      </div>
+
+      <div className={`flex-1 py-2.5 pr-2 flex items-start gap-3 transition-opacity ${done ? "opacity-50" : ""}`}>
+        <div className="grid place-items-center w-8 h-8 rounded-xl bg-[var(--well)] border border-[var(--hairline)] shrink-0">
+          <L name={routine.icon} size={14} className="text-[var(--ink-2)]" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className={`text-[12.5px] font-medium text-[var(--ink)] transition-all ${done ? "line-through" : ""}`}>{routine.task}</div>
+          <div className="text-[11px] text-[var(--ink-2)] truncate">{routine.detail}</div>
+        </div>
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded-md" style={{ background: ts.bg, border: `1px solid ${ts.border}`, color: ts.fg }}>{tag.label}</span>
+          <span className="text-[10px] text-[var(--ink-3)] tabular-nums" style={{ fontFamily: "DM Mono, monospace" }}>{routine.time}</span>
+        </div>
+        <button
+          onClick={onToggle}
+          aria-label={done ? T("Desmarcar", "Unmark") : T("Marcar completado", "Mark done")}
+          className={`shrink-0 mt-0.5 w-6 h-6 rounded-full border grid place-items-center transition-all ${
+            done
+              ? "bg-[rgba(16,185,129,0.16)] border-[rgba(16,185,129,0.4)] text-[#0E9F6E]"
+              : "border-[var(--hairline-strong)] text-transparent hover:border-[var(--accent-border)] hover:text-[var(--accent)]"
+          }`}
+        >
+          <L name="Check" size={12} strokeWidth={2.5} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function RoutinesTimeline({ items = 6, done: doneProp, onToggle: onToggleProp }) {
+  const { ROUTINES } = window.AQUA;
+  const list = ROUTINES.slice(0, items);
+  // Shared state when the app shell provides it; local fallback otherwise.
+  const [localDone, setLocalDone] = React.useState({});
+  const done = doneProp || localDone;
+  const toggle = onToggleProp || ((id) => setLocalDone((p) => ({ ...p, [id]: !p[id] })));
+  return (
+    <div className="flex flex-col">
+      {list.map((r, i) => (
+        <RoutineItem
+          key={r.id}
+          routine={r}
+          done={!!done[r.id]}
+          onToggle={() => toggle(r.id)}
+          isFirst={i === 0}
+          isLast={i === list.length - 1}
+          urgent={r.nextDue === "today"}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ---- AquaBot widget ----
+const QUICK_PROMPTS = () => window.__lang === "en"
+  ? ["How much Reef Buffer today?", "Log KH 7.5", "Remind me to buy salt", "Add routine clean glass weekly", "Why is my Birdsnest bleaching?"]
+  : ["¿Cuánto Reef Buffer dosifico hoy?", "Registra KH 7.5", "Recuérdame comprar sal", "Agrega rutina limpiar cristales semanal", "¿Por qué blanquea mi Birdsnest?"];
+
+function TypingDots() {
+  return (
+    <div className="flex items-center gap-1 px-3 py-2">
+      {[0, 150, 300].map((d) => (
+        <span key={d} className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ background: "var(--accent)", animationDelay: `${d}ms`, animationDuration: "0.9s" }} />
+      ))}
+    </div>
+  );
+}
+
+function AquaBotWidget() {
+  const [messages, setMessages] = React.useState([
+    { from: "bot", text: T(
+      "Hola Jeffrey. El KH bajó otra vez — ¿te paso el plan de dosificación? También puedo registrar lecturas, crear rutinas o recordatorios: prueba «Registra KH 7.5» o «Recuérdame comprar sal».",
+      "Hi Jeffrey. KH dropped again — want the dosing plan? I can also log readings, create routines or reminders: try “Log KH 7.5” or “Remind me to buy salt”."
+    ) },
+  ]);
+  const [input, setInput] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+  const loadingRef = React.useRef(false);
+  const scroller = React.useRef(null);
+
+  React.useEffect(() => {
+    if (scroller.current) scroller.current.scrollTop = scroller.current.scrollHeight;
+  }, [messages, loading]);
+
+  const send = async (text) => {
+    const msg = (text ?? input).trim();
+    if (!msg || loadingRef.current) return;
+    setMessages((m) => [...m, { from: "user", text: msg }]);
+    setInput("");
+    loadingRef.current = true;
+    setLoading(true);
+    const reply = await callAquaBot(msg);
+    setMessages((m) => [...m, { from: "bot", text: reply }]);
+    loadingRef.current = false;
+    setLoading(false);
+  };
+
+  // Other surfaces (AquaBot page suggestions) can hand the widget a question.
+  const sendRef = React.useRef(send);
+  sendRef.current = send;
+  React.useEffect(() => {
+    const fn = (e) => sendRef.current(e.detail);
+    window.addEventListener("aquabot:ask", fn);
+    return () => window.removeEventListener("aquabot:ask", fn);
+  }, []);
+
+  return (
+    <Card className="flex flex-col overflow-hidden h-full">
+      <div className="flex items-center gap-2.5 px-4 py-3 border-b border-[var(--hairline)]">
+        <div className="grid place-items-center w-8 h-8 rounded-xl" style={{ background: "linear-gradient(135deg, var(--accent-soft), rgba(99,102,241,0.16))", border: "1px solid var(--accent-border)" }}>
+          <L name="Sparkles" size={14} style={{ color: "var(--accent)" }} />
+        </div>
+        <div className="flex-1">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[13px] font-semibold text-[var(--ink)]">AquaBot</span>
+            <span className="text-[9px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded-md" style={{ background: "var(--accent-soft)", color: "var(--accent)", border: "1px solid var(--accent-border)" }}>Pro</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-[10px] text-[var(--ink-2)]">
+            <PulsingDot color="#0E9F6E" size={5} /> {T("En línea · contexto cargado", "Online · context loaded")}
+          </div>
+        </div>
+      </div>
+
+      <div ref={scroller} className="flex-1 px-4 py-3 overflow-y-auto space-y-2.5 min-h-[260px] max-h-[420px]">
+        {messages.map((m, i) => (
+          <div key={i} className={`flex gap-2 ${m.from === "user" ? "justify-end" : ""}`}>
+            {m.from === "bot" && (
+              <div className="grid place-items-center w-6 h-6 rounded-lg shrink-0 mt-0.5" style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)" }}>
+                <L name="Sparkles" size={11} style={{ color: "var(--accent)" }} />
+              </div>
+            )}
+            <div
+              className={`max-w-[82%] text-[12px] leading-relaxed rounded-2xl px-3 py-2 text-[var(--ink)] ${m.from === "user" ? "rounded-br-md" : "rounded-bl-md"}`}
+              style={m.from === "user"
+                ? { background: "var(--accent-soft)", border: "1px solid var(--accent-border)" }
+                : { background: "var(--well)", border: "1px solid var(--hairline)" }}
+            >
+              {m.text}
+            </div>
+          </div>
+        ))}
+        {loading && (
+          <div className="flex gap-2">
+            <div className="grid place-items-center w-6 h-6 rounded-lg shrink-0 mt-0.5" style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)" }}>
+              <L name="Sparkles" size={11} style={{ color: "var(--accent)" }} />
+            </div>
+            <div className="rounded-2xl rounded-bl-md" style={{ background: "var(--well)", border: "1px solid var(--hairline)" }}>
+              <TypingDots />
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="px-3 pt-2 pb-3 border-t border-[var(--hairline)] min-w-0 max-w-full">
+        <div className="flex gap-1.5 mb-2 overflow-x-auto pb-1 scroller min-w-0">
+          {QUICK_PROMPTS().map((q) => (
+            <button
+              key={q}
+              onClick={() => send(q)}
+              className="shrink-0 text-[11px] px-2.5 py-1 rounded-full transition-colors hover:brightness-105"
+              style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)", color: "var(--accent)" }}
+            >
+              {q}
+            </button>
+          ))}
+        </div>
+        <form
+          onSubmit={(e) => { e.preventDefault(); send(); }}
+          className="flex items-center gap-2 bg-[var(--well)] border border-[var(--hairline)] rounded-full pl-3 pr-1.5 py-1.5 focus-within:ring-2 focus-within:ring-[var(--accent-border)] transition-all"
+        >
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder={T("Pregunta a AquaBot…", "Ask AquaBot…")}
+            className="flex-1 bg-transparent border-0 outline-none text-[12.5px] text-[var(--ink)] placeholder:text-[var(--ink-3)]"
+          />
+          <button
+            type="submit"
+            disabled={!input.trim() || loading}
+            className="grid place-items-center w-7 h-7 rounded-full text-white disabled:opacity-40 transition-all"
+            style={{ background: "linear-gradient(160deg, var(--accent), var(--accent-strong))" }}
+            aria-label={T("Enviar", "Send")}
+          >
+            <L name="Send" size={12} />
+          </button>
+        </form>
+      </div>
+    </Card>
+  );
+}
+
+// What each alert's CTA does — shared by the dashboard and the alerts page.
+function alertCTAAction(a, navigate, dismiss) {
+  if (String(a.id).startsWith("ua")) {
+    // recordatorio creado por el usuario → su CTA es "marcar hecho"
+    dismiss(a.id);
+    window.toast?.(T("Hecho ✓", "Done ✓"));
+  } else if (a.id === "a2") {
+    dismiss(a.id);
+    window.toast?.(T("ATO marcado como repuesto — nivel 100%", "ATO marked refilled — level 100%"));
+  } else if (a.severity === "danger") navigate("ai");
+  else if (a.id === "a4") navigate("lighting");
+  else navigate("parameters");
+}
+
+// ---------- Dashboard ----------
+function Dashboard({ onNavigate, alerts: allAlerts, onDismissAlert, routinesDone, onToggleRoutine }) {
+  // Shared alert state lives in App; the dashboard surfaces at most 3.
+  const alerts = (allAlerts || window.AQUA.ALERTS).slice(0, 3);
+  const dismiss = onDismissAlert || (() => {});
+
+  return (
+    <div className="px-4 lg:px-6 py-4 space-y-4" data-screen-label="Dashboard">
+      <ReefStatusHero onNavigate={onNavigate} />
+
+      <TankVitalsStrip />
+
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+        <div className="lg:col-span-3 space-y-4 min-w-0">
+          <WaterParamsCard onNavigate={onNavigate} />
+
+          <div>
+            <SectionHeader
+              kicker={T("Centro de alertas", "Alert center")}
+              title={T("Lo que necesita acción", "What needs action")}
+              action={
+                <button onClick={() => onNavigate("alerts")} className="text-[11.5px] text-[var(--ink-2)] hover:text-[var(--ink)] inline-flex items-center gap-1">
+                  {T("Ver todas", "View all")} <L name="ArrowRight" size={11} />
+                </button>
+              }
+            />
+            <div className="space-y-2.5">
+              {alerts.length === 0 && (
+                <Card className="p-6 text-center">
+                  <div className="grid place-items-center w-10 h-10 mx-auto rounded-xl mb-2" style={{ background: "rgba(16,185,129,0.13)", border: "1px solid rgba(16,185,129,0.3)" }}>
+                    <L name="CheckCircle2" size={18} style={{ color: "#0E9F6E" }} />
+                  </div>
+                  <div className="text-[13px] text-[var(--ink)] font-medium">{T("Sin alertas activas", "No active alerts")}</div>
+                  <div className="text-[11.5px] text-[var(--ink-2)] mt-1">{T("Tu reef está estable. Vuelve a registrar parámetros en 24h.", "Your reef is stable. Log parameters again in 24h.")}</div>
+                </Card>
+              )}
+              {alerts.map((a, i) => (
+                <AlertCard
+                  key={a.id}
+                  alert={a}
+                  index={i}
+                  onDismiss={() => dismiss(a.id)}
+                  onCTA={() => alertCTAAction(a, onNavigate, dismiss)}
+                />
+              ))}
+            </div>
+          </div>
+
+          <LivestockInventory onNavigate={onNavigate} />
+        </div>
+
+        <div className="lg:col-span-2 space-y-4 min-w-0">
+          <LightingScheduleCard onNavigate={onNavigate} />
+
+          <Card className="p-4">
+            <SectionHeader
+              kicker={T("Rutinas", "Routines")}
+              title={T("Hoy y próximos días", "Today & coming days")}
+              action={
+                <button onClick={() => onNavigate("routines")} className="text-[11.5px] text-[var(--accent)] hover:opacity-80 inline-flex items-center gap-1">
+                  {T("Calendario", "Calendar")} <L name="ArrowRight" size={11} />
+                </button>
+              }
+            />
+            <RoutinesTimeline items={5} done={routinesDone} onToggle={onToggleRoutine} />
+          </Card>
+
+          <AquaBotWidget />
+        </div>
+      </div>
+
+      <GalleryStrip />
+
+      {/* Store card */}
+      <Card className="p-4 lg:p-5 flex items-center gap-4 flex-wrap">
+        <div className="grid place-items-center w-10 h-10 rounded-xl shrink-0" style={{ background: "rgba(99,102,241,0.13)", border: "1px solid rgba(99,102,241,0.3)" }}>
+          <L name="Store" size={16} style={{ color: "var(--indigo)" }} />
+        </div>
+        <div className="flex-1 min-w-[220px]">
+          <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--ink-3)] font-semibold">{T("Tienda local · Matt's Corals", "Local store · Matt's Corals")}</div>
+          <div className="text-[13.5px] text-[var(--ink)] font-medium">{T("Re-stock sugerido: 6 gal RODI · 1 caja Instant Ocean", "Suggested re-stock: 6 gal RODI · 1 box Instant Ocean")}</div>
+          <div className="text-[11.5px] text-[var(--ink-2)]">{T("265 Lincoln Cir B, Gahanna · RODI $0.75/gal · abierto hoy hasta 19:00", "265 Lincoln Cir B, Gahanna · RODI $0.75/gal · open today until 7pm")}</div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="secondary"
+            icon="MapPin"
+            onClick={() => window.open("https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent("Matt's Corals, 265 Lincoln Cir B, Gahanna, OH"), "_blank", "noopener")}
+          >
+            {T("Ver mapa", "View map")}
+          </Button>
+          <Button variant="primary" icon="ShoppingBag" onClick={demoAction}>{T("Reservar", "Reserve")}</Button>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+Object.assign(window, {
+  Dashboard, AlertCard, AquaBotWidget, RoutinesTimeline, RoutineItem,
+  ReefStatusHero, WaterParamsCard, LightingScheduleCard, LivestockInventory, GalleryStrip,
+  TankVitalsStrip, PARAM_ICON, callAquaBot, localAquaBot, alertCTAAction, applyAquaCommand,
+});
