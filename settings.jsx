@@ -353,6 +353,54 @@ function downloadICS(kind) {
   setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
 
+// ---------- Compact Aqua Buddy key row (shown inside the AI card in Account tab) ----------
+function AquaBuddyKeyRow() {
+  const [key, setKey] = React.useState(() => localStorage.getItem("aqua:ai_key") || "");
+  const [show, setShow] = React.useState(false);
+  const [saved, setSaved] = React.useState(false);
+
+  const hasDefault = !localStorage.getItem("aqua:ai_key") && !!window.AQUAMIND_AI_KEY;
+
+  const save = () => {
+    const trimmed = key.trim();
+    if (trimmed) {
+      localStorage.setItem("aqua:ai_key", trimmed);
+      window.AQUAMIND_AI_KEY = trimmed;
+    } else {
+      localStorage.removeItem("aqua:ai_key");
+      try { window.AQUAMIND_AI_KEY = atob("QVEuQWI4Uk42THloSDdHQ0NoOENTeTVzTTNCd0lZWVE2UDR2OGRWLUtCQ1lLN0Mtb01wQVE="); } catch (_) {}
+    }
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+    window.toast?.(T("Key de Gemini actualizada", "Gemini key updated"), { icon: "Sparkles" });
+  };
+
+  return (
+    <div className="px-5 pb-4 pt-1 space-y-2">
+      <div className="text-[11px] text-[var(--ink-3)]">
+        {hasDefault
+          ? T("Usando key integrada. Pega la tuya si Aqua Buddy no responde.", "Using built-in key. Paste yours if Aqua Buddy isn't responding.")
+          : T("Key propia configurada.", "Custom key configured.")}
+        {" "}<a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" className="underline" style={{ color: "var(--accent)" }}>aistudio.google.com/apikey</a>
+      </div>
+      <div className="flex gap-2">
+        <div className="flex-1 flex items-center gap-2 rounded-xl px-3 py-2" style={{ background: "var(--well)", border: "1px solid var(--hairline)" }}>
+          <L name="KeyRound" size={12} className="text-[var(--ink-3)] shrink-0" />
+          <input type={show ? "text" : "password"} value={key} onChange={(e) => setKey(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") save(); }}
+            placeholder={hasDefault ? T("Usar key integrada (por defecto)", "Using built-in key (default)") : "AIza..."}
+            className="flex-1 bg-transparent border-0 outline-none text-[11.5px] text-[var(--ink)] placeholder:text-[var(--ink-3)] font-mono" />
+          <button onClick={() => setShow((s) => !s)} className="text-[var(--ink-3)] hover:text-[var(--ink-2)]"><L name={show ? "EyeOff" : "Eye"} size={12} /></button>
+        </div>
+        <button onClick={save}
+          className="px-3 rounded-xl text-[11.5px] font-medium text-white transition-all active:scale-[0.98]"
+          style={{ background: saved ? "#0E9F6E" : "linear-gradient(135deg, var(--accent), var(--accent-strong))" }}>
+          {saved ? <L name="Check" size={13} /> : T("Guardar", "Save")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ---------- Google Gemini API key ----------
 function GeminiKeyRow() {
   const [key, setKey] = React.useState(() => localStorage.getItem("aqua:ai_key") || "");
@@ -649,9 +697,9 @@ function SettingsPage({ session, onSignOut, tweaks, setTweak }) {
             </div>
           </Card>
 
-          {/* Aqua Buddy — AI status */}
+          {/* Aqua Buddy — AI status + key override */}
           <Card className="overflow-hidden">
-            <div className="flex items-center gap-3 px-5 py-4">
+            <div className="flex items-center gap-3 px-5 py-4 border-b border-[var(--hairline)]">
               <div className="grid place-items-center w-9 h-9 rounded-xl shrink-0" style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)" }}>
                 <L name="Sparkles" size={16} style={{ color: "var(--accent)" }} />
               </div>
@@ -661,11 +709,13 @@ function SettingsPage({ session, onSignOut, tweaks, setTweak }) {
                   <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-md font-semibold" style={{ background: "rgba(16,185,129,0.13)", color: "#0E9F6E", border: "1px solid rgba(16,185,129,0.3)" }}>ACTIVO</span>
                 </div>
                 <div className="text-[11.5px] text-[var(--ink-2)] mt-0.5">
-                  {T("IA activada con Gemini 2.0 Flash · contexto de tu tanque + acciones directas", "AI active with Gemini 2.0 Flash · your tank context + direct actions")}
+                  {T("Gemini 2.0 Flash · contexto de tu tanque + acciones directas", "Gemini 2.0 Flash · your tank context + direct actions")}
                 </div>
               </div>
               <PulsingDot color="#0E9F6E" size={8} />
             </div>
+            {/* Optional key override — paste your own key if the default stops working */}
+            <AquaBuddyKeyRow />
           </Card>
 
           <Card className="overflow-hidden">

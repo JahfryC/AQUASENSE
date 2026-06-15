@@ -6,6 +6,19 @@
 window.AquaStore = (() => {
   const KEY = "aqua:userdata:v1";
   const A = window.AQUA;
+  const isNewUser = !localStorage.getItem(KEY);
+
+  // Brand-new users start with an empty tank instead of the mock dataset
+  if (isNewUser) {
+    A.INHABITANTS.fish = [];
+    A.INHABITANTS.corals = [];
+    A.INHABITANTS.cuc = [];
+    A.ALERTS = [];
+    A.ALL_TANKS = [{ ...A.ALL_TANKS[0], name: "Mi Acuario", owner: "" }];
+    Object.assign(A.TANK_CONFIG, A.ALL_TANKS[0]);
+    // Reset parameters to typical safe values with no owner-specific notes
+    Object.values(A.CURRENT_PARAMETERS).forEach((p) => { p.status = "ok"; p.trend = "flat"; p.note = ""; });
+  }
 
   let ud = {
     activeTankId: "tank-001",  // selected tank
@@ -17,6 +30,7 @@ window.AquaStore = (() => {
     customRoutines: [],
     customInhabitants: [],     // [{ kind, item }]
     inhabitantUpdates: {},     // { id: { status, note } }
+    customTanks: [],           // tanks added by the user
     lightingWeek: null,
     photos: {},                // { slotId: dataURL }
     updatedAt: 0,
@@ -31,6 +45,7 @@ window.AquaStore = (() => {
   if (ud.params) Object.keys(ud.params).forEach((k) => { if (A.CURRENT_PARAMETERS[k]) Object.assign(A.CURRENT_PARAMETERS[k], ud.params[k]); });
   (ud.customRoutines || []).forEach((r) => A.ROUTINES.push(r));
   (ud.customInhabitants || []).forEach(({ kind, item }) => { (A.INHABITANTS[kind] || A.INHABITANTS.fish).push(item); });
+  (ud.customTanks || []).forEach((t) => { if (!A.ALL_TANKS.find((x) => x.id === t.id)) A.ALL_TANKS.push(t); });
   Object.entries(ud.inhabitantUpdates || {}).forEach(([id, patch]) => {
     for (const kind of ["fish", "corals", "cuc"]) {
       const it = A.INHABITANTS[kind].find((x) => x.id === id);
@@ -157,9 +172,26 @@ window.AquaStore = (() => {
       touch();
       window.dispatchEvent(new CustomEvent("aqua:tank", { detail: { id } }));
     },
+    addTank(data) {
+      const t = {
+        id: "tank-" + Date.now(),
+        online: true,
+        setupDate: new Date().toISOString().slice(0, 10),
+        owner: A.TANK_CONFIG.owner,
+        localStore: A.TANK_CONFIG.localStore,
+        location: A.TANK_CONFIG.location,
+        ...data,
+      };
+      A.ALL_TANKS.push(t);
+      ud.customTanks = [...(ud.customTanks || []), t];
+      touch();
+      window.dispatchEvent(new CustomEvent("aqua:tanks:changed", {}));
+      return t;
+    },
     deleteTank(id) {
       if (id === "tank-001") return; // never delete the default tank
       A.ALL_TANKS = (A.ALL_TANKS || []).filter((t) => t.id !== id);
+      ud.customTanks = (ud.customTanks || []).filter((t) => t.id !== id);
       ud.customInhabitants = (ud.customInhabitants || []).filter(({ item }) => item.tankId !== id);
       if (ud.activeTankId === id) this.setActiveTank("tank-001");
       touch();
@@ -174,6 +206,11 @@ window.AquaStore = (() => {
       }
     },
 
-    reset() { localStorage.removeItem(KEY); location.reload(); },
+    reset() {
+      // Clear all AquaMind localStorage keys so a new account starts truly fresh
+      Object.keys(localStorage).filter((k) => k.startsWith("aqua:")).forEach((k) => localStorage.removeItem(k));
+      sessionStorage.clear();
+      location.reload();
+    },
   };
 })();

@@ -1554,6 +1554,19 @@ window.AQUA = (() => {
 window.AquaStore = (() => {
   const KEY = "aqua:userdata:v1";
   const A = window.AQUA;
+  const isNewUser = !localStorage.getItem(KEY);
+
+  // Brand-new users start with an empty tank instead of the mock dataset
+  if (isNewUser) {
+    A.INHABITANTS.fish = [];
+    A.INHABITANTS.corals = [];
+    A.INHABITANTS.cuc = [];
+    A.ALERTS = [];
+    A.ALL_TANKS = [{ ...A.ALL_TANKS[0], name: "Mi Acuario", owner: "" }];
+    Object.assign(A.TANK_CONFIG, A.ALL_TANKS[0]);
+    // Reset parameters to typical safe values with no owner-specific notes
+    Object.values(A.CURRENT_PARAMETERS).forEach((p) => { p.status = "ok"; p.trend = "flat"; p.note = ""; });
+  }
 
   let ud = {
     activeTankId: "tank-001",  // selected tank
@@ -1565,6 +1578,7 @@ window.AquaStore = (() => {
     customRoutines: [],
     customInhabitants: [],     // [{ kind, item }]
     inhabitantUpdates: {},     // { id: { status, note } }
+    customTanks: [],           // tanks added by the user
     lightingWeek: null,
     photos: {},                // { slotId: dataURL }
     updatedAt: 0,
@@ -1579,6 +1593,7 @@ window.AquaStore = (() => {
   if (ud.params) Object.keys(ud.params).forEach((k) => { if (A.CURRENT_PARAMETERS[k]) Object.assign(A.CURRENT_PARAMETERS[k], ud.params[k]); });
   (ud.customRoutines || []).forEach((r) => A.ROUTINES.push(r));
   (ud.customInhabitants || []).forEach(({ kind, item }) => { (A.INHABITANTS[kind] || A.INHABITANTS.fish).push(item); });
+  (ud.customTanks || []).forEach((t) => { if (!A.ALL_TANKS.find((x) => x.id === t.id)) A.ALL_TANKS.push(t); });
   Object.entries(ud.inhabitantUpdates || {}).forEach(([id, patch]) => {
     for (const kind of ["fish", "corals", "cuc"]) {
       const it = A.INHABITANTS[kind].find((x) => x.id === id);
@@ -1705,9 +1720,26 @@ window.AquaStore = (() => {
       touch();
       window.dispatchEvent(new CustomEvent("aqua:tank", { detail: { id } }));
     },
+    addTank(data) {
+      const t = {
+        id: "tank-" + Date.now(),
+        online: true,
+        setupDate: new Date().toISOString().slice(0, 10),
+        owner: A.TANK_CONFIG.owner,
+        localStore: A.TANK_CONFIG.localStore,
+        location: A.TANK_CONFIG.location,
+        ...data,
+      };
+      A.ALL_TANKS.push(t);
+      ud.customTanks = [...(ud.customTanks || []), t];
+      touch();
+      window.dispatchEvent(new CustomEvent("aqua:tanks:changed", {}));
+      return t;
+    },
     deleteTank(id) {
       if (id === "tank-001") return; // never delete the default tank
       A.ALL_TANKS = (A.ALL_TANKS || []).filter((t) => t.id !== id);
+      ud.customTanks = (ud.customTanks || []).filter((t) => t.id !== id);
       ud.customInhabitants = (ud.customInhabitants || []).filter(({ item }) => item.tankId !== id);
       if (ud.activeTankId === id) this.setActiveTank("tank-001");
       touch();
@@ -1722,7 +1754,12 @@ window.AquaStore = (() => {
       }
     },
 
-    reset() { localStorage.removeItem(KEY); location.reload(); },
+    reset() {
+      // Clear all AquaMind localStorage keys so a new account starts truly fresh
+      Object.keys(localStorage).filter((k) => k.startsWith("aqua:")).forEach((k) => localStorage.removeItem(k));
+      sessionStorage.clear();
+      location.reload();
+    },
   };
 })();
 
@@ -3440,11 +3477,175 @@ function useClock() {
   }, []);
   return now;
 }
+function AddTankModal({
+  onClose,
+  onAdded
+}) {
+  const [name, setName] = React.useState("");
+  const [type, setType] = React.useState("saltwater");
+  const [volume, setVolume] = React.useState("");
+  const [brand, setBrand] = React.useState("");
+  useEscape(onClose);
+  const save = () => {
+    const n = name.trim();
+    if (!n) return;
+    const tank = window.AquaStore.addTank({
+      name: n,
+      type,
+      displayVolume: volume ? +volume : 0,
+      realVolume: volume ? +volume : 0,
+      brand: brand.trim()
+    });
+    window.toast?.(T(`Tanque "${tank.name}" añadido`, `Tank "${tank.name}" added`), {
+      icon: "Waves"
+    });
+    onAdded?.();
+    onClose();
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 z-50 grid place-items-center p-4 bg-[var(--scrim)] backdrop-blur",
+    onClick: onClose
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-full max-w-sm glass-strong rounded-3xl overflow-hidden",
+    style: {
+      boxShadow: "var(--glass-shadow)"
+    },
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between px-5 py-4 border-b border-[var(--hairline)]"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2.5"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "grid place-items-center w-8 h-8 rounded-xl",
+    style: {
+      background: "var(--accent-soft)",
+      border: "1px solid var(--accent-border)"
+    }
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "Waves",
+    size: 14,
+    style: {
+      color: "var(--accent)"
+    }
+  })), /*#__PURE__*/React.createElement("span", {
+    className: "text-[14px] font-semibold text-[var(--ink)]"
+  }, T("Nuevo tanque", "New tank"))), /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    className: "p-1.5 rounded-full hover:bg-[var(--hover)] text-[var(--ink-2)]"
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "X",
+    size: 14
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "p-5 space-y-3"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] font-medium text-[var(--ink-2)] mb-1 block"
+  }, T("Nombre *", "Name *")), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 rounded-xl px-3 py-2.5",
+    style: {
+      background: "var(--well)",
+      border: "1px solid var(--hairline)"
+    }
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "Droplet",
+    size: 13,
+    className: "text-[var(--ink-3)] shrink-0"
+  }), /*#__PURE__*/React.createElement("input", {
+    autoFocus: true,
+    type: "text",
+    value: name,
+    onChange: e => setName(e.target.value),
+    onKeyDown: e => {
+      if (e.key === "Enter") save();
+    },
+    placeholder: T("ej. Reef 50G", "e.g. 50G Reef"),
+    className: "flex-1 bg-transparent border-0 outline-none text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)]"
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2"
+  }, [{
+    id: "saltwater",
+    label: T("Marino", "Saltwater"),
+    icon: "Waves"
+  }, {
+    id: "freshwater",
+    label: T("Dulce", "Freshwater"),
+    icon: "Droplet"
+  }].map(opt => /*#__PURE__*/React.createElement("button", {
+    key: opt.id,
+    onClick: () => setType(opt.id),
+    className: "flex-1 flex items-center gap-2 rounded-xl px-3 py-2.5 text-[12px] font-medium transition-all",
+    style: type === opt.id ? {
+      background: "var(--accent-soft)",
+      border: "1px solid var(--accent-border)",
+      color: "var(--accent)"
+    } : {
+      background: "var(--well)",
+      border: "1px solid var(--hairline)",
+      color: "var(--ink-2)"
+    }
+  }, /*#__PURE__*/React.createElement(L, {
+    name: opt.icon,
+    size: 13
+  }), opt.label))), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 flex items-center gap-2 rounded-xl px-3 py-2.5",
+    style: {
+      background: "var(--well)",
+      border: "1px solid var(--hairline)"
+    }
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "Container",
+    size: 13,
+    className: "text-[var(--ink-3)] shrink-0"
+  }), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    inputMode: "decimal",
+    value: volume,
+    onChange: e => setVolume(e.target.value),
+    placeholder: T("Galones", "Gallons"),
+    className: "flex-1 bg-transparent border-0 outline-none text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)]"
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "text-[11px] text-[var(--ink-3)]"
+  }, "gal")), /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 flex items-center gap-2 rounded-xl px-3 py-2.5",
+    style: {
+      background: "var(--well)",
+      border: "1px solid var(--hairline)"
+    }
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "Tag",
+    size: 13,
+    className: "text-[var(--ink-3)] shrink-0"
+  }), /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    value: brand,
+    onChange: e => setBrand(e.target.value),
+    placeholder: T("Marca", "Brand"),
+    className: "flex-1 bg-transparent border-0 outline-none text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)]"
+  })))), /*#__PURE__*/React.createElement("div", {
+    className: "px-5 pb-5 flex gap-2"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    className: "flex-1 rounded-full py-2.5 text-[13px] font-medium text-[var(--ink-2)] hover:text-[var(--ink)] transition-colors",
+    style: {
+      background: "var(--well)",
+      border: "1px solid var(--hairline)"
+    }
+  }, T("Cancelar", "Cancel")), /*#__PURE__*/React.createElement("button", {
+    onClick: save,
+    disabled: !name.trim(),
+    className: "flex-1 rounded-full py-2.5 text-[13px] font-semibold text-white disabled:opacity-50 transition-all active:scale-[0.99]",
+    style: {
+      background: "linear-gradient(135deg, var(--accent), var(--accent-strong))"
+    }
+  }, T("Agregar", "Add")))));
+}
 function TankSelector() {
   const {
     CURRENT_PARAMETERS
   } = window.AQUA;
   const [open, setOpen] = React.useState(false);
+  const [addOpen, setAddOpen] = React.useState(false);
   const [activeTankId, setActiveTankId] = React.useState(() => window.AquaStore?.activeTankId || "tank-001");
   const [tanks, setTanks] = React.useState(() => window.AQUA.ALL_TANKS || []);
   const close = React.useCallback(() => setOpen(false), []);
@@ -3540,7 +3741,7 @@ function TankSelector() {
     })), canDelete && /*#__PURE__*/React.createElement("button", {
       onClick: e => deleteTank(e, tank.id),
       "aria-label": T("Eliminar tanque", "Delete tank"),
-      className: "opacity-0 group-hover:opacity-100 p-1.5 mr-1 rounded-lg text-[var(--ink-3)] hover:text-[#DC4458] hover:bg-[rgba(225,29,72,0.1)] transition-all",
+      className: "p-1.5 mr-1 rounded-lg text-[var(--ink-3)] hover:text-[#DC4458] hover:bg-[rgba(225,29,72,0.1)] transition-all",
       title: T("Eliminar este tanque", "Delete this tank")
     }, /*#__PURE__*/React.createElement(L, {
       name: "Trash2",
@@ -3552,20 +3753,27 @@ function TankSelector() {
     role: "menuitem",
     onClick: () => {
       close();
-      window.toast?.(T("Agregar tanque — próximamente", "Add tank — coming soon"), {
-        icon: "Plus",
-        tone: "info"
-      });
+      setAddOpen(true);
     },
     className: "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-[var(--hover)] transition-colors text-left text-[var(--ink-2)] hover:text-[var(--ink)]"
   }, /*#__PURE__*/React.createElement("span", {
-    className: "grid place-items-center w-5 h-5 rounded-full bg-[var(--well)] border border-[var(--hairline)]"
+    className: "grid place-items-center w-5 h-5 rounded-full",
+    style: {
+      background: "var(--accent-soft)",
+      border: "1px solid var(--accent-border)"
+    }
   }, /*#__PURE__*/React.createElement(L, {
     name: "Plus",
-    size: 11
+    size: 11,
+    style: {
+      color: "var(--accent)"
+    }
   })), /*#__PURE__*/React.createElement("span", {
     className: "text-[12px] font-medium"
-  }, T("Agregar tanque", "Add tank"))))));
+  }, T("Agregar tanque", "Add tank"))))), addOpen && /*#__PURE__*/React.createElement(AddTankModal, {
+    onClose: () => setAddOpen(false),
+    onAdded: () => setTanks([...(window.AQUA.ALL_TANKS || [])])
+  }));
 }
 function Header({
   activePage,
@@ -4163,8 +4371,11 @@ async function callGemini(messages, system, tools = null) {
     });
     if (!resp.ok) {
       const err = await resp.text().catch(() => "");
-      console.warn("[AquaBuddy] Gemini", resp.status, err.slice(0, 300));
-      return null;
+      console.error("[AquaBuddy] Gemini error", resp.status, err.slice(0, 400));
+      return {
+        _error: resp.status,
+        _msg: err.slice(0, 200)
+      };
     }
     return await resp.json();
   } catch (e) {
@@ -4190,6 +4401,14 @@ async function callAquaBuddy(userMessage, mode = "personalized", history = []) {
 
   // --- Google Gemini (native API) ---
   const geminiData = await callGemini(messages, system, AQUA_TOOLS);
+  if (geminiData && geminiData._error) {
+    // API call failed — surface the error rather than silently falling back
+    const code = geminiData._error;
+    if (code === 400) return T("⚠ Gemini: solicitud inválida. Verifica tu API key en Ajustes.", "⚠ Gemini: bad request. Check your API key in Settings.");
+    if (code === 401 || code === 403) return T("⚠ API key inválida o sin permisos. Configúrala en Ajustes → Cuenta → Aqua Buddy.", "⚠ Invalid API key or no permissions. Set it in Settings → Account → Aqua Buddy.");
+    if (code === 429) return T("⚠ Límite de Gemini alcanzado. Espera un momento e inténtalo de nuevo.", "⚠ Gemini rate limit hit. Wait a moment and try again.");
+    return T(`⚠ Error Gemini ${code}. Verifica tu API key en Ajustes.`, `⚠ Gemini error ${code}. Check your API key in Settings.`);
+  }
   if (geminiData) {
     const candidate = geminiData.candidates?.[0];
     const parts = candidate?.content?.parts || [];
@@ -7199,6 +7418,80 @@ function downloadICS(kind) {
   setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
 
+// ---------- Compact Aqua Buddy key row (shown inside the AI card in Account tab) ----------
+function AquaBuddyKeyRow() {
+  const [key, setKey] = React.useState(() => localStorage.getItem("aqua:ai_key") || "");
+  const [show, setShow] = React.useState(false);
+  const [saved, setSaved] = React.useState(false);
+  const hasDefault = !localStorage.getItem("aqua:ai_key") && !!window.AQUAMIND_AI_KEY;
+  const save = () => {
+    const trimmed = key.trim();
+    if (trimmed) {
+      localStorage.setItem("aqua:ai_key", trimmed);
+      window.AQUAMIND_AI_KEY = trimmed;
+    } else {
+      localStorage.removeItem("aqua:ai_key");
+      try {
+        window.AQUAMIND_AI_KEY = atob("QVEuQWI4Uk42THloSDdHQ0NoOENTeTVzTTNCd0lZWVE2UDR2OGRWLUtCQ1lLN0Mtb01wQVE=");
+      } catch (_) {}
+    }
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+    window.toast?.(T("Key de Gemini actualizada", "Gemini key updated"), {
+      icon: "Sparkles"
+    });
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "px-5 pb-4 pt-1 space-y-2"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-[11px] text-[var(--ink-3)]"
+  }, hasDefault ? T("Usando key integrada. Pega la tuya si Aqua Buddy no responde.", "Using built-in key. Paste yours if Aqua Buddy isn't responding.") : T("Key propia configurada.", "Custom key configured."), " ", /*#__PURE__*/React.createElement("a", {
+    href: "https://aistudio.google.com/apikey",
+    target: "_blank",
+    rel: "noopener",
+    className: "underline",
+    style: {
+      color: "var(--accent)"
+    }
+  }, "aistudio.google.com/apikey")), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 flex items-center gap-2 rounded-xl px-3 py-2",
+    style: {
+      background: "var(--well)",
+      border: "1px solid var(--hairline)"
+    }
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "KeyRound",
+    size: 12,
+    className: "text-[var(--ink-3)] shrink-0"
+  }), /*#__PURE__*/React.createElement("input", {
+    type: show ? "text" : "password",
+    value: key,
+    onChange: e => setKey(e.target.value),
+    onKeyDown: e => {
+      if (e.key === "Enter") save();
+    },
+    placeholder: hasDefault ? T("Usar key integrada (por defecto)", "Using built-in key (default)") : "AIza...",
+    className: "flex-1 bg-transparent border-0 outline-none text-[11.5px] text-[var(--ink)] placeholder:text-[var(--ink-3)] font-mono"
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShow(s => !s),
+    className: "text-[var(--ink-3)] hover:text-[var(--ink-2)]"
+  }, /*#__PURE__*/React.createElement(L, {
+    name: show ? "EyeOff" : "Eye",
+    size: 12
+  }))), /*#__PURE__*/React.createElement("button", {
+    onClick: save,
+    className: "px-3 rounded-xl text-[11.5px] font-medium text-white transition-all active:scale-[0.98]",
+    style: {
+      background: saved ? "#0E9F6E" : "linear-gradient(135deg, var(--accent), var(--accent-strong))"
+    }
+  }, saved ? /*#__PURE__*/React.createElement(L, {
+    name: "Check",
+    size: 13
+  }) : T("Guardar", "Save"))));
+}
+
 // ---------- Google Gemini API key ----------
 function GeminiKeyRow() {
   const [key, setKey] = React.useState(() => localStorage.getItem("aqua:ai_key") || "");
@@ -7574,7 +7867,7 @@ function SettingsPage({
   }, window.CLOUD?.user ? T("Lecturas, fotos, rutinas y alertas se sincronizan en la nube con tu cuenta. Abre la app en otro dispositivo e inicia sesión para ver lo mismo.", "Readings, photos, routines and alerts sync to the cloud with your account. Open the app on another device and sign in to see the same data.") : T("Todo se guarda automáticamente en este navegador. Inicia sesión para activar la sincronización entre dispositivos con Supabase.", "Everything saves automatically in this browser. Sign in to enable cross-device sync with Supabase."))))), /*#__PURE__*/React.createElement(Card, {
     className: "overflow-hidden"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-3 px-5 py-4"
+    className: "flex items-center gap-3 px-5 py-4 border-b border-[var(--hairline)]"
   }, /*#__PURE__*/React.createElement("div", {
     className: "grid place-items-center w-9 h-9 rounded-xl shrink-0",
     style: {
@@ -7602,10 +7895,10 @@ function SettingsPage({
     }
   }, "ACTIVO")), /*#__PURE__*/React.createElement("div", {
     className: "text-[11.5px] text-[var(--ink-2)] mt-0.5"
-  }, T("IA activada con Gemini 2.0 Flash · contexto de tu tanque + acciones directas", "AI active with Gemini 2.0 Flash · your tank context + direct actions"))), /*#__PURE__*/React.createElement(PulsingDot, {
+  }, T("Gemini 2.0 Flash · contexto de tu tanque + acciones directas", "Gemini 2.0 Flash · your tank context + direct actions"))), /*#__PURE__*/React.createElement(PulsingDot, {
     color: "#0E9F6E",
     size: 8
-  }))), /*#__PURE__*/React.createElement(Card, {
+  })), /*#__PURE__*/React.createElement(AquaBuddyKeyRow, null)), /*#__PURE__*/React.createElement(Card, {
     className: "overflow-hidden"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-4 px-5 py-5 border-b border-[var(--hairline)]"

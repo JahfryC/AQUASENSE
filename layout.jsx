@@ -105,9 +105,94 @@ function useClock() {
   return now;
 }
 
+function AddTankModal({ onClose, onAdded }) {
+  const [name, setName] = React.useState("");
+  const [type, setType] = React.useState("saltwater");
+  const [volume, setVolume] = React.useState("");
+  const [brand, setBrand] = React.useState("");
+  useEscape(onClose);
+
+  const save = () => {
+    const n = name.trim();
+    if (!n) return;
+    const tank = window.AquaStore.addTank({
+      name: n,
+      type,
+      displayVolume: volume ? +volume : 0,
+      realVolume: volume ? +volume : 0,
+      brand: brand.trim(),
+    });
+    window.toast?.(T(`Tanque "${tank.name}" añadido`, `Tank "${tank.name}" added`), { icon: "Waves" });
+    onAdded?.();
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center p-4 bg-[var(--scrim)] backdrop-blur" onClick={onClose}>
+      <div className="w-full max-w-sm glass-strong rounded-3xl overflow-hidden" style={{ boxShadow: "var(--glass-shadow)" }} onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--hairline)]">
+          <div className="flex items-center gap-2.5">
+            <div className="grid place-items-center w-8 h-8 rounded-xl" style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)" }}>
+              <L name="Waves" size={14} style={{ color: "var(--accent)" }} />
+            </div>
+            <span className="text-[14px] font-semibold text-[var(--ink)]">{T("Nuevo tanque", "New tank")}</span>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-full hover:bg-[var(--hover)] text-[var(--ink-2)]"><L name="X" size={14} /></button>
+        </div>
+        <div className="p-5 space-y-3">
+          <div>
+            <label className="text-[11px] font-medium text-[var(--ink-2)] mb-1 block">{T("Nombre *", "Name *")}</label>
+            <div className="flex items-center gap-2 rounded-xl px-3 py-2.5" style={{ background: "var(--well)", border: "1px solid var(--hairline)" }}>
+              <L name="Droplet" size={13} className="text-[var(--ink-3)] shrink-0" />
+              <input autoFocus type="text" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") save(); }}
+                placeholder={T("ej. Reef 50G", "e.g. 50G Reef")}
+                className="flex-1 bg-transparent border-0 outline-none text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)]" />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            {[{ id: "saltwater", label: T("Marino", "Saltwater"), icon: "Waves" }, { id: "freshwater", label: T("Dulce", "Freshwater"), icon: "Droplet" }].map((opt) => (
+              <button key={opt.id} onClick={() => setType(opt.id)}
+                className="flex-1 flex items-center gap-2 rounded-xl px-3 py-2.5 text-[12px] font-medium transition-all"
+                style={type === opt.id
+                  ? { background: "var(--accent-soft)", border: "1px solid var(--accent-border)", color: "var(--accent)" }
+                  : { background: "var(--well)", border: "1px solid var(--hairline)", color: "var(--ink-2)" }}>
+                <L name={opt.icon} size={13} />{opt.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <div className="flex-1 flex items-center gap-2 rounded-xl px-3 py-2.5" style={{ background: "var(--well)", border: "1px solid var(--hairline)" }}>
+              <L name="Container" size={13} className="text-[var(--ink-3)] shrink-0" />
+              <input type="number" inputMode="decimal" value={volume} onChange={(e) => setVolume(e.target.value)} placeholder={T("Galones", "Gallons")}
+                className="flex-1 bg-transparent border-0 outline-none text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)]" />
+              <span className="text-[11px] text-[var(--ink-3)]">gal</span>
+            </div>
+            <div className="flex-1 flex items-center gap-2 rounded-xl px-3 py-2.5" style={{ background: "var(--well)", border: "1px solid var(--hairline)" }}>
+              <L name="Tag" size={13} className="text-[var(--ink-3)] shrink-0" />
+              <input type="text" value={brand} onChange={(e) => setBrand(e.target.value)} placeholder={T("Marca", "Brand")}
+                className="flex-1 bg-transparent border-0 outline-none text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)]" />
+            </div>
+          </div>
+        </div>
+        <div className="px-5 pb-5 flex gap-2">
+          <button onClick={onClose} className="flex-1 rounded-full py-2.5 text-[13px] font-medium text-[var(--ink-2)] hover:text-[var(--ink)] transition-colors" style={{ background: "var(--well)", border: "1px solid var(--hairline)" }}>
+            {T("Cancelar", "Cancel")}
+          </button>
+          <button onClick={save} disabled={!name.trim()}
+            className="flex-1 rounded-full py-2.5 text-[13px] font-semibold text-white disabled:opacity-50 transition-all active:scale-[0.99]"
+            style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-strong))" }}>
+            {T("Agregar", "Add")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function TankSelector() {
   const { CURRENT_PARAMETERS } = window.AQUA;
   const [open, setOpen] = React.useState(false);
+  const [addOpen, setAddOpen] = React.useState(false);
   const [activeTankId, setActiveTankId] = React.useState(() => window.AquaStore?.activeTankId || "tank-001");
   const [tanks, setTanks] = React.useState(() => window.AQUA.ALL_TANKS || []);
   const close = React.useCallback(() => setOpen(false), []);
@@ -187,7 +272,7 @@ function TankSelector() {
                     <button
                       onClick={(e) => deleteTank(e, tank.id)}
                       aria-label={T("Eliminar tanque", "Delete tank")}
-                      className="opacity-0 group-hover:opacity-100 p-1.5 mr-1 rounded-lg text-[var(--ink-3)] hover:text-[#DC4458] hover:bg-[rgba(225,29,72,0.1)] transition-all"
+                      className="p-1.5 mr-1 rounded-lg text-[var(--ink-3)] hover:text-[#DC4458] hover:bg-[rgba(225,29,72,0.1)] transition-all"
                       title={T("Eliminar este tanque", "Delete this tank")}
                     >
                       <L name="Trash2" size={13} />
@@ -199,14 +284,22 @@ function TankSelector() {
             <div className="h-px bg-[var(--hairline)] mx-2 my-1" />
             <button
               role="menuitem"
-              onClick={() => { close(); window.toast?.(T("Agregar tanque — próximamente", "Add tank — coming soon"), { icon: "Plus", tone: "info" }); }}
+              onClick={() => { close(); setAddOpen(true); }}
               className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-[var(--hover)] transition-colors text-left text-[var(--ink-2)] hover:text-[var(--ink)]"
             >
-              <span className="grid place-items-center w-5 h-5 rounded-full bg-[var(--well)] border border-[var(--hairline)]"><L name="Plus" size={11} /></span>
+              <span className="grid place-items-center w-5 h-5 rounded-full" style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)" }}>
+                <L name="Plus" size={11} style={{ color: "var(--accent)" }} />
+              </span>
               <span className="text-[12px] font-medium">{T("Agregar tanque", "Add tank")}</span>
             </button>
           </div>
         </>
+      )}
+      {addOpen && (
+        <AddTankModal
+          onClose={() => setAddOpen(false)}
+          onAdded={() => setTanks([...(window.AQUA.ALL_TANKS || [])])}
+        />
       )}
     </div>
   );

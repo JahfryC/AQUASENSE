@@ -400,8 +400,8 @@ async function callGemini(messages, system, tools = null) {
     );
     if (!resp.ok) {
       const err = await resp.text().catch(() => "");
-      console.warn("[AquaBuddy] Gemini", resp.status, err.slice(0, 300));
-      return null;
+      console.error("[AquaBuddy] Gemini error", resp.status, err.slice(0, 400));
+      return { _error: resp.status, _msg: err.slice(0, 200) };
     }
     return await resp.json();
   } catch (e) {
@@ -426,6 +426,14 @@ async function callAquaBuddy(userMessage, mode = "personalized", history = []) {
 
   // --- Google Gemini (native API) ---
   const geminiData = await callGemini(messages, system, AQUA_TOOLS);
+  if (geminiData && geminiData._error) {
+    // API call failed — surface the error rather than silently falling back
+    const code = geminiData._error;
+    if (code === 400) return T("⚠ Gemini: solicitud inválida. Verifica tu API key en Ajustes.", "⚠ Gemini: bad request. Check your API key in Settings.");
+    if (code === 401 || code === 403) return T("⚠ API key inválida o sin permisos. Configúrala en Ajustes → Cuenta → Aqua Buddy.", "⚠ Invalid API key or no permissions. Set it in Settings → Account → Aqua Buddy.");
+    if (code === 429) return T("⚠ Límite de Gemini alcanzado. Espera un momento e inténtalo de nuevo.", "⚠ Gemini rate limit hit. Wait a moment and try again.");
+    return T(`⚠ Error Gemini ${code}. Verifica tu API key en Ajustes.`, `⚠ Gemini error ${code}. Check your API key in Settings.`);
+  }
   if (geminiData) {
     const candidate = geminiData.candidates?.[0];
     const parts = candidate?.content?.parts || [];
