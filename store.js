@@ -147,6 +147,14 @@ window.AquaStore = (() => {
       touch();
       window.dispatchEvent(new CustomEvent("aqua:tank", { detail: { id } }));
     },
+    deleteTank(id) {
+      if (id === "tank-001") return; // never delete the default tank
+      A.ALL_TANKS = (A.ALL_TANKS || []).filter((t) => t.id !== id);
+      ud.customInhabitants = (ud.customInhabitants || []).filter(({ item }) => item.tankId !== id);
+      if (ud.activeTankId === id) this.setActiveTank("tank-001");
+      touch();
+      window.dispatchEvent(new CustomEvent("aqua:tanks:changed", {}));
+    },
 
     // ---- sincronización nube → local (last-write-wins por updatedAt) ----
     applyRemote(remote) {

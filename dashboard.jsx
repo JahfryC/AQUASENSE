@@ -436,8 +436,6 @@ function ReefStatusHero({ onNavigate }) {
   const [input, setInput] = React.useState("");
   const [reply, setReply] = React.useState("");
   const [loading, setLoading] = React.useState(false);
-  const [attachment, setAttachment] = React.useState(null);
-  const fileRef = React.useRef(null);
 
   const send = async () => {
     const msg = input.trim();
@@ -449,14 +447,6 @@ function ReefStatusHero({ onNavigate }) {
     setLoading(false);
   };
 
-  const onFile = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => setAttachment(ev.target.result);
-    reader.readAsDataURL(file);
-  };
-
   return (
     <Card className="overflow-hidden">
       <div className="flex items-center justify-between px-5 pt-4 pb-3">
@@ -466,28 +456,35 @@ function ReefStatusHero({ onNavigate }) {
         <span className="text-[11px] text-[var(--ink-3)]">{fmtLongDate(window.AQUA.MOCK_TODAY)}</span>
       </div>
 
-      {/* Tank banner — user photo slot with overlay */}
-      <div className="relative mx-4 rounded-3xl overflow-hidden" style={{ height: 180 }}>
-        <PhotoSlot
-          id="photo-tank-hero"
-          radius={24}
-          placeholder={T("Toca o suelta aquí una foto panorámica de tu tanque — se guarda y queda fija", "Tap or drop a wide photo of your tank — it's saved and stays")}
-          style={{ position: "absolute", inset: 0 }}
+      {/* Tank banner — gradient with tank name/stats */}
+      <div className="relative mx-4 rounded-3xl overflow-hidden" style={{ height: 150 }}>
+        <div
+          className="absolute inset-0"
+          style={{ background: "linear-gradient(135deg, #0a2a3a 0%, #0e4a6a 40%, #115e5a 70%, #0d3d3a 100%)" }}
         />
-        <div className="absolute inset-x-0 bottom-0 h-24 pointer-events-none" style={{ background: "linear-gradient(to top, rgba(8,22,34,0.65), transparent)" }} />
-        <div className="absolute left-4 bottom-3 pointer-events-none">
-          <div className="text-[22px] font-semibold text-white tracking-tight" style={{ textShadow: "0 1px 8px rgba(0,0,0,0.45)" }}>{TANK_CONFIG.name}</div>
-          <div className="mt-1 flex items-center gap-2">
+        <svg className="absolute inset-0 w-full h-full" preserveAspectRatio="none" viewBox="0 0 400 150">
+          <path d="M0,75 C100,55 200,95 300,70 C350,57 380,80 400,75 L400,150 L0,150 Z" fill="rgba(255,255,255,0.05)" />
+          <path d="M0,105 C80,90 160,115 240,100 C310,87 370,110 400,103 L400,150 L0,150 Z" fill="rgba(255,255,255,0.03)" />
+        </svg>
+        <div className="absolute inset-x-0 bottom-0 h-20 pointer-events-none" style={{ background: "linear-gradient(to top, rgba(8,22,34,0.55), transparent)" }} />
+        <div className="absolute left-4 bottom-3">
+          <div className="text-[20px] font-semibold text-white tracking-tight" style={{ textShadow: "0 1px 8px rgba(0,0,0,0.45)" }}>{TANK_CONFIG.name}</div>
+          <div className="mt-1 flex items-center gap-2 flex-wrap">
             <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10.5px] font-semibold uppercase tracking-[0.06em]" style={{ background: "rgba(245,158,11,0.92)", color: "#3A2A05" }}>
               <span className="w-1.5 h-1.5 rounded-full bg-[#3A2A05]" />
               {T("Estado: Necesita atención", "Status: Needs attention")}
             </span>
           </div>
         </div>
-        <div className="absolute right-3 bottom-3 pointer-events-none hidden sm:block">
+        <div className="absolute right-3 bottom-3 hidden sm:block">
           <span className="text-[10.5px] text-white/85 px-2 py-1 rounded-full" style={{ background: "rgba(8,22,34,0.45)", backdropFilter: "blur(8px)" }}>
             {T("2 parámetros fuera de rango · 1 alerta crítica", "2 parameters out of range · 1 critical alert")}
           </span>
+        </div>
+        <div className="absolute top-3 right-3">
+          <div className="grid place-items-center w-9 h-9 rounded-xl" style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.18)" }}>
+            <L name="Droplet" size={16} style={{ color: "#2DD4BF" }} />
+          </div>
         </div>
       </div>
 
@@ -520,17 +517,6 @@ function ReefStatusHero({ onNavigate }) {
         </div>
 
         <div className="flex items-center gap-2 mt-2.5">
-          <Button variant="secondary" size="sm" icon="ImageUp" onClick={() => fileRef.current?.click()}>
-            {T("Subir foto/video", "Upload Photo/Video")}
-          </Button>
-          <input ref={fileRef} type="file" accept="image/*,video/*" className="hidden" onChange={onFile} />
-          {attachment && (
-            <span className="inline-flex items-center gap-1.5 text-[11px] text-[var(--ink-2)]">
-              <img src={attachment} alt="" className="w-7 h-7 rounded-lg object-cover border border-[var(--hairline)]" />
-              {T("adjunto listo", "attachment ready")}
-              <button onClick={() => setAttachment(null)} className="text-[var(--ink-3)] hover:text-[var(--ink)]"><L name="X" size={11} /></button>
-            </span>
-          )}
           <button onClick={() => onNavigate("ai")} className="ml-auto text-[11.5px] text-[var(--accent)] hover:opacity-80 inline-flex items-center gap-1">
             {T("Abrir chat completo", "Open full chat")} <L name="ArrowRight" size={11} />
           </button>
@@ -649,7 +635,7 @@ function WaterParamsCard({ onNavigate }) {
 
       <div className="mt-3 flex items-center gap-2">
         <Button variant="primary" size="sm" icon="Plus" onClick={() => setLogOpen(true)}>{T("Nueva lectura", "Add New Reading")}</Button>
-        <Button variant="ghost" size="sm" icon="Camera" onClick={() => onNavigate("inhabitants")}>{T("Diagnóstico foto", "Photo diagnosis")}</Button>
+        <Button variant="ghost" size="sm" icon="ArrowRight" onClick={() => onNavigate("parameters")}>{T("Ver historial", "Full history")}</Button>
       </div>
       {logOpen && ReadingModal && <ReadingModal paramKeys={Object.keys(CURRENT_PARAMETERS)} onClose={() => setLogOpen(false)} />}
     </Card>
@@ -727,20 +713,29 @@ function LightingScheduleCard({ onNavigate }) {
   );
 }
 
-// ---- Livestock inventory (with photo slots) ----
+// ---- Livestock inventory ----
+const KIND_AVATAR_COLOR = {
+  fish: ["#60A5FA", "#22D3EE"],
+  coral: ["#F87171", "#C77F00"],
+  cuc: ["#0E9F6E", "#22D3EE"],
+};
 function LivestockRow({ item, kind, onNavigate }) {
   const s = STATUS_COLOR[item.status];
-  // La miniatura es interactiva (subir foto), así que el contenedor no puede
-  // ser un <button>: el área de texto navega, la foto sube imagen.
+  const [a, b] = KIND_AVATAR_COLOR[kind] || KIND_AVATAR_COLOR.fish;
   return (
-    <div className="w-full flex items-center gap-2.5 p-1.5 rounded-2xl hover:bg-[var(--hover)] transition-colors">
-      <PhotoSlot id={`photo-${item.id}`} radius={12} style={{ width: 40, height: 40, flexShrink: 0 }} />
-      <button onClick={() => onNavigate("inhabitants")} className="flex-1 min-w-0 text-left cursor-pointer">
+    <button onClick={() => onNavigate("inhabitants")} className="w-full flex items-center gap-2.5 p-1.5 rounded-2xl hover:bg-[var(--hover)] transition-colors text-left">
+      <div
+        className="grid place-items-center rounded-xl shrink-0 text-white text-[13px] font-semibold"
+        style={{ width: 40, height: 40, background: `linear-gradient(135deg, ${a}, ${b})` }}
+      >
+        {item.name.charAt(0).toUpperCase()}
+      </div>
+      <div className="flex-1 min-w-0">
         <div className="text-[12.5px] font-medium text-[var(--ink)] truncate">{item.name}</div>
         <div className="text-[10.5px] text-[var(--ink-2)] truncate">{item.note}</div>
-      </button>
+      </div>
       <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: s.fg }} />
-    </div>
+    </button>
   );
 }
 
@@ -779,29 +774,8 @@ function LivestockInventory({ onNavigate }) {
   );
 }
 
-// ---- Gallery strip ----
-function GalleryStrip() {
-  return (
-    <Card className="p-5">
-      <SectionHeader
-        kicker={T("Galería", "Gallery")}
-        title={T("Fotos del tanque", "Tank photos")}
-        action={<span className="text-[10.5px] text-[var(--ink-3)]">{T("Toca o arrastra — se guardan solas", "Tap or drag — they save automatically")}</span>}
-      />
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {[1, 2, 3, 4].map((n) => (
-          <PhotoSlot
-            key={n}
-            id={`photo-gallery-${n}`}
-            radius={18}
-            placeholder={T(`Foto ${n}`, `Photo ${n}`)}
-            style={{ width: "100%", aspectRatio: "4 / 3", position: "relative" }}
-          />
-        ))}
-      </div>
-    </Card>
-  );
-}
+// ---- Gallery strip (placeholder — photo feature removed) ----
+function GalleryStrip() { return null; }
 
 // ---- Alert card (used here + AlertsPage) ----
 function AlertCard({ alert, onDismiss, onCTA, index = 0 }) {
@@ -992,7 +966,7 @@ function AquaBotWidget({ fullPage = false }) {
   const prompts = mode === "personalized" ? QUICK_PROMPTS() : GENERAL_PROMPTS();
 
   return (
-    <Card className="flex flex-col overflow-hidden h-full">
+    <Card className="flex flex-col overflow-hidden" style={{ maxHeight: fullPage ? "none" : 520 }}>
       <div className="flex items-center gap-2.5 px-4 py-3 border-b border-[var(--hairline)]">
         <div className="grid place-items-center w-8 h-8 rounded-xl" style={{ background: "linear-gradient(135deg, var(--accent-soft), rgba(99,102,241,0.16))", border: "1px solid var(--accent-border)" }}>
           <L name="Sparkles" size={14} style={{ color: "var(--accent)" }} />
@@ -1033,7 +1007,7 @@ function AquaBotWidget({ fullPage = false }) {
         </div>
       )}
 
-      <div ref={scroller} className="flex-1 px-4 py-3 overflow-y-auto space-y-2.5 min-h-[260px] max-h-[420px]">
+      <div ref={scroller} className={`flex-1 px-4 py-3 overflow-y-auto space-y-2.5 ${fullPage ? "min-h-[300px]" : "min-h-[200px] max-h-[320px]"}`}>
         {messages.map((m, i) => (
           <div key={i} className={`flex gap-2 ${m.from === "user" ? "justify-end" : ""}`}>
             {m.from === "bot" && (
@@ -1206,7 +1180,7 @@ function Dashboard({ onNavigate, alerts: allAlerts, onDismissAlert, routinesDone
           >
             {T("Ver mapa", "View map")}
           </Button>
-          <Button variant="primary" icon="ShoppingBag" onClick={demoAction}>{T("Reservar", "Reserve")}</Button>
+          <Button variant="primary" icon="ShoppingBag" onClick={() => window.open("https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent("Matt's Corals, 265 Lincoln Cir B, Gahanna, OH"), "_blank", "noopener")}>{T("Reservar", "Reserve")}</Button>
         </div>
       </Card>
     </div>

@@ -285,7 +285,7 @@ function ParametersPage({ onNavigate }) {
 }
 
 // ---------------------------- INHABITANTS PAGE ----------------------------
-function InhabitantCard({ item, kind, onDiagnose }) {
+function InhabitantCard({ item, kind }) {
   const s = STATUS_COLOR[item.status];
   const iconByKind = { fish: "Fish", coral: "Flower2", cuc: "Bug" };
   const placeholderColors = { fish: ["#60A5FA", "#22D3EE"], coral: ["#F87171", "#C77F00"], cuc: ["#0E9F6E", "#22D3EE"] };
@@ -293,18 +293,24 @@ function InhabitantCard({ item, kind, onDiagnose }) {
 
   return (
     <Card hover className="overflow-hidden">
+      {/* Avatar circle instead of photo slot */}
       <div
-        className="relative h-28"
+        className="relative h-28 flex items-center justify-center"
         style={{
           background: `linear-gradient(135deg, ${a}22, ${b}22), repeating-linear-gradient(45deg, rgba(255,255,255,0.02) 0, rgba(255,255,255,0.02) 6px, transparent 6px, transparent 12px)`,
           borderBottom: "1px solid var(--hairline)",
         }}
       >
-        <PhotoSlot id={`photo-${item.id}`} radius={0} placeholder={T("Toca para subir foto", "Tap to upload photo")} style={{ position: "absolute", inset: 0 }} />
-        <div className="absolute top-2 left-2 pointer-events-none">
+        <div
+          className="grid place-items-center w-16 h-16 rounded-2xl text-white text-[24px] font-bold shadow-md"
+          style={{ background: `linear-gradient(135deg, ${a}, ${b})` }}
+        >
+          {item.name.charAt(0).toUpperCase()}
+        </div>
+        <div className="absolute top-2 left-2">
           <StatusPill status={item.status} />
         </div>
-        <div className="absolute bottom-2 right-2 grid place-items-center w-7 h-7 rounded-lg bg-[var(--well)] backdrop-blur border border-[var(--hairline)] pointer-events-none">
+        <div className="absolute bottom-2 right-2 grid place-items-center w-7 h-7 rounded-lg bg-[var(--well)] backdrop-blur border border-[var(--hairline)]">
           <L name={iconByKind[kind]} size={12} style={{ color: s.fg }} />
         </div>
       </div>
@@ -314,7 +320,7 @@ function InhabitantCard({ item, kind, onDiagnose }) {
         {item.note && <div className="text-[11px] text-[var(--ink-2)] mt-2 line-clamp-2 leading-relaxed">{item.note}</div>}
         <div className="flex items-center justify-between mt-3">
           <span className="text-[10px] text-[var(--ink-3)] inline-flex items-center gap-1"><L name="Calendar" size={10} /> {item.added}</span>
-          <Button size="sm" variant="ghost" icon="Camera" onClick={() => onDiagnose(item)}>{T("Diagnosticar","Diagnose")}</Button>
+          <Button size="sm" variant="ghost" icon="Sparkles" onClick={() => window.dispatchEvent(new CustomEvent("aquabot:ask", { detail: T(`¿Cómo está mi ${item.name}?`, `How is my ${item.name} doing?`) }))}>{T("Preguntar IA", "Ask AI")}</Button>
         </div>
       </div>
     </Card>
@@ -423,7 +429,6 @@ function DiagnoseModal({ inhabitant, onClose }) {
 
 function InhabitantsPage() {
   const { INHABITANTS } = window.AQUA;
-  const [diag, setDiag] = useState(null);
   const [tab, setTab] = useState("all");
 
   const tabs = [
@@ -440,7 +445,7 @@ function InhabitantsPage() {
           <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--ink-3)] mb-1">Habitantes</div>
           <h1 className="text-[20px] lg:text-[22px] font-medium text-[var(--ink)] tracking-tight">{T("El equipo del 20G High Reef","The 20G High Reef crew")}</h1>
         </div>
-        <Button variant="primary" icon="Plus" onClick={demoAction}>{T("Agregar habitante","Add inhabitant")}</Button>
+        <Button variant="primary" icon="Plus" onClick={() => window.toast?.(T("Usa Aqua Buddy para agregar habitantes — escribe «agrega un pez royal gramma»", "Use Aqua Buddy to add livestock — type 'add a fish royal gramma'"), { icon: "Sparkles", tone: "info" })}>{T("Agregar habitante","Add inhabitant")}</Button>
       </div>
 
       <div className="flex items-center gap-1 p-1 bg-[var(--surface)] border border-[var(--hairline)] rounded-xl w-fit">
@@ -459,7 +464,7 @@ function InhabitantsPage() {
         <div>
           <SectionHeader kicker={T("Peces","Fish")} title={`${INHABITANTS.fish.length} ${T("en el tanque","in the tank")}`} />
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-            {INHABITANTS.fish.map((f) => <InhabitantCard key={f.id} item={f} kind="fish" onDiagnose={setDiag} />)}
+            {INHABITANTS.fish.map((f) => <InhabitantCard key={f.id} item={f} kind="fish" />)}
           </div>
         </div>
       )}
@@ -467,7 +472,7 @@ function InhabitantsPage() {
         <div className="mt-5">
           <SectionHeader kicker={T("Corales","Corals")} title={`${INHABITANTS.corals.length} ${T("colonias","colonies")}`} />
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-            {INHABITANTS.corals.map((c) => <InhabitantCard key={c.id} item={c} kind="coral" onDiagnose={setDiag} />)}
+            {INHABITANTS.corals.map((c) => <InhabitantCard key={c.id} item={c} kind="coral" />)}
           </div>
         </div>
       )}
@@ -475,12 +480,10 @@ function InhabitantsPage() {
         <div className="mt-5">
           <SectionHeader kicker="Clean-up Crew" title={`${INHABITANTS.cuc.length} ${T("ayudantes","helpers")}`} />
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-            {INHABITANTS.cuc.map((c) => <InhabitantCard key={c.id} item={c} kind="cuc" onDiagnose={setDiag} />)}
+            {INHABITANTS.cuc.map((c) => <InhabitantCard key={c.id} item={c} kind="cuc" />)}
           </div>
         </div>
       )}
-
-      {diag && <DiagnoseModal inhabitant={diag} onClose={() => setDiag(null)} />}
     </div>
   );
 }
@@ -499,8 +502,8 @@ function LightingPage() {
           <p className="text-[12.5px] text-[var(--ink-2)] mt-1">{T("Aumentos graduales por canal para evitar estrés lumínico en corales nuevos","Gradual per-channel ramps to avoid light stress on new corals")}</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="secondary" icon="Power" onClick={demoAction}>{T("Modo noche","Night mode")}</Button>
-          <Button variant="primary" icon="Sliders" onClick={demoAction}>{T("Ajustes finos","Fine tuning")}</Button>
+          <Button variant="secondary" icon="Power" onClick={() => window.toast?.(T("Modo noche activado — intensidad reducida al 5%", "Night mode active — intensity reduced to 5%"), { icon: "Moon", tone: "info" })}>{T("Modo noche","Night mode")}</Button>
+          <Button variant="primary" icon="Sliders" onClick={() => window.toast?.(T("Ajustes finos de iluminación — próximamente", "Fine lighting controls — coming soon"), { icon: "Sliders", tone: "info" })}>{T("Ajustes finos","Fine tuning")}</Button>
         </div>
       </div>
 
@@ -589,7 +592,7 @@ function LightingPage() {
 
       {/* Daily curve mock */}
       <Card className="p-5">
-        <SectionHeader kicker={T("Ciclo diario","Daily cycle")} title={T("Curva de iluminación · 24h","Light curve · 24h")} action={<Button size="sm" variant="ghost" icon="Edit3" onClick={demoAction}>{T("Editar","Edit")}</Button>} />
+        <SectionHeader kicker={T("Ciclo diario","Daily cycle")} title={T("Curva de iluminación · 24h","Light curve · 24h")} action={<Button size="sm" variant="ghost" icon="Edit3" onClick={() => window.toast?.(T("Editor de curva de luz — próximamente", "Light curve editor — coming soon"), { icon: "SunMedium", tone: "info" })}>{T("Editar","Edit")}</Button>} />
         <div className="relative h-28">
           <svg viewBox="0 0 1000 120" className="w-full h-full" preserveAspectRatio="none">
             <defs>
@@ -668,7 +671,7 @@ function RoutinesPage({ routinesDone, onToggleRoutine }) {
           <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--ink-3)] mb-1">{T("Rutinas y mantenimiento","Routines & maintenance")}</div>
           <h1 className="text-[20px] lg:text-[22px] font-medium text-[var(--ink)] tracking-tight">{T("Tu calendario de cuidados","Your care calendar")}</h1>
         </div>
-        <Button variant="primary" icon="Plus" onClick={demoAction}>{T("Nueva rutina","New routine")}</Button>
+        <Button variant="primary" icon="Plus" onClick={() => window.toast?.(T("Escribe «agrega rutina [nombre] semanal» en Aqua Buddy para crear una rutina", "Type 'add routine [name] weekly' in Aqua Buddy to create a routine"), { icon: "Sparkles", tone: "info" })}>{T("Nueva rutina","New routine")}</Button>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-4">
@@ -747,17 +750,24 @@ function AquaBotPage() {
   ];
 
   return (
-    <div className="px-4 lg:px-6 py-5 lg:py-6">
-      <div className="flex items-end justify-between flex-wrap gap-3 mb-4">
+    <div className="px-4 lg:px-6 py-5 lg:py-6 flex flex-col gap-4" style={{ minHeight: 0 }}>
+      {/* Visible page header */}
+      <div className="flex items-center gap-3">
+        <div className="grid place-items-center w-10 h-10 rounded-xl shrink-0" style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)" }}>
+          <L name="Sparkles" size={18} style={{ color: "var(--accent)" }} />
+        </div>
         <div>
-          <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--ink-3)] mb-1">{T("Aqua Buddy · IA experta en reefing","Aqua Buddy · reef & aquarium AI")}</div>
-          <h1 className="text-[20px] lg:text-[22px] font-medium text-[var(--ink)] tracking-tight">{T("Conversación con Aqua Buddy","Chat with Aqua Buddy")}</h1>
-          <p className="text-[12.5px] text-[var(--ink-2)] mt-1">{T("Contexto completo de tu tanque cargado · OpenAI + Reef2Reef · modo personalizado y general","Full tank context loaded · OpenAI + Reef2Reef · personalized and general mode")}</p>
+          <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--ink-3)] mb-0.5">{T("Asistente IA · Reef & Acuario", "AI Assistant · Reef & Aquarium")}</div>
+          <h1 className="text-[20px] lg:text-[22px] font-semibold text-[var(--ink)] tracking-tight">{T("Aqua Buddy", "Aqua Buddy")}</h1>
+        </div>
+        <div className="ml-auto hidden md:flex items-center gap-1.5 text-[11px] text-[var(--ink-2)]">
+          <PulsingDot color="#0E9F6E" size={6} />
+          {T("Contexto de tu tanque cargado", "Your tank context loaded")}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4">
-        <div className="h-[680px] min-w-0">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4 flex-1 min-h-0">
+        <div className="min-h-[500px] lg:min-h-0 min-w-0">
           <AquaBotWidget fullPage={true} />
         </div>
         <div className="space-y-3">

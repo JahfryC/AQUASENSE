@@ -491,6 +491,25 @@ function SettingsPage({ session, onSignOut, tweaks, setTweak }) {
   const [twoFA, setTwoFA] = React.useState(true);
   const [icsDone, setIcsDone] = React.useState("");
 
+  // Inline display-name editor
+  const [editingName, setEditingName] = React.useState(false);
+  const [editName, setEditName] = React.useState(() => localStorage.getItem("aqua:display_name") || session?.name || "");
+  const saveDisplayName = () => {
+    const trimmed = editName.trim();
+    if (trimmed) {
+      localStorage.setItem("aqua:display_name", trimmed);
+      window.AQUA.TANK_CONFIG.owner = trimmed;
+    }
+    setEditingName(false);
+    window.toast?.(T("Nombre actualizado", "Name updated"), { icon: "UserRound" });
+  };
+
+  // Delete account confirmation
+  const [confirmDelete, setConfirmDelete] = React.useState(false);
+  const doDeleteAccount = () => {
+    window.AquaStore?.reset();
+  };
+
   const askPermission = async () => {
     if (typeof Notification === "undefined") return;
     const p = await Notification.requestPermission();
@@ -631,18 +650,36 @@ function SettingsPage({ session, onSignOut, tweaks, setTweak }) {
           <Card className="overflow-hidden">
             <div className="flex items-center gap-4 px-5 py-5 border-b border-[var(--hairline)]">
               <span className="grid place-items-center w-14 h-14 rounded-full text-white text-[20px] font-semibold shrink-0" style={{ background: session?.color }}>
-                {session?.name?.[0] || "?"}
+                {(localStorage.getItem("aqua:display_name") || session?.name || "?")[0]}
               </span>
               <div className="flex-1 min-w-0">
-                <div className="text-[16px] font-semibold text-[var(--ink)]">{session?.name}</div>
-                <div className="text-[12px] text-[var(--ink-2)] truncate">{session?.email || T("Modo demo · sin cuenta", "Demo mode · no account")}</div>
+                {editingName ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      autoFocus
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") saveDisplayName(); if (e.key === "Escape") setEditingName(false); }}
+                      className="flex-1 bg-[var(--well)] border border-[var(--accent-border)] rounded-lg px-2.5 py-1.5 text-[13px] text-[var(--ink)] outline-none focus:ring-1 focus:ring-[var(--accent-border)]"
+                    />
+                    <button onClick={saveDisplayName} className="text-[var(--accent)] hover:opacity-80 text-[12px] font-semibold">{T("Guardar", "Save")}</button>
+                    <button onClick={() => setEditingName(false)} className="text-[var(--ink-3)] hover:text-[var(--ink-2)] text-[12px]">{T("Cancelar", "Cancel")}</button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="text-[16px] font-semibold text-[var(--ink)]">{localStorage.getItem("aqua:display_name") || session?.name}</div>
+                    <div className="text-[12px] text-[var(--ink-2)] truncate">{session?.email || T("Modo demo · sin cuenta", "Demo mode · no account")}</div>
+                  </>
+                )}
                 {session?.provider === "google" && (
                   <span className="inline-flex items-center gap-1.5 mt-1.5 text-[10.5px] text-[var(--ink-2)] glass-strong rounded-full px-2 py-0.5">
                     <GoogleG size={11} /> {T("Conectado con Google", "Connected with Google")}
                   </span>
                 )}
               </div>
-              <Button variant="secondary" size="sm" icon="Pencil" onClick={demoAction}>{T("Editar", "Edit")}</Button>
+              {!editingName && (
+                <Button variant="secondary" size="sm" icon="Pencil" onClick={() => { setEditName(localStorage.getItem("aqua:display_name") || session?.name || ""); setEditingName(true); }}>{T("Editar", "Edit")}</Button>
+              )}
             </div>
             <SettingRow icon="ShieldCheck" title={T("Verificación en dos pasos", "Two-step verification")}
               sub={T("Código por app de autenticación al iniciar sesión en un dispositivo nuevo", "Authenticator code when signing in on a new device")}>
@@ -650,11 +687,11 @@ function SettingsPage({ session, onSignOut, tweaks, setTweak }) {
             </SettingRow>
             <SettingRow icon="KeyRound" title={T("Llaves de acceso (passkeys)", "Passkeys")}
               sub={T("Face ID / Touch ID en este dispositivo", "Face ID / Touch ID on this device")}>
-              <Button variant="secondary" size="sm" onClick={demoAction}>{T("Añadir", "Add")}</Button>
+              <Button variant="secondary" size="sm" onClick={() => window.toast?.(T("Próximamente en tu dispositivo", "Coming soon on your device"), { icon: "KeyRound", tone: "info" })}>{T("Añadir", "Add")}</Button>
             </SettingRow>
             <SettingRow icon="MonitorSmartphone" title={T("Sesiones activas", "Active sessions")}
               sub={T("iPhone 15 Pro · Columbus, OH (esta) — MacBook Air · hace 2 días", "iPhone 15 Pro · Columbus, OH (this) — MacBook Air · 2 days ago")}>
-              <Button variant="ghost" size="sm" onClick={demoAction}>{T("Gestionar", "Manage")}</Button>
+              <Button variant="ghost" size="sm" onClick={() => window.toast?.(T("Sesión activa en este dispositivo", "Active session on this device"), { icon: "MonitorSmartphone", tone: "info" })}>{T("Gestionar", "Manage")}</Button>
             </SettingRow>
             <SettingRow icon="Download" title={T("Exportar mis datos", "Export my data")}
               sub={T("Parámetros, habitantes y bitácora en CSV/JSON", "Parameters, livestock and logbook as CSV/JSON")}>
@@ -668,7 +705,15 @@ function SettingsPage({ session, onSignOut, tweaks, setTweak }) {
             </SettingRow>
             <SettingRow icon="Trash2" title={T("Eliminar cuenta", "Delete account")}
               sub={T("Borra tu cuenta y todos los datos del tanque. Irreversible.", "Deletes your account and all tank data. Irreversible.")} danger>
-              <Button variant="danger" size="sm" onClick={demoAction}>{T("Eliminar", "Delete")}</Button>
+              {confirmDelete ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-[11.5px] text-[#DC4458]">{T("¿Seguro?", "Sure?")}</span>
+                  <Button variant="danger" size="sm" onClick={doDeleteAccount}>{T("Sí, eliminar", "Yes, delete")}</Button>
+                  <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(false)}>{T("No", "No")}</Button>
+                </div>
+              ) : (
+                <Button variant="danger" size="sm" onClick={() => setConfirmDelete(true)}>{T("Eliminar", "Delete")}</Button>
+              )}
             </SettingRow>
           </Card>
         </div>

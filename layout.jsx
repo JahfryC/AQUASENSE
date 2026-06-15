@@ -106,20 +106,26 @@ function useClock() {
 }
 
 function TankSelector() {
-  const { ALL_TANKS, CURRENT_PARAMETERS } = window.AQUA;
+  const { CURRENT_PARAMETERS } = window.AQUA;
   const [open, setOpen] = React.useState(false);
   const [activeTankId, setActiveTankId] = React.useState(() => window.AquaStore?.activeTankId || "tank-001");
+  const [tanks, setTanks] = React.useState(() => window.AQUA.ALL_TANKS || []);
   const close = React.useCallback(() => setOpen(false), []);
   useEscape(close);
 
   // Keep in sync if tank changes from elsewhere
   React.useEffect(() => {
-    const fn = (e) => setActiveTankId(e.detail?.id || "tank-001");
-    window.addEventListener("aqua:tank", fn);
-    return () => window.removeEventListener("aqua:tank", fn);
+    const onTank = (e) => setActiveTankId(e.detail?.id || "tank-001");
+    const onChanged = () => setTanks([...(window.AQUA.ALL_TANKS || [])]);
+    window.addEventListener("aqua:tank", onTank);
+    window.addEventListener("aqua:tanks:changed", onChanged);
+    return () => {
+      window.removeEventListener("aqua:tank", onTank);
+      window.removeEventListener("aqua:tanks:changed", onChanged);
+    };
   }, []);
 
-  const activeTank = (ALL_TANKS || []).find((t) => t.id === activeTankId) || ALL_TANKS?.[0];
+  const activeTank = tanks.find((t) => t.id === activeTankId) || tanks[0];
 
   const typeLabel = (tank) => {
     if (tank.type === "freshwater") return T(`Dulce · ${tank.displayVolume} gal`, `Freshwater · ${tank.displayVolume} gal`);
@@ -130,6 +136,13 @@ function TankSelector() {
     window.AquaStore?.setActiveTank(id);
     setActiveTankId(id);
     close();
+  };
+
+  const deleteTank = (e, id) => {
+    e.stopPropagation();
+    window.AquaStore?.deleteTank(id);
+    setTanks([...(window.AQUA.ALL_TANKS || [])]);
+    window.toast?.(T("Tanque eliminado", "Tank deleted"), { icon: "Trash2" });
   };
 
   return (
@@ -153,23 +166,42 @@ function TankSelector() {
           <div className="fixed inset-0 z-40" onClick={close} aria-hidden="true" />
           <div role="menu" className="absolute right-0 top-full mt-2 z-50 glass-strong rounded-2xl p-1.5 w-64" style={{ boxShadow: "var(--glass-shadow)" }}>
             <div className="px-3 pt-2 pb-1.5 text-[9.5px] uppercase tracking-[0.12em] text-[var(--ink-3)] font-semibold">{T("Tus tanques", "Your tanks")}</div>
-            {(ALL_TANKS || []).map((tank) => (
-              <button
-                key={tank.id}
-                role="menuitem"
-                onClick={() => switchTank(tank.id)}
-                className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-[var(--hover)] transition-colors text-left"
-              >
-                <PulsingDot color={tank.type === "freshwater" ? "#16a34a" : "#0E9F6E"} size={7} />
-                <span className="flex-1 min-w-0">
-                  <span className="block text-[12.5px] font-medium text-[var(--ink)]">{tank.name}</span>
-                  <span className="block text-[10.5px] text-[var(--ink-2)]">{typeLabel(tank)} {T("· en línea", "· online")}</span>
-                </span>
-                {tank.id === activeTankId && <L name="Check" size={14} style={{ color: "var(--accent)" }} />}
-              </button>
-            ))}
+            {tanks.map((tank) => {
+              const isActive = tank.id === activeTankId;
+              const canDelete = tank.id !== "tank-001" && !isActive;
+              return (
+                <div key={tank.id} className="flex items-center gap-1 rounded-xl hover:bg-[var(--hover)] transition-colors group">
+                  <button
+                    role="menuitem"
+                    onClick={() => switchTank(tank.id)}
+                    className="flex-1 flex items-center gap-2.5 px-3 py-2.5 text-left min-w-0"
+                  >
+                    <PulsingDot color={tank.type === "freshwater" ? "#16a34a" : "#0E9F6E"} size={7} />
+                    <span className="flex-1 min-w-0">
+                      <span className="block text-[12.5px] font-medium text-[var(--ink)]">{tank.name}</span>
+                      <span className="block text-[10.5px] text-[var(--ink-2)]">{typeLabel(tank)} {T("· en línea", "· online")}</span>
+                    </span>
+                    {isActive && <L name="Check" size={14} style={{ color: "var(--accent)" }} />}
+                  </button>
+                  {canDelete && (
+                    <button
+                      onClick={(e) => deleteTank(e, tank.id)}
+                      aria-label={T("Eliminar tanque", "Delete tank")}
+                      className="opacity-0 group-hover:opacity-100 p-1.5 mr-1 rounded-lg text-[var(--ink-3)] hover:text-[#DC4458] hover:bg-[rgba(225,29,72,0.1)] transition-all"
+                      title={T("Eliminar este tanque", "Delete this tank")}
+                    >
+                      <L name="Trash2" size={13} />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
             <div className="h-px bg-[var(--hairline)] mx-2 my-1" />
-            <button role="menuitem" onClick={() => { close(); demoAction(); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-[var(--hover)] transition-colors text-left text-[var(--ink-2)] hover:text-[var(--ink)]">
+            <button
+              role="menuitem"
+              onClick={() => { close(); window.toast?.(T("Agregar tanque — próximamente", "Add tank — coming soon"), { icon: "Plus", tone: "info" }); }}
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-[var(--hover)] transition-colors text-left text-[var(--ink-2)] hover:text-[var(--ink)]"
+            >
               <span className="grid place-items-center w-5 h-5 rounded-full bg-[var(--well)] border border-[var(--hairline)]"><L name="Plus" size={11} /></span>
               <span className="text-[12px] font-medium">{T("Agregar tanque", "Add tank")}</span>
             </button>

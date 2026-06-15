@@ -1695,6 +1695,14 @@ window.AquaStore = (() => {
       touch();
       window.dispatchEvent(new CustomEvent("aqua:tank", { detail: { id } }));
     },
+    deleteTank(id) {
+      if (id === "tank-001") return; // never delete the default tank
+      A.ALL_TANKS = (A.ALL_TANKS || []).filter((t) => t.id !== id);
+      ud.customInhabitants = (ud.customInhabitants || []).filter(({ item }) => item.tankId !== id);
+      if (ud.activeTankId === id) this.setActiveTank("tank-001");
+      touch();
+      window.dispatchEvent(new CustomEvent("aqua:tanks:changed", {}));
+    },
 
     // ---- sincronización nube → local (last-write-wins por updatedAt) ----
     applyRemote(remote) {
@@ -3419,21 +3427,26 @@ function useClock() {
 }
 function TankSelector() {
   const {
-    ALL_TANKS,
     CURRENT_PARAMETERS
   } = window.AQUA;
   const [open, setOpen] = React.useState(false);
   const [activeTankId, setActiveTankId] = React.useState(() => window.AquaStore?.activeTankId || "tank-001");
+  const [tanks, setTanks] = React.useState(() => window.AQUA.ALL_TANKS || []);
   const close = React.useCallback(() => setOpen(false), []);
   useEscape(close);
 
   // Keep in sync if tank changes from elsewhere
   React.useEffect(() => {
-    const fn = e => setActiveTankId(e.detail?.id || "tank-001");
-    window.addEventListener("aqua:tank", fn);
-    return () => window.removeEventListener("aqua:tank", fn);
+    const onTank = e => setActiveTankId(e.detail?.id || "tank-001");
+    const onChanged = () => setTanks([...(window.AQUA.ALL_TANKS || [])]);
+    window.addEventListener("aqua:tank", onTank);
+    window.addEventListener("aqua:tanks:changed", onChanged);
+    return () => {
+      window.removeEventListener("aqua:tank", onTank);
+      window.removeEventListener("aqua:tanks:changed", onChanged);
+    };
   }, []);
-  const activeTank = (ALL_TANKS || []).find(t => t.id === activeTankId) || ALL_TANKS?.[0];
+  const activeTank = tanks.find(t => t.id === activeTankId) || tanks[0];
   const typeLabel = tank => {
     if (tank.type === "freshwater") return T(`Dulce · ${tank.displayVolume} gal`, `Freshwater · ${tank.displayVolume} gal`);
     return T(`Marino · ${tank.displayVolume} gal`, `Saltwater · ${tank.displayVolume} gal`);
@@ -3442,6 +3455,14 @@ function TankSelector() {
     window.AquaStore?.setActiveTank(id);
     setActiveTankId(id);
     close();
+  };
+  const deleteTank = (e, id) => {
+    e.stopPropagation();
+    window.AquaStore?.deleteTank(id);
+    setTanks([...(window.AQUA.ALL_TANKS || [])]);
+    window.toast?.(T("Tanque eliminado", "Tank deleted"), {
+      icon: "Trash2"
+    });
   };
   return /*#__PURE__*/React.createElement("div", {
     className: "relative"
@@ -3476,33 +3497,50 @@ function TankSelector() {
     }
   }, /*#__PURE__*/React.createElement("div", {
     className: "px-3 pt-2 pb-1.5 text-[9.5px] uppercase tracking-[0.12em] text-[var(--ink-3)] font-semibold"
-  }, T("Tus tanques", "Your tanks")), (ALL_TANKS || []).map(tank => /*#__PURE__*/React.createElement("button", {
-    key: tank.id,
-    role: "menuitem",
-    onClick: () => switchTank(tank.id),
-    className: "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-[var(--hover)] transition-colors text-left"
-  }, /*#__PURE__*/React.createElement(PulsingDot, {
-    color: tank.type === "freshwater" ? "#16a34a" : "#0E9F6E",
-    size: 7
-  }), /*#__PURE__*/React.createElement("span", {
-    className: "flex-1 min-w-0"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "block text-[12.5px] font-medium text-[var(--ink)]"
-  }, tank.name), /*#__PURE__*/React.createElement("span", {
-    className: "block text-[10.5px] text-[var(--ink-2)]"
-  }, typeLabel(tank), " ", T("· en línea", "· online"))), tank.id === activeTankId && /*#__PURE__*/React.createElement(L, {
-    name: "Check",
-    size: 14,
-    style: {
-      color: "var(--accent)"
-    }
-  }))), /*#__PURE__*/React.createElement("div", {
+  }, T("Tus tanques", "Your tanks")), tanks.map(tank => {
+    const isActive = tank.id === activeTankId;
+    const canDelete = tank.id !== "tank-001" && !isActive;
+    return /*#__PURE__*/React.createElement("div", {
+      key: tank.id,
+      className: "flex items-center gap-1 rounded-xl hover:bg-[var(--hover)] transition-colors group"
+    }, /*#__PURE__*/React.createElement("button", {
+      role: "menuitem",
+      onClick: () => switchTank(tank.id),
+      className: "flex-1 flex items-center gap-2.5 px-3 py-2.5 text-left min-w-0"
+    }, /*#__PURE__*/React.createElement(PulsingDot, {
+      color: tank.type === "freshwater" ? "#16a34a" : "#0E9F6E",
+      size: 7
+    }), /*#__PURE__*/React.createElement("span", {
+      className: "flex-1 min-w-0"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "block text-[12.5px] font-medium text-[var(--ink)]"
+    }, tank.name), /*#__PURE__*/React.createElement("span", {
+      className: "block text-[10.5px] text-[var(--ink-2)]"
+    }, typeLabel(tank), " ", T("· en línea", "· online"))), isActive && /*#__PURE__*/React.createElement(L, {
+      name: "Check",
+      size: 14,
+      style: {
+        color: "var(--accent)"
+      }
+    })), canDelete && /*#__PURE__*/React.createElement("button", {
+      onClick: e => deleteTank(e, tank.id),
+      "aria-label": T("Eliminar tanque", "Delete tank"),
+      className: "opacity-0 group-hover:opacity-100 p-1.5 mr-1 rounded-lg text-[var(--ink-3)] hover:text-[#DC4458] hover:bg-[rgba(225,29,72,0.1)] transition-all",
+      title: T("Eliminar este tanque", "Delete this tank")
+    }, /*#__PURE__*/React.createElement(L, {
+      name: "Trash2",
+      size: 13
+    })));
+  }), /*#__PURE__*/React.createElement("div", {
     className: "h-px bg-[var(--hairline)] mx-2 my-1"
   }), /*#__PURE__*/React.createElement("button", {
     role: "menuitem",
     onClick: () => {
       close();
-      demoAction();
+      window.toast?.(T("Agregar tanque — próximamente", "Add tank — coming soon"), {
+        icon: "Plus",
+        tone: "info"
+      });
     },
     className: "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-[var(--hover)] transition-colors text-left text-[var(--ink-2)] hover:text-[var(--ink)]"
   }, /*#__PURE__*/React.createElement("span", {
@@ -4146,8 +4184,6 @@ function ReefStatusHero({
   const [input, setInput] = React.useState("");
   const [reply, setReply] = React.useState("");
   const [loading, setLoading] = React.useState(false);
-  const [attachment, setAttachment] = React.useState(null);
-  const fileRef = React.useRef(null);
   const send = async () => {
     const msg = input.trim();
     if (!msg || loading) return;
@@ -4156,13 +4192,6 @@ function ReefStatusHero({
     const r = await callAquaBot(msg);
     setReply(r);
     setLoading(false);
-  };
-  const onFile = e => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => setAttachment(ev.target.result);
-    reader.readAsDataURL(file);
   };
   return /*#__PURE__*/React.createElement(Card, {
     className: "overflow-hidden"
@@ -4175,30 +4204,37 @@ function ReefStatusHero({
   }, fmtLongDate(window.AQUA.MOCK_TODAY))), /*#__PURE__*/React.createElement("div", {
     className: "relative mx-4 rounded-3xl overflow-hidden",
     style: {
-      height: 180
+      height: 150
     }
-  }, /*#__PURE__*/React.createElement(PhotoSlot, {
-    id: "photo-tank-hero",
-    radius: 24,
-    placeholder: T("Toca o suelta aquí una foto panorámica de tu tanque — se guarda y queda fija", "Tap or drop a wide photo of your tank — it's saved and stays"),
-    style: {
-      position: "absolute",
-      inset: 0
-    }
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "absolute inset-x-0 bottom-0 h-24 pointer-events-none",
-    style: {
-      background: "linear-gradient(to top, rgba(8,22,34,0.65), transparent)"
-    }
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "absolute left-4 bottom-3 pointer-events-none"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "text-[22px] font-semibold text-white tracking-tight",
+    className: "absolute inset-0",
+    style: {
+      background: "linear-gradient(135deg, #0a2a3a 0%, #0e4a6a 40%, #115e5a 70%, #0d3d3a 100%)"
+    }
+  }), /*#__PURE__*/React.createElement("svg", {
+    className: "absolute inset-0 w-full h-full",
+    preserveAspectRatio: "none",
+    viewBox: "0 0 400 150"
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M0,75 C100,55 200,95 300,70 C350,57 380,80 400,75 L400,150 L0,150 Z",
+    fill: "rgba(255,255,255,0.05)"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M0,105 C80,90 160,115 240,100 C310,87 370,110 400,103 L400,150 L0,150 Z",
+    fill: "rgba(255,255,255,0.03)"
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "absolute inset-x-0 bottom-0 h-20 pointer-events-none",
+    style: {
+      background: "linear-gradient(to top, rgba(8,22,34,0.55), transparent)"
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "absolute left-4 bottom-3"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-[20px] font-semibold text-white tracking-tight",
     style: {
       textShadow: "0 1px 8px rgba(0,0,0,0.45)"
     }
   }, TANK_CONFIG.name), /*#__PURE__*/React.createElement("div", {
-    className: "mt-1 flex items-center gap-2"
+    className: "mt-1 flex items-center gap-2 flex-wrap"
   }, /*#__PURE__*/React.createElement("span", {
     className: "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10.5px] font-semibold uppercase tracking-[0.06em]",
     style: {
@@ -4208,14 +4244,28 @@ function ReefStatusHero({
   }, /*#__PURE__*/React.createElement("span", {
     className: "w-1.5 h-1.5 rounded-full bg-[#3A2A05]"
   }), T("Estado: Necesita atención", "Status: Needs attention")))), /*#__PURE__*/React.createElement("div", {
-    className: "absolute right-3 bottom-3 pointer-events-none hidden sm:block"
+    className: "absolute right-3 bottom-3 hidden sm:block"
   }, /*#__PURE__*/React.createElement("span", {
     className: "text-[10.5px] text-white/85 px-2 py-1 rounded-full",
     style: {
       background: "rgba(8,22,34,0.45)",
       backdropFilter: "blur(8px)"
     }
-  }, T("2 parámetros fuera de rango · 1 alerta crítica", "2 parameters out of range · 1 critical alert")))), /*#__PURE__*/React.createElement("div", {
+  }, T("2 parámetros fuera de rango · 1 alerta crítica", "2 parameters out of range · 1 critical alert"))), /*#__PURE__*/React.createElement("div", {
+    className: "absolute top-3 right-3"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "grid place-items-center w-9 h-9 rounded-xl",
+    style: {
+      background: "rgba(255,255,255,0.12)",
+      border: "1px solid rgba(255,255,255,0.18)"
+    }
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "Droplet",
+    size: 16,
+    style: {
+      color: "#2DD4BF"
+    }
+  })))), /*#__PURE__*/React.createElement("div", {
     className: "px-5 pt-4 pb-5"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-between mb-2.5"
@@ -4261,30 +4311,7 @@ function ReefStatusHero({
     onClick: send
   }, T("Enviar", "Post"))), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-2 mt-2.5"
-  }, /*#__PURE__*/React.createElement(Button, {
-    variant: "secondary",
-    size: "sm",
-    icon: "ImageUp",
-    onClick: () => fileRef.current?.click()
-  }, T("Subir foto/video", "Upload Photo/Video")), /*#__PURE__*/React.createElement("input", {
-    ref: fileRef,
-    type: "file",
-    accept: "image/*,video/*",
-    className: "hidden",
-    onChange: onFile
-  }), attachment && /*#__PURE__*/React.createElement("span", {
-    className: "inline-flex items-center gap-1.5 text-[11px] text-[var(--ink-2)]"
-  }, /*#__PURE__*/React.createElement("img", {
-    src: attachment,
-    alt: "",
-    className: "w-7 h-7 rounded-lg object-cover border border-[var(--hairline)]"
-  }), T("adjunto listo", "attachment ready"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setAttachment(null),
-    className: "text-[var(--ink-3)] hover:text-[var(--ink)]"
-  }, /*#__PURE__*/React.createElement(L, {
-    name: "X",
-    size: 11
-  }))), /*#__PURE__*/React.createElement("button", {
+  }, /*#__PURE__*/React.createElement("button", {
     onClick: () => onNavigate("ai"),
     className: "ml-auto text-[11.5px] text-[var(--accent)] hover:opacity-80 inline-flex items-center gap-1"
   }, T("Abrir chat completo", "Open full chat"), " ", /*#__PURE__*/React.createElement(L, {
@@ -4487,9 +4514,9 @@ function WaterParamsCard({
   }, T("Nueva lectura", "Add New Reading")), /*#__PURE__*/React.createElement(Button, {
     variant: "ghost",
     size: "sm",
-    icon: "Camera",
-    onClick: () => onNavigate("inhabitants")
-  }, T("Diagnóstico foto", "Photo diagnosis"))), logOpen && ReadingModal && /*#__PURE__*/React.createElement(ReadingModal, {
+    icon: "ArrowRight",
+    onClick: () => onNavigate("parameters")
+  }, T("Ver historial", "Full history"))), logOpen && ReadingModal && /*#__PURE__*/React.createElement(ReadingModal, {
     paramKeys: Object.keys(CURRENT_PARAMETERS),
     onClose: () => setLogOpen(false)
   }));
@@ -4614,28 +4641,31 @@ function LightingScheduleCard({
   }, "+15% B/C")));
 }
 
-// ---- Livestock inventory (with photo slots) ----
+// ---- Livestock inventory ----
+const KIND_AVATAR_COLOR = {
+  fish: ["#60A5FA", "#22D3EE"],
+  coral: ["#F87171", "#C77F00"],
+  cuc: ["#0E9F6E", "#22D3EE"]
+};
 function LivestockRow({
   item,
   kind,
   onNavigate
 }) {
   const s = STATUS_COLOR[item.status];
-  // La miniatura es interactiva (subir foto), así que el contenedor no puede
-  // ser un <button>: el área de texto navega, la foto sube imagen.
-  return /*#__PURE__*/React.createElement("div", {
-    className: "w-full flex items-center gap-2.5 p-1.5 rounded-2xl hover:bg-[var(--hover)] transition-colors"
-  }, /*#__PURE__*/React.createElement(PhotoSlot, {
-    id: `photo-${item.id}`,
-    radius: 12,
+  const [a, b] = KIND_AVATAR_COLOR[kind] || KIND_AVATAR_COLOR.fish;
+  return /*#__PURE__*/React.createElement("button", {
+    onClick: () => onNavigate("inhabitants"),
+    className: "w-full flex items-center gap-2.5 p-1.5 rounded-2xl hover:bg-[var(--hover)] transition-colors text-left"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "grid place-items-center rounded-xl shrink-0 text-white text-[13px] font-semibold",
     style: {
       width: 40,
       height: 40,
-      flexShrink: 0
+      background: `linear-gradient(135deg, ${a}, ${b})`
     }
-  }), /*#__PURE__*/React.createElement("button", {
-    onClick: () => onNavigate("inhabitants"),
-    className: "flex-1 min-w-0 text-left cursor-pointer"
+  }, item.name.charAt(0).toUpperCase()), /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 min-w-0"
   }, /*#__PURE__*/React.createElement("div", {
     className: "text-[12.5px] font-medium text-[var(--ink)] truncate"
   }, item.name), /*#__PURE__*/React.createElement("div", {
@@ -4691,29 +4721,9 @@ function LivestockInventory({
   }))))));
 }
 
-// ---- Gallery strip ----
+// ---- Gallery strip (placeholder — photo feature removed) ----
 function GalleryStrip() {
-  return /*#__PURE__*/React.createElement(Card, {
-    className: "p-5"
-  }, /*#__PURE__*/React.createElement(SectionHeader, {
-    kicker: T("Galería", "Gallery"),
-    title: T("Fotos del tanque", "Tank photos"),
-    action: /*#__PURE__*/React.createElement("span", {
-      className: "text-[10.5px] text-[var(--ink-3)]"
-    }, T("Toca o arrastra — se guardan solas", "Tap or drag — they save automatically"))
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "grid grid-cols-2 md:grid-cols-4 gap-3"
-  }, [1, 2, 3, 4].map(n => /*#__PURE__*/React.createElement(PhotoSlot, {
-    key: n,
-    id: `photo-gallery-${n}`,
-    radius: 18,
-    placeholder: T(`Foto ${n}`, `Photo ${n}`),
-    style: {
-      width: "100%",
-      aspectRatio: "4 / 3",
-      position: "relative"
-    }
-  }))));
+  return null;
 }
 
 // ---- Alert card (used here + AlertsPage) ----
@@ -4967,7 +4977,10 @@ function AquaBotWidget({
   }, []);
   const prompts = mode === "personalized" ? QUICK_PROMPTS() : GENERAL_PROMPTS();
   return /*#__PURE__*/React.createElement(Card, {
-    className: "flex flex-col overflow-hidden h-full"
+    className: "flex flex-col overflow-hidden",
+    style: {
+      maxHeight: fullPage ? "none" : 520
+    }
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-2.5 px-4 py-3 border-b border-[var(--hairline)]"
   }, /*#__PURE__*/React.createElement("div", {
@@ -5036,7 +5049,7 @@ function AquaBotWidget({
     }
   }), T("Modo general — basado en Reef2Reef y mejores prácticas de la comunidad", "General mode — based on Reef2Reef and community best practices"))), /*#__PURE__*/React.createElement("div", {
     ref: scroller,
-    className: "flex-1 px-4 py-3 overflow-y-auto space-y-2.5 min-h-[260px] max-h-[420px]"
+    className: `flex-1 px-4 py-3 overflow-y-auto space-y-2.5 ${fullPage ? "min-h-[300px]" : "min-h-[200px] max-h-[320px]"}`
   }, messages.map((m, i) => /*#__PURE__*/React.createElement("div", {
     key: i,
     className: `flex gap-2 ${m.from === "user" ? "justify-end" : ""}`
@@ -5242,7 +5255,7 @@ function Dashboard({
   }, T("Ver mapa", "View map")), /*#__PURE__*/React.createElement(Button, {
     variant: "primary",
     icon: "ShoppingBag",
-    onClick: demoAction
+    onClick: () => window.open("https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent("Matt's Corals, 265 Lincoln Cir B, Gahanna, OH"), "_blank", "noopener")
   }, T("Reservar", "Reserve")))));
 }
 Object.assign(window, {
@@ -5707,8 +5720,7 @@ function ParametersPage({
 // ---------------------------- INHABITANTS PAGE ----------------------------
 function InhabitantCard({
   item,
-  kind,
-  onDiagnose
+  kind
 }) {
   const s = STATUS_COLOR[item.status];
   const iconByKind = {
@@ -5726,25 +5738,22 @@ function InhabitantCard({
     hover: true,
     className: "overflow-hidden"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "relative h-28",
+    className: "relative h-28 flex items-center justify-center",
     style: {
       background: `linear-gradient(135deg, ${a}22, ${b}22), repeating-linear-gradient(45deg, rgba(255,255,255,0.02) 0, rgba(255,255,255,0.02) 6px, transparent 6px, transparent 12px)`,
       borderBottom: "1px solid var(--hairline)"
     }
-  }, /*#__PURE__*/React.createElement(PhotoSlot, {
-    id: `photo-${item.id}`,
-    radius: 0,
-    placeholder: T("Toca para subir foto", "Tap to upload photo"),
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "grid place-items-center w-16 h-16 rounded-2xl text-white text-[24px] font-bold shadow-md",
     style: {
-      position: "absolute",
-      inset: 0
+      background: `linear-gradient(135deg, ${a}, ${b})`
     }
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "absolute top-2 left-2 pointer-events-none"
+  }, item.name.charAt(0).toUpperCase()), /*#__PURE__*/React.createElement("div", {
+    className: "absolute top-2 left-2"
   }, /*#__PURE__*/React.createElement(StatusPill, {
     status: item.status
   })), /*#__PURE__*/React.createElement("div", {
-    className: "absolute bottom-2 right-2 grid place-items-center w-7 h-7 rounded-lg bg-[var(--well)] backdrop-blur border border-[var(--hairline)] pointer-events-none"
+    className: "absolute bottom-2 right-2 grid place-items-center w-7 h-7 rounded-lg bg-[var(--well)] backdrop-blur border border-[var(--hairline)]"
   }, /*#__PURE__*/React.createElement(L, {
     name: iconByKind[kind],
     size: 12,
@@ -5769,9 +5778,11 @@ function InhabitantCard({
   }), " ", item.added), /*#__PURE__*/React.createElement(Button, {
     size: "sm",
     variant: "ghost",
-    icon: "Camera",
-    onClick: () => onDiagnose(item)
-  }, T("Diagnosticar", "Diagnose")))));
+    icon: "Sparkles",
+    onClick: () => window.dispatchEvent(new CustomEvent("aquabot:ask", {
+      detail: T(`¿Cómo está mi ${item.name}?`, `How is my ${item.name} doing?`)
+    }))
+  }, T("Preguntar IA", "Ask AI")))));
 }
 function DiagnoseModal({
   inhabitant,
@@ -5895,7 +5906,6 @@ function InhabitantsPage() {
   const {
     INHABITANTS
   } = window.AQUA;
-  const [diag, setDiag] = useState(null);
   const [tab, setTab] = useState("all");
   const tabs = [{
     id: "all",
@@ -5925,7 +5935,10 @@ function InhabitantsPage() {
   }, T("El equipo del 20G High Reef", "The 20G High Reef crew"))), /*#__PURE__*/React.createElement(Button, {
     variant: "primary",
     icon: "Plus",
-    onClick: demoAction
+    onClick: () => window.toast?.(T("Usa Aqua Buddy para agregar habitantes — escribe «agrega un pez royal gramma»", "Use Aqua Buddy to add livestock — type 'add a fish royal gramma'"), {
+      icon: "Sparkles",
+      tone: "info"
+    })
   }, T("Agregar habitante", "Add inhabitant"))), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-1 p-1 bg-[var(--surface)] border border-[var(--hairline)] rounded-xl w-fit"
   }, tabs.map(t => /*#__PURE__*/React.createElement("button", {
@@ -5942,8 +5955,7 @@ function InhabitantsPage() {
   }, INHABITANTS.fish.map(f => /*#__PURE__*/React.createElement(InhabitantCard, {
     key: f.id,
     item: f,
-    kind: "fish",
-    onDiagnose: setDiag
+    kind: "fish"
   })))), (tab === "all" || tab === "corals") && /*#__PURE__*/React.createElement("div", {
     className: "mt-5"
   }, /*#__PURE__*/React.createElement(SectionHeader, {
@@ -5954,8 +5966,7 @@ function InhabitantsPage() {
   }, INHABITANTS.corals.map(c => /*#__PURE__*/React.createElement(InhabitantCard, {
     key: c.id,
     item: c,
-    kind: "coral",
-    onDiagnose: setDiag
+    kind: "coral"
   })))), (tab === "all" || tab === "cuc") && /*#__PURE__*/React.createElement("div", {
     className: "mt-5"
   }, /*#__PURE__*/React.createElement(SectionHeader, {
@@ -5966,12 +5977,8 @@ function InhabitantsPage() {
   }, INHABITANTS.cuc.map(c => /*#__PURE__*/React.createElement(InhabitantCard, {
     key: c.id,
     item: c,
-    kind: "cuc",
-    onDiagnose: setDiag
-  })))), diag && /*#__PURE__*/React.createElement(DiagnoseModal, {
-    inhabitant: diag,
-    onClose: () => setDiag(null)
-  }));
+    kind: "cuc"
+  })))));
 }
 
 // ---------------------------- LIGHTING PAGE ----------------------------
@@ -5996,11 +6003,17 @@ function LightingPage() {
   }, /*#__PURE__*/React.createElement(Button, {
     variant: "secondary",
     icon: "Power",
-    onClick: demoAction
+    onClick: () => window.toast?.(T("Modo noche activado — intensidad reducida al 5%", "Night mode active — intensity reduced to 5%"), {
+      icon: "Moon",
+      tone: "info"
+    })
   }, T("Modo noche", "Night mode")), /*#__PURE__*/React.createElement(Button, {
     variant: "primary",
     icon: "Sliders",
-    onClick: demoAction
+    onClick: () => window.toast?.(T("Ajustes finos de iluminación — próximamente", "Fine lighting controls — coming soon"), {
+      icon: "Sliders",
+      tone: "info"
+    })
   }, T("Ajustes finos", "Fine tuning")))), /*#__PURE__*/React.createElement(Card, {
     className: "p-4"
   }, /*#__PURE__*/React.createElement("div", {
@@ -6124,7 +6137,10 @@ function LightingPage() {
       size: "sm",
       variant: "ghost",
       icon: "Edit3",
-      onClick: demoAction
+      onClick: () => window.toast?.(T("Editor de curva de luz — próximamente", "Light curve editor — coming soon"), {
+        icon: "SunMedium",
+        tone: "info"
+      })
     }, T("Editar", "Edit"))
   }), /*#__PURE__*/React.createElement("div", {
     className: "relative h-28"
@@ -6252,7 +6268,10 @@ function RoutinesPage({
   }, T("Tu calendario de cuidados", "Your care calendar"))), /*#__PURE__*/React.createElement(Button, {
     variant: "primary",
     icon: "Plus",
-    onClick: demoAction
+    onClick: () => window.toast?.(T("Escribe «agrega rutina [nombre] semanal» en Aqua Buddy para crear una rutina", "Type 'add routine [name] weekly' in Aqua Buddy to create a routine"), {
+      icon: "Sparkles",
+      tone: "info"
+    })
   }, T("Nueva rutina", "New routine"))), /*#__PURE__*/React.createElement("div", {
     className: "grid lg:grid-cols-3 gap-4"
   }, /*#__PURE__*/React.createElement(Card, {
@@ -6358,19 +6377,37 @@ function AquaBotPage() {
   const params = CURRENT_PARAMETERS;
   const contextRows = [["pH", `${params.ph?.value} (${params.ph?.status})`], ["KH", `${params.kh?.value} dKH (${params.kh?.status})`], ["PO₄", `${params.phosphate?.value} ppm (${params.phosphate?.status})`], ["Ca", `${params.calcium?.value} mg/L`], ["Mg", `${params.magnesium?.value} mg/L`], ["Temp", `${params.temperature?.value}°F`], [T("Volumen real", "Real volume"), `${TANK_CONFIG.realVolume} gal`]];
   return /*#__PURE__*/React.createElement("div", {
-    className: "px-4 lg:px-6 py-5 lg:py-6"
+    className: "px-4 lg:px-6 py-5 lg:py-6 flex flex-col gap-4",
+    style: {
+      minHeight: 0
+    }
   }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-end justify-between flex-wrap gap-3 mb-4"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    className: "text-[10px] uppercase tracking-[0.12em] text-[var(--ink-3)] mb-1"
-  }, T("Aqua Buddy · IA experta en reefing", "Aqua Buddy · reef & aquarium AI")), /*#__PURE__*/React.createElement("h1", {
-    className: "text-[20px] lg:text-[22px] font-medium text-[var(--ink)] tracking-tight"
-  }, T("Conversación con Aqua Buddy", "Chat with Aqua Buddy")), /*#__PURE__*/React.createElement("p", {
-    className: "text-[12.5px] text-[var(--ink-2)] mt-1"
-  }, T("Contexto completo de tu tanque cargado · OpenAI + Reef2Reef · modo personalizado y general", "Full tank context loaded · OpenAI + Reef2Reef · personalized and general mode")))), /*#__PURE__*/React.createElement("div", {
-    className: "grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4"
+    className: "flex items-center gap-3"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "h-[680px] min-w-0"
+    className: "grid place-items-center w-10 h-10 rounded-xl shrink-0",
+    style: {
+      background: "var(--accent-soft)",
+      border: "1px solid var(--accent-border)"
+    }
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "Sparkles",
+    size: 18,
+    style: {
+      color: "var(--accent)"
+    }
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "text-[10px] uppercase tracking-[0.12em] text-[var(--ink-3)] mb-0.5"
+  }, T("Asistente IA · Reef & Acuario", "AI Assistant · Reef & Aquarium")), /*#__PURE__*/React.createElement("h1", {
+    className: "text-[20px] lg:text-[22px] font-semibold text-[var(--ink)] tracking-tight"
+  }, T("Aqua Buddy", "Aqua Buddy"))), /*#__PURE__*/React.createElement("div", {
+    className: "ml-auto hidden md:flex items-center gap-1.5 text-[11px] text-[var(--ink-2)]"
+  }, /*#__PURE__*/React.createElement(PulsingDot, {
+    color: "#0E9F6E",
+    size: 6
+  }), T("Contexto de tu tanque cargado", "Your tank context loaded"))), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4 flex-1 min-h-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "min-h-[500px] lg:min-h-0 min-w-0"
   }, /*#__PURE__*/React.createElement(AquaBotWidget, {
     fullPage: true
   })), /*#__PURE__*/React.createElement("div", {
@@ -7078,6 +7115,27 @@ function SettingsPage({
   });
   const [twoFA, setTwoFA] = React.useState(true);
   const [icsDone, setIcsDone] = React.useState("");
+
+  // Inline display-name editor
+  const [editingName, setEditingName] = React.useState(false);
+  const [editName, setEditName] = React.useState(() => localStorage.getItem("aqua:display_name") || session?.name || "");
+  const saveDisplayName = () => {
+    const trimmed = editName.trim();
+    if (trimmed) {
+      localStorage.setItem("aqua:display_name", trimmed);
+      window.AQUA.TANK_CONFIG.owner = trimmed;
+    }
+    setEditingName(false);
+    window.toast?.(T("Nombre actualizado", "Name updated"), {
+      icon: "UserRound"
+    });
+  };
+
+  // Delete account confirmation
+  const [confirmDelete, setConfirmDelete] = React.useState(false);
+  const doDeleteAccount = () => {
+    window.AquaStore?.reset();
+  };
   const askPermission = async () => {
     if (typeof Notification === "undefined") return;
     const p = await Notification.requestPermission();
@@ -7263,21 +7321,41 @@ function SettingsPage({
     style: {
       background: session?.color
     }
-  }, session?.name?.[0] || "?"), /*#__PURE__*/React.createElement("div", {
+  }, (localStorage.getItem("aqua:display_name") || session?.name || "?")[0]), /*#__PURE__*/React.createElement("div", {
     className: "flex-1 min-w-0"
-  }, /*#__PURE__*/React.createElement("div", {
+  }, editingName ? /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement("input", {
+    autoFocus: true,
+    value: editName,
+    onChange: e => setEditName(e.target.value),
+    onKeyDown: e => {
+      if (e.key === "Enter") saveDisplayName();
+      if (e.key === "Escape") setEditingName(false);
+    },
+    className: "flex-1 bg-[var(--well)] border border-[var(--accent-border)] rounded-lg px-2.5 py-1.5 text-[13px] text-[var(--ink)] outline-none focus:ring-1 focus:ring-[var(--accent-border)]"
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: saveDisplayName,
+    className: "text-[var(--accent)] hover:opacity-80 text-[12px] font-semibold"
+  }, T("Guardar", "Save")), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setEditingName(false),
+    className: "text-[var(--ink-3)] hover:text-[var(--ink-2)] text-[12px]"
+  }, T("Cancelar", "Cancel"))) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     className: "text-[16px] font-semibold text-[var(--ink)]"
-  }, session?.name), /*#__PURE__*/React.createElement("div", {
+  }, localStorage.getItem("aqua:display_name") || session?.name), /*#__PURE__*/React.createElement("div", {
     className: "text-[12px] text-[var(--ink-2)] truncate"
-  }, session?.email || T("Modo demo · sin cuenta", "Demo mode · no account")), session?.provider === "google" && /*#__PURE__*/React.createElement("span", {
+  }, session?.email || T("Modo demo · sin cuenta", "Demo mode · no account"))), session?.provider === "google" && /*#__PURE__*/React.createElement("span", {
     className: "inline-flex items-center gap-1.5 mt-1.5 text-[10.5px] text-[var(--ink-2)] glass-strong rounded-full px-2 py-0.5"
   }, /*#__PURE__*/React.createElement(GoogleG, {
     size: 11
-  }), " ", T("Conectado con Google", "Connected with Google"))), /*#__PURE__*/React.createElement(Button, {
+  }), " ", T("Conectado con Google", "Connected with Google"))), !editingName && /*#__PURE__*/React.createElement(Button, {
     variant: "secondary",
     size: "sm",
     icon: "Pencil",
-    onClick: demoAction
+    onClick: () => {
+      setEditName(localStorage.getItem("aqua:display_name") || session?.name || "");
+      setEditingName(true);
+    }
   }, T("Editar", "Edit"))), /*#__PURE__*/React.createElement(SettingRow, {
     icon: "ShieldCheck",
     title: T("Verificación en dos pasos", "Two-step verification"),
@@ -7292,7 +7370,10 @@ function SettingsPage({
   }, /*#__PURE__*/React.createElement(Button, {
     variant: "secondary",
     size: "sm",
-    onClick: demoAction
+    onClick: () => window.toast?.(T("Próximamente en tu dispositivo", "Coming soon on your device"), {
+      icon: "KeyRound",
+      tone: "info"
+    })
   }, T("Añadir", "Add"))), /*#__PURE__*/React.createElement(SettingRow, {
     icon: "MonitorSmartphone",
     title: T("Sesiones activas", "Active sessions"),
@@ -7300,7 +7381,10 @@ function SettingsPage({
   }, /*#__PURE__*/React.createElement(Button, {
     variant: "ghost",
     size: "sm",
-    onClick: demoAction
+    onClick: () => window.toast?.(T("Sesión activa en este dispositivo", "Active session on this device"), {
+      icon: "MonitorSmartphone",
+      tone: "info"
+    })
   }, T("Gestionar", "Manage"))), /*#__PURE__*/React.createElement(SettingRow, {
     icon: "Download",
     title: T("Exportar mis datos", "Export my data"),
@@ -7326,10 +7410,22 @@ function SettingsPage({
     title: T("Eliminar cuenta", "Delete account"),
     sub: T("Borra tu cuenta y todos los datos del tanque. Irreversible.", "Deletes your account and all tank data. Irreversible."),
     danger: true
-  }, /*#__PURE__*/React.createElement(Button, {
+  }, confirmDelete ? /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-[11.5px] text-[#DC4458]"
+  }, T("¿Seguro?", "Sure?")), /*#__PURE__*/React.createElement(Button, {
     variant: "danger",
     size: "sm",
-    onClick: demoAction
+    onClick: doDeleteAccount
+  }, T("Sí, eliminar", "Yes, delete")), /*#__PURE__*/React.createElement(Button, {
+    variant: "ghost",
+    size: "sm",
+    onClick: () => setConfirmDelete(false)
+  }, T("No", "No"))) : /*#__PURE__*/React.createElement(Button, {
+    variant: "danger",
+    size: "sm",
+    onClick: () => setConfirmDelete(true)
   }, T("Eliminar", "Delete"))))), tab === "preferences" && /*#__PURE__*/React.createElement(Card, {
     className: "overflow-hidden"
   }, /*#__PURE__*/React.createElement(SettingRow, {
