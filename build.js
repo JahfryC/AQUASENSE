@@ -23,6 +23,7 @@ const SOURCE_FILES = [
   { file: "dashboard.jsx",      comment: "/* dashboard.jsx (precompiled) */",   type: "jsx" },
   { file: "pages.jsx",          comment: "/* pages.jsx (precompiled) */",       type: "jsx" },
   { file: "settings.jsx",       comment: "/* settings.jsx (precompiled) */",    type: "jsx" },
+  { file: "onboarding.jsx",     comment: "/* onboarding.jsx (precompiled) */",  type: "jsx" },
   { file: "app.jsx",            comment: "/* app.jsx (precompiled) */",         type: "jsx" },
 ];
 

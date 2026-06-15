@@ -83,7 +83,10 @@ function LoginScreen({ onSignIn }) {
       await window.CLOUD.signInGoogle();
       // Page redirects; session restored on return
     } catch (e) {
-      setError(T("No se pudo conectar con Google. Revisa Supabase Auth → Providers.", "Could not connect with Google. Check Supabase Auth → Providers."));
+      setError(T(
+        "Para login con Google, activa Google Provider en tu panel de Supabase → Authentication → Providers.",
+        "Para login con Google, activa Google Provider en tu panel de Supabase → Authentication → Providers."
+      ));
       setLoading(false);
     }
   };
@@ -220,11 +223,16 @@ function LoginScreen({ onSignIn }) {
           <button
             onClick={googleSignIn}
             disabled={loading || !cloudReady}
-            className="w-full glass-strong rounded-full px-4 py-2.5 flex items-center justify-center gap-3 text-[13px] font-medium text-[var(--ink)] hover:brightness-105 transition-all disabled:opacity-40 mb-3"
+            className="w-full glass-strong rounded-full px-4 py-2.5 flex flex-col items-center justify-center gap-0.5 text-[13px] font-medium text-[var(--ink)] hover:brightness-105 transition-all disabled:opacity-40 mb-1"
           >
-            <GoogleG size={16} />
-            {T("Continuar con Google", "Continue with Google")}
+            <div className="flex items-center gap-3">
+              <GoogleG size={16} />
+              {T("Continuar con Google", "Continue with Google")}
+            </div>
           </button>
+          <div className="text-center text-[10.5px] text-[var(--ink-3)] mb-3">
+            {T("(Requiere configuración adicional en Supabase)", "(Requiere configuración adicional en Supabase)")}
+          </div>
 
           <div className="text-center">
             <button onClick={demoMode} className="text-[12px] text-[var(--ink-3)] hover:text-[var(--ink-2)] transition-colors">

@@ -78,6 +78,19 @@ function App() {
     if (nowDone) window.toast?.(T("Rutina completada", "Routine completed"));
   };
 
+  // ---- onboarding check ----
+  const [onboarded, setOnboarded] = React.useState(() => !!localStorage.getItem("aqua:onboarded"));
+
+  // Show onboarding if not done yet (even before login)
+  if (!onboarded) {
+    return (
+      <div key={t.lang}>
+        <OnboardingFlow onDone={() => setOnboarded(true)} />
+        <ToastHost />
+      </div>
+    );
+  }
+
   const navigate = (id) => {
     setActivePage(id);
     window.scrollTo({ top: 0, behavior: "smooth" });

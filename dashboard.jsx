@@ -724,11 +724,14 @@ function LivestockRow({ item, kind, onNavigate }) {
   const [a, b] = KIND_AVATAR_COLOR[kind] || KIND_AVATAR_COLOR.fish;
   return (
     <button onClick={() => onNavigate("inhabitants")} className="w-full flex items-center gap-2.5 p-1.5 rounded-2xl hover:bg-[var(--hover)] transition-colors text-left">
-      <div
-        className="grid place-items-center rounded-xl shrink-0 text-white text-[13px] font-semibold"
-        style={{ width: 40, height: 40, background: `linear-gradient(135deg, ${a}, ${b})` }}
-      >
-        {item.name.charAt(0).toUpperCase()}
+      {/* 40×40 avatar with PhotoSlot overlay */}
+      <div style={{ width: 40, height: 40, position: "relative", borderRadius: 12, overflow: "hidden", flexShrink: 0 }}>
+        {/* Fallback gradient avatar */}
+        <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", background: `linear-gradient(135deg, ${a}, ${b})` }}>
+          <span style={{ color: "white", fontSize: 13, fontWeight: 700 }}>{item.name.charAt(0).toUpperCase()}</span>
+        </div>
+        {/* PhotoSlot overlays the avatar — shows upload UI on hover */}
+        <PhotoSlot id={`photo-${item.id}`} radius={12} style={{ position: "absolute", inset: 0 }} />
       </div>
       <div className="flex-1 min-w-0">
         <div className="text-[12.5px] font-medium text-[var(--ink)] truncate">{item.name}</div>

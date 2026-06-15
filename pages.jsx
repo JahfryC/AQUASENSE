@@ -293,7 +293,7 @@ function InhabitantCard({ item, kind }) {
 
   return (
     <Card hover className="overflow-hidden">
-      {/* Avatar circle instead of photo slot */}
+      {/* Photo slot with gradient avatar fallback */}
       <div
         className="relative h-28 flex items-center justify-center"
         style={{
@@ -301,11 +301,14 @@ function InhabitantCard({ item, kind }) {
           borderBottom: "1px solid var(--hairline)",
         }}
       >
-        <div
-          className="grid place-items-center w-16 h-16 rounded-2xl text-white text-[24px] font-bold shadow-md"
-          style={{ background: `linear-gradient(135deg, ${a}, ${b})` }}
-        >
-          {item.name.charAt(0).toUpperCase()}
+        {/* Centered photo slot with avatar fallback */}
+        <div style={{ width: 64, height: 64, position: "relative", borderRadius: 16, overflow: "hidden", flexShrink: 0 }}>
+          {/* Fallback avatar shown when no photo */}
+          <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", background: `linear-gradient(135deg, ${a}, ${b})` }}>
+            <span style={{ color: "white", fontSize: 24, fontWeight: 700 }}>{item.name[0]}</span>
+          </div>
+          {/* PhotoSlot overlays the avatar — shows upload UI on hover */}
+          <PhotoSlot id={`photo-${item.id}`} radius={16} style={{ position: "absolute", inset: 0 }} />
         </div>
         <div className="absolute top-2 left-2">
           <StatusPill status={item.status} />
