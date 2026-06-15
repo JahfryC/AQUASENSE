@@ -146,9 +146,8 @@ function applyAquaCommand(raw) {
   return null; // no es una orden → responde como chat
 }
 
-// ---- AI plumbing — Claude (Anthropic) primary + Gemini fallback + local ----
-// Set your API key in Settings → Cuenta → Aqua Buddy — saved to localStorage.
-// Fallback local knowledge when no API key is configured.
+// ---- AI plumbing — Google Gemini 2.0 Flash (gratis) + local fallback ----
+// Agrega tu key en Ajustes → Cuenta → Aqua Buddy. Se guarda en localStorage.
 function localAquaBuddy(q) {
   const m = q.toLowerCase();
   if (/\bkh\b|buffer|alcalin|alkalin|dkh/.test(m)) return T(
@@ -362,42 +361,7 @@ function executeAquaTool(name, args) {
   }
 }
 
-// Call Claude (Anthropic) — works with AQ.xxx keys
-async function callClaude(messages, system, tools = null) {
-  const apiKey = window.AQUAMIND_AI_KEY || localStorage.getItem("aqua:ai_key");
-  if (!apiKey) return null;
-  try {
-    const body = {
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 500,
-      system,
-      messages,
-    };
-    if (tools) {
-      body.tools = tools.map((t) => ({
-        name: t.function.name,
-        description: t.function.description,
-        input_schema: t.function.parameters,
-      }));
-    }
-    const resp = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "anthropic-dangerous-direct-browser-access": "true",
-      },
-      body: JSON.stringify(body),
-    });
-    if (!resp.ok) return null;
-    return await resp.json();
-  } catch {
-    return null;
-  }
-}
-
-// Call Google Gemini 2.0 Flash via OpenAI-compatible endpoint
+// Call Google Gemini 2.0 Flash via OpenAI-compatible endpoint (gratis)
 async function callGemini(messages, system, tools = null) {
   const apiKey = window.AQUAMIND_AI_KEY || localStorage.getItem("aqua:ai_key");
   if (!apiKey) return null;
@@ -438,31 +402,7 @@ async function callAquaBuddy(userMessage, mode = "personalized", history = []) {
     { role: "user", content: userMessage },
   ];
 
-  // --- Claude (Anthropic) — primary provider ---
-  const claudeData = await callClaude(messages, system, AQUA_TOOLS);
-  if (claudeData) {
-    const toolUseBlocks = (claudeData.content || []).filter((b) => b.type === "tool_use");
-    if (toolUseBlocks.length > 0) {
-      const toolResults = toolUseBlocks.map((b) => ({
-        type: "tool_result",
-        tool_use_id: b.id,
-        content: executeAquaTool(b.name, b.input || {}),
-      }));
-      const followMsgs = [
-        ...messages,
-        { role: "assistant", content: claudeData.content },
-        { role: "user", content: toolResults },
-      ];
-      const follow = await callClaude(followMsgs, system);
-      const followText = (follow?.content || []).find((b) => b.type === "text")?.text?.trim();
-      if (followText) return followText;
-      return toolResults.map((r) => r.content).join("\n");
-    }
-    const text = (claudeData.content || []).find((b) => b.type === "text")?.text?.trim();
-    if (text) return text;
-  }
-
-  // --- Gemini fallback ---
+  // --- Google Gemini ---
   const geminiData = await callGemini(messages, system, AQUA_TOOLS);
   if (geminiData) {
     const choice = geminiData.choices?.[0];
@@ -482,7 +422,7 @@ async function callAquaBuddy(userMessage, mode = "personalized", history = []) {
     if (text) return text;
   }
 
-  // --- Local knowledge base ---
+  // --- Local knowledge base (sin key) ---
   await new Promise((r) => setTimeout(r, 800));
   return localAquaBuddy(userMessage);
 }
@@ -1277,5 +1217,5 @@ Object.assign(window, {
   Dashboard, AlertCard, AquaBotWidget, RoutinesTimeline, RoutineItem,
   ReefStatusHero, WaterParamsCard, LightingScheduleCard, LivestockInventory, GalleryStrip,
   TankVitalsStrip, PARAM_ICON, callAquaBot, callAquaBuddy, localAquaBuddy, localAquaBot, alertCTAAction, applyAquaCommand,
-  AQUA_TOOLS, executeAquaTool, callGemini,
+  AQUA_TOOLS, executeAquaTool, callGemini, buildAquaBuddyPrompt,
 });
