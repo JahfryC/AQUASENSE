@@ -24,6 +24,7 @@ function LoginScreen({ onSignIn }) {
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [showPw, setShowPw] = React.useState(false);
+  const [remember, setRemember] = React.useState(() => localStorage.getItem("aqua:remember") !== "false");
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
   const [info, setInfo] = React.useState("");
@@ -39,11 +40,15 @@ function LoginScreen({ onSignIn }) {
     clearMessages();
     setLoading(true);
 
+    // Persist remember preference
+    if (remember) localStorage.removeItem("aqua:remember");
+    else localStorage.setItem("aqua:remember", "false");
+
     if (!cloudReady) {
       // No Supabase configured — sign in as demo with the typed email
       await new Promise((r) => setTimeout(r, 700));
       const name = email.split("@")[0];
-      onSignIn({ name, email, color: "linear-gradient(150deg, #0E8C86, #5B5BD6)", provider: "email-demo", since: new Date().toISOString().slice(0, 10) });
+      onSignIn({ name, email, color: "linear-gradient(150deg, #0E8C86, #5B5BD6)", provider: "email-demo", remember, since: new Date().toISOString().slice(0, 10) });
       setLoading(false);
       return;
     }
@@ -181,7 +186,17 @@ function LoginScreen({ onSignIn }) {
             )}
 
             {mode === "signin" && (
-              <div className="text-right">
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <div
+                    onClick={() => setRemember((r) => !r)}
+                    className="relative w-8 h-4.5 rounded-full transition-all cursor-pointer"
+                    style={{ height: 18, width: 32, background: remember ? "linear-gradient(160deg, var(--accent), var(--accent-strong))" : "var(--well)", border: `1px solid ${remember ? "transparent" : "var(--hairline-strong)"}` }}
+                  >
+                    <span className="absolute top-1/2 -translate-y-1/2 rounded-full bg-white shadow transition-all" style={{ width: 14, height: 14, left: remember ? 15 : 1 }} />
+                  </div>
+                  <span className="text-[11.5px] text-[var(--ink-2)]">{T("Recordar dispositivo", "Remember device")}</span>
+                </label>
                 <button type="button" onClick={() => { setMode("reset"); clearMessages(); }} className="text-[11px] text-[var(--ink-3)] hover:text-[var(--accent)] transition-colors">
                   {T("Olvide mi contrasena", "Forgot password?")}
                 </button>
@@ -594,64 +609,31 @@ function SettingsPage({ session, onSignOut, tweaks, setTweak }) {
                 </div>
                 <p className="text-[11.5px] text-[var(--ink-2)] mt-1 leading-relaxed">
                   {window.CLOUD?.user
-                    ? T("Lecturas, fotos, rutinas y alertas se guardan en Firestore con tu cuenta de Google. Abre la app en otro dispositivo e inicia sesión para ver lo mismo.",
-                        "Readings, photos, routines and alerts are stored in Firestore under your Google account. Open the app on another device and sign in to see the same data.")
-                    : window.CLOUD?.isConfigured
-                      ? T("Firebase está configurado. Inicia sesión con Google para activar la sincronización entre dispositivos.",
-                          "Firebase is configured. Sign in with Google to enable cross-device sync.")
-                      : T("Todo (lecturas, fotos, rutinas, alertas) se guarda automáticamente en este navegador y sobrevive al cerrar la app. Para sincronizar entre dispositivos con tu Google real, conecta Firebase — gratis, ~5 min: las instrucciones están al inicio del archivo cloud.js.",
-                          "Everything (readings, photos, routines, alerts) saves automatically in this browser and survives closing the app. To sync across devices with your real Google account, connect Firebase — free, ~5 min: instructions are at the top of cloud.js.")}
+                    ? T("Lecturas, fotos, rutinas y alertas se sincronizan en la nube con tu cuenta. Abre la app en otro dispositivo e inicia sesión para ver lo mismo.",
+                        "Readings, photos, routines and alerts sync to the cloud with your account. Open the app on another device and sign in to see the same data.")
+                    : T("Todo se guarda automáticamente en este navegador. Inicia sesión para activar la sincronización entre dispositivos con Supabase.",
+                        "Everything saves automatically in this browser. Sign in to enable cross-device sync with Supabase.")}
                 </p>
-                {!window.CLOUD?.isConfigured && (
-                  <ol className="mt-2.5 space-y-1">
-                    {[
-                      T("console.firebase.google.com → Agregar proyecto (gratis)", "console.firebase.google.com → Add project (free)"),
-                      T("Activa Authentication → Google y crea Firestore", "Enable Authentication → Google and create Firestore"),
-                      T("Pega tu firebaseConfig en cloud.js y vuelve a publicar", "Paste your firebaseConfig into cloud.js and re-publish"),
-                    ].map((step, i) => (
-                      <li key={i} className="flex items-center gap-2 text-[11px] text-[var(--ink-2)]">
-                        <span className="grid place-items-center rounded-full text-[9px] font-semibold shrink-0" style={{ width: 17, height: 17, background: "var(--well)", border: "1px solid var(--hairline)" }}>{i + 1}</span>
-                        {step}
-                      </li>
-                    ))}
-                  </ol>
-                )}
               </div>
             </div>
           </Card>
 
-          {/* Aqua Buddy — Google Gemini */}
+          {/* Aqua Buddy — AI status */}
           <Card className="overflow-hidden">
-            <div className="flex items-center gap-3 px-5 py-4 border-b border-[var(--hairline)]">
+            <div className="flex items-center gap-3 px-5 py-4">
               <div className="grid place-items-center w-9 h-9 rounded-xl shrink-0" style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)" }}>
                 <L name="Sparkles" size={16} style={{ color: "var(--accent)" }} />
               </div>
               <div className="flex-1">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <div className="text-[14px] font-semibold text-[var(--ink)]">Aqua Buddy · Google Gemini</div>
-                  <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-md font-semibold" style={{ background: "rgba(16,185,129,0.13)", color: "#0E9F6E", border: "1px solid rgba(16,185,129,0.3)" }}>GRATIS</span>
+                  <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-md font-semibold" style={{ background: "rgba(16,185,129,0.13)", color: "#0E9F6E", border: "1px solid rgba(16,185,129,0.3)" }}>ACTIVO</span>
                 </div>
-                <div className="text-[11px] text-[var(--ink-2)]">{T("AI con contexto de tu tanque + acciones directas en la app", "AI with your tank context + direct actions in the app")}</div>
+                <div className="text-[11.5px] text-[var(--ink-2)] mt-0.5">
+                  {T("IA activada con Gemini 2.0 Flash · contexto de tu tanque + acciones directas", "AI active with Gemini 2.0 Flash · your tank context + direct actions")}
+                </div>
               </div>
-            </div>
-            <div className="px-5 py-4 space-y-3">
-              <GeminiKeyRow />
-            </div>
-          </Card>
-
-          {/* Supabase cloud sync */}
-          <Card className="overflow-hidden">
-            <div className="flex items-center gap-3 px-5 py-4 border-b border-[var(--hairline)]">
-              <div className="grid place-items-center w-9 h-9 rounded-xl shrink-0" style={{ background: "rgba(16,185,129,0.13)", border: "1px solid rgba(16,185,129,0.3)" }}>
-                <L name="Database" size={16} style={{ color: "#0E9F6E" }} />
-              </div>
-              <div>
-                <div className="text-[14px] font-semibold text-[var(--ink)]">Supabase · Base de datos</div>
-                <div className="text-[11px] text-[var(--ink-2)]">{T("Sincroniza tu tanque entre dispositivos con login Google", "Sync your tank across devices with Google login")}</div>
-              </div>
-            </div>
-            <div className="px-5 py-4 space-y-3">
-              <SupabaseConfigRow />
+              <PulsingDot color="#0E9F6E" size={8} />
             </div>
           </Card>
 

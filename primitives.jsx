@@ -387,7 +387,6 @@ function PhotoSlot({ id, placeholder, radius = 18, className = "", style }) {
     const url = URL.createObjectURL(file);
     const img = new Image();
     img.onload = () => {
-      // comprime a máx 1000px JPEG para que quepan varias fotos en localStorage
       const scale = Math.min(1, 1000 / Math.max(img.width, img.height));
       const c = document.createElement("canvas");
       c.width = Math.round(img.width * scale);
@@ -408,35 +407,42 @@ function PhotoSlot({ id, placeholder, radius = 18, className = "", style }) {
       onDragLeave={() => setDrag(false)}
       onDrop={(e) => { e.preventDefault(); e.stopPropagation(); setDrag(false); accept(e.dataTransfer.files?.[0]); }}
     >
-      <button
-        type="button"
-        onClick={(e) => { e.stopPropagation(); fileRef.current?.click(); }}
-        aria-label={src ? T("Cambiar foto", "Change photo") : (placeholder || T("Subir foto", "Upload photo"))}
-        className="absolute inset-0 w-full h-full cursor-pointer"
-        style={src ? {} : {
-          background: "var(--well)",
-          border: `1.5px dashed ${drag ? "var(--accent)" : "var(--hairline-strong)"}`,
-          borderRadius: radius,
-        }}
-      >
-        {src ? (
+      {src ? (
+        <>
           <img src={src} alt="" className="absolute inset-0 w-full h-full object-cover" />
-        ) : (
-          <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-[var(--ink-3)] px-2">
-            <L name="ImagePlus" size={18} />
-            {placeholder && <span className="text-[10px] text-center leading-tight">{placeholder}</span>}
-          </span>
-        )}
-      </button>
-      {src && (
+          {/* Hover overlay: change or remove */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 opacity-0 group-hover/photo:opacity-100 transition-opacity" style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(2px)" }}>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); fileRef.current?.click(); }}
+              className="flex items-center gap-1 text-[10px] text-white font-medium px-2 py-1 rounded-full transition-colors hover:bg-white/20"
+              aria-label={T("Cambiar foto", "Change photo")}
+            >
+              <L name="Camera" size={11} />
+              {T("Cambiar", "Change")}
+            </button>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); window.AquaStore?.setPhoto(id, null); }}
+              className="flex items-center gap-1 text-[10px] text-white/70 px-2 py-0.5 hover:text-white transition-colors"
+              aria-label={T("Quitar foto", "Remove photo")}
+            >
+              <L name="X" size={10} />
+              {T("Quitar", "Remove")}
+            </button>
+          </div>
+        </>
+      ) : (
+        /* No photo: transparent so avatar shows through; upload hint appears on hover */
         <button
           type="button"
-          onClick={(e) => { e.stopPropagation(); window.AquaStore?.setPhoto(id, null); }}
-          aria-label={T("Quitar foto", "Remove photo")}
-          className="absolute top-1.5 right-1.5 z-10 grid place-items-center w-6 h-6 rounded-full text-white opacity-0 group-hover/photo:opacity-100 transition-opacity"
-          style={{ background: "rgba(8,22,34,0.55)", backdropFilter: "blur(6px)" }}
+          onClick={(e) => { e.stopPropagation(); fileRef.current?.click(); }}
+          aria-label={placeholder || T("Subir foto", "Upload photo")}
+          className="absolute inset-0 w-full h-full flex flex-col items-center justify-center gap-0.5 text-white opacity-0 group-hover/photo:opacity-100 transition-opacity cursor-pointer"
+          style={{ background: drag ? "rgba(13,148,136,0.55)" : "rgba(0,0,0,0.42)", backdropFilter: "blur(3px)", borderRadius: radius }}
         >
-          <L name="X" size={12} />
+          <L name="Camera" size={14} />
+          <span className="text-[9px] leading-tight text-center px-1">{placeholder || T("Foto", "Photo")}</span>
         </button>
       )}
       <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => { accept(e.target.files?.[0]); e.target.value = ""; }} />

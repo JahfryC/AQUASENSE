@@ -361,29 +361,51 @@ function executeAquaTool(name, args) {
   }
 }
 
-// Call Google Gemini 2.0 Flash via OpenAI-compatible endpoint (gratis)
+// Call Google Gemini 2.0 Flash — native REST API (supports AQ. key format)
 async function callGemini(messages, system, tools = null) {
   const apiKey = window.AQUAMIND_AI_KEY || localStorage.getItem("aqua:ai_key");
   if (!apiKey) return null;
   try {
+    // Convert to Gemini native content format
+    const contents = messages.map((m) => {
+      // Already Gemini-native (has parts array from a previous function-call round)
+      if (m.parts) return { role: m.role, parts: m.parts };
+      // Standard message → text part
+      const role = m.role === "assistant" ? "model" : "user";
+      return { role, parts: [{ text: typeof m.content === "string" ? m.content : JSON.stringify(m.content) }] };
+    });
+
     const body = {
-      model: "gemini-2.0-flash",
-      max_tokens: 500,
-      messages: [{ role: "system", content: system }, ...messages],
+      systemInstruction: { parts: [{ text: system }] },
+      contents,
+      generationConfig: { maxOutputTokens: 600 },
     };
-    if (tools) body.tools = tools;
+    if (tools && tools.length) {
+      body.tools = [{
+        functionDeclarations: tools.map((t) => ({
+          name: t.function.name,
+          description: t.function.description,
+          parameters: t.function.parameters,
+        })),
+      }];
+    }
 
     const resp = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
       {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+        headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
         body: JSON.stringify(body),
       }
     );
-    if (!resp.ok) return null;
+    if (!resp.ok) {
+      const err = await resp.text().catch(() => "");
+      console.warn("[AquaBuddy] Gemini", resp.status, err.slice(0, 300));
+      return null;
+    }
     return await resp.json();
-  } catch {
+  } catch (e) {
+    console.warn("[AquaBuddy] fetch error:", e);
     return null;
   }
 }
@@ -402,23 +424,36 @@ async function callAquaBuddy(userMessage, mode = "personalized", history = []) {
     { role: "user", content: userMessage },
   ];
 
-  // --- Google Gemini ---
+  // --- Google Gemini (native API) ---
   const geminiData = await callGemini(messages, system, AQUA_TOOLS);
   if (geminiData) {
-    const choice = geminiData.choices?.[0];
-    if (choice?.message?.tool_calls?.length > 0) {
-      const toolResults = [];
-      for (const tc of choice.message.tool_calls) {
-        let args = {};
-        try { args = JSON.parse(tc.function.arguments); } catch (_) {}
-        toolResults.push({ role: "tool", tool_call_id: tc.id, content: executeAquaTool(tc.function.name, args) });
-      }
-      const follow = await callGemini([...messages, choice.message, ...toolResults], system);
-      const followText = follow?.choices?.[0]?.message?.content?.trim();
+    const candidate = geminiData.candidates?.[0];
+    const parts = candidate?.content?.parts || [];
+
+    // Handle function calls
+    const funcParts = parts.filter((p) => p.functionCall);
+    if (funcParts.length > 0) {
+      const toolResultParts = funcParts.map((p) => ({
+        functionResponse: {
+          name: p.functionCall.name,
+          response: { result: executeAquaTool(p.functionCall.name, p.functionCall.args || {}) },
+        },
+      }));
+
+      // Follow-up: let Gemini narrate the completed actions
+      const followMessages = [
+        ...messages,
+        { role: "model", parts },
+        { role: "user", parts: toolResultParts },
+      ];
+      const follow = await callGemini(followMessages, system);
+      const followParts = follow?.candidates?.[0]?.content?.parts || [];
+      const followText = followParts.filter((p) => p.text).map((p) => p.text).join("").trim();
       if (followText) return followText;
-      return toolResults.map((r) => r.content).join("\n");
+      return toolResultParts.map((p) => p.functionResponse.response.result).join("\n");
     }
-    const text = choice?.message?.content?.trim();
+
+    const text = parts.filter((p) => p.text).map((p) => p.text).join("").trim();
     if (text) return text;
   }
 

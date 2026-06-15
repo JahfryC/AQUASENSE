@@ -430,9 +430,136 @@ function DiagnoseModal({ inhabitant, onClose }) {
   );
 }
 
+// ---------------------------- ADD INHABITANT MODAL ----------------------------
+function AddInhabitantModal({ onClose }) {
+  const [kind, setKind] = useState("fish");
+  const [name, setName] = useState("");
+  const [scientific, setScientific] = useState("");
+  const [note, setNote] = useState("");
+  const [saving, setSaving] = useState(false);
+  const nameRef = useRef(null);
+  useEscape(onClose);
+  useEffect(() => { nameRef.current?.focus(); }, []);
+
+  const save = () => {
+    const n = name.trim();
+    if (!n) { nameRef.current?.focus(); return; }
+    setSaving(true);
+    const item = {
+      id: "ui" + Date.now(),
+      name: n.charAt(0).toUpperCase() + n.slice(1),
+      scientific: scientific.trim(),
+      added: window.AQUA.MOCK_TODAY,
+      status: "ok",
+      note: note.trim() || T("Recién añadido — en observación", "Newly added — under observation"),
+    };
+    window.AquaStore.addInhabitant(kind, item);
+    window.toast?.(T(`${item.name} añadido`, `${item.name} added`), { icon: "Fish" });
+    onClose();
+  };
+
+  const kinds = [
+    { id: "fish",   label: T("Pez", "Fish"),   icon: "Fish" },
+    { id: "corals", label: T("Coral", "Coral"), icon: "Flower2" },
+    { id: "cuc",    label: "CUC",              icon: "Bug" },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center p-4 bg-[var(--scrim)] backdrop-blur" onClick={onClose}>
+      <Card
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label={T("Agregar habitante", "Add inhabitant")}
+        className="w-full max-w-md overflow-hidden glass-strong"
+      >
+        <div className="flex items-center justify-between p-4 border-b border-[var(--hairline)]">
+          <div className="flex items-center gap-2.5">
+            <div className="grid place-items-center w-8 h-8 rounded-xl" style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)" }}>
+              <L name="Fish" size={14} style={{ color: "var(--accent)" }} />
+            </div>
+            <div>
+              <div className="text-[13.5px] font-semibold text-[var(--ink)]">{T("Agregar habitante", "Add inhabitant")}</div>
+              <div className="text-[10.5px] text-[var(--ink-2)]">{T("Pez, coral o limpiador", "Fish, coral or clean-up crew")}</div>
+            </div>
+          </div>
+          <button onClick={onClose} aria-label={T("Cerrar", "Close")} className="p-1.5 rounded-full hover:bg-[var(--hover)] text-[var(--ink-2)]"><L name="X" size={14} /></button>
+        </div>
+
+        <div className="p-4 space-y-3">
+          {/* Category selector */}
+          <div>
+            <div className="text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1.5">{T("Categoría", "Category")}</div>
+            <div className="flex gap-2">
+              {kinds.map((k) => (
+                <button
+                  key={k.id}
+                  type="button"
+                  onClick={() => setKind(k.id)}
+                  className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-[12px] font-medium border transition-all ${kind === k.id ? "text-[var(--ink)]" : "text-[var(--ink-3)] border-[var(--hairline)] hover:border-[var(--hairline-strong)]"}`}
+                  style={kind === k.id ? { background: "var(--accent-soft)", border: "1px solid var(--accent-border)", color: "var(--accent)" } : {}}
+                >
+                  <L name={k.icon} size={13} />
+                  {k.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Name */}
+          <label className="block">
+            <div className="text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1.5">{T("Nombre común *", "Common name *")}</div>
+            <input
+              ref={nameRef}
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") save(); }}
+              placeholder={T("ej. Birdsnest, Pez payaso", "e.g. Birdsnest, Clownfish")}
+              className="w-full bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2 text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-border)] transition-colors"
+            />
+          </label>
+
+          {/* Scientific name */}
+          <label className="block">
+            <div className="text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1.5">{T("Nombre científico", "Scientific name")} <span className="normal-case text-[10px]">({T("opcional", "optional")})</span></div>
+            <input
+              type="text"
+              value={scientific}
+              onChange={(e) => setScientific(e.target.value)}
+              placeholder={T("ej. Seriatopora hystrix", "e.g. Amphiprion ocellaris")}
+              className="w-full bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2 text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-border)] transition-colors italic"
+            />
+          </label>
+
+          {/* Notes */}
+          <label className="block">
+            <div className="text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1.5">{T("Notas", "Notes")} <span className="normal-case text-[10px]">({T("opcional", "optional")})</span></div>
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder={T("Comportamiento, condición, procedencia…", "Behavior, condition, origin…")}
+              rows={2}
+              className="w-full bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2 text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-border)] transition-colors resize-none"
+            />
+          </label>
+        </div>
+
+        <div className="flex items-center justify-end gap-2 p-4 border-t border-[var(--hairline)]">
+          <Button variant="ghost" onClick={onClose}>{T("Cancelar", "Cancel")}</Button>
+          <Button variant="primary" icon={saving ? undefined : "Plus"} loading={saving} disabled={!name.trim()} onClick={save}>
+            {T("Agregar", "Add")}
+          </Button>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 function InhabitantsPage() {
   const { INHABITANTS } = window.AQUA;
   const [tab, setTab] = useState("all");
+  const [addOpen, setAddOpen] = useState(false);
 
   const tabs = [
     { id: "all",    label: T("Todos","All"),   count: INHABITANTS.fish.length + INHABITANTS.corals.length + INHABITANTS.cuc.length },
@@ -448,8 +575,9 @@ function InhabitantsPage() {
           <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--ink-3)] mb-1">Habitantes</div>
           <h1 className="text-[20px] lg:text-[22px] font-medium text-[var(--ink)] tracking-tight">{T("El equipo del 20G High Reef","The 20G High Reef crew")}</h1>
         </div>
-        <Button variant="primary" icon="Plus" onClick={() => window.toast?.(T("Usa Aqua Buddy para agregar habitantes — escribe «agrega un pez royal gramma»", "Use Aqua Buddy to add livestock — type 'add a fish royal gramma'"), { icon: "Sparkles", tone: "info" })}>{T("Agregar habitante","Add inhabitant")}</Button>
+        <Button variant="primary" icon="Plus" onClick={() => setAddOpen(true)}>{T("Agregar habitante","Add inhabitant")}</Button>
       </div>
+      {addOpen && <AddInhabitantModal onClose={() => setAddOpen(false)} />}
 
       <div className="flex items-center gap-1 p-1 bg-[var(--surface)] border border-[var(--hairline)] rounded-xl w-fit">
         {tabs.map((t) => (
