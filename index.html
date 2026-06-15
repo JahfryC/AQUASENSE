@@ -8466,6 +8466,30 @@ function App() {
 
   // ---- onboarding check ----
   const [onboarded, setOnboarded] = React.useState(() => !!localStorage.getItem("aqua:onboarded"));
+
+  // tweaksPanel must be defined before any early return that uses it
+  const tweaksPanel = /*#__PURE__*/React.createElement(TweaksPanel, null, /*#__PURE__*/React.createElement(TweakSection, {
+    label: T("Estilo de vidrio", "Glass style")
+  }), /*#__PURE__*/React.createElement(TweakRadio, {
+    label: T("Variante", "Variant"),
+    value: t.style,
+    options: ["frost", "aqua", "deep"],
+    onChange: v => setTweak("style", v)
+  }), /*#__PURE__*/React.createElement(TweakSection, {
+    label: T("Diseño", "Layout")
+  }), /*#__PURE__*/React.createElement(TweakRadio, {
+    label: T("Densidad", "Density"),
+    value: t.density,
+    options: ["compact", "comfortable"],
+    onChange: v => setTweak("density", v)
+  }), /*#__PURE__*/React.createElement(TweakSection, {
+    label: T("Idioma", "Language")
+  }), /*#__PURE__*/React.createElement(TweakRadio, {
+    label: "ES / EN",
+    value: t.lang,
+    options: ["es", "en"],
+    onChange: v => setTweak("lang", v)
+  }));
   if (!session) {
     return /*#__PURE__*/React.createElement("div", {
       key: t.lang
@@ -8535,28 +8559,6 @@ function App() {
         });
     }
   })();
-  const tweaksPanel = /*#__PURE__*/React.createElement(TweaksPanel, null, /*#__PURE__*/React.createElement(TweakSection, {
-    label: T("Estilo de vidrio", "Glass style")
-  }), /*#__PURE__*/React.createElement(TweakRadio, {
-    label: T("Variante", "Variant"),
-    value: t.style,
-    options: ["frost", "aqua", "deep"],
-    onChange: v => setTweak("style", v)
-  }), /*#__PURE__*/React.createElement(TweakSection, {
-    label: T("Diseño", "Layout")
-  }), /*#__PURE__*/React.createElement(TweakRadio, {
-    label: T("Densidad", "Density"),
-    value: t.density,
-    options: ["compact", "comfortable"],
-    onChange: v => setTweak("density", v)
-  }), /*#__PURE__*/React.createElement(TweakSection, {
-    label: T("Idioma", "Language")
-  }), /*#__PURE__*/React.createElement(TweakRadio, {
-    label: "ES / EN",
-    value: t.lang,
-    options: ["es", "en"],
-    onChange: v => setTweak("lang", v)
-  }));
   return /*#__PURE__*/React.createElement("div", {
     key: t.lang,
     className: "min-h-screen relative text-[var(--ink)]"

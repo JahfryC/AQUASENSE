@@ -94,6 +94,33 @@ function App() {
   // ---- onboarding check ----
   const [onboarded, setOnboarded] = React.useState(() => !!localStorage.getItem("aqua:onboarded"));
 
+  // tweaksPanel must be defined before any early return that uses it
+  const tweaksPanel = (
+    <TweaksPanel>
+      <TweakSection label={T("Estilo de vidrio", "Glass style")} />
+      <TweakRadio
+        label={T("Variante", "Variant")}
+        value={t.style}
+        options={["frost", "aqua", "deep"]}
+        onChange={(v) => setTweak("style", v)}
+      />
+      <TweakSection label={T("Diseño", "Layout")} />
+      <TweakRadio
+        label={T("Densidad", "Density")}
+        value={t.density}
+        options={["compact", "comfortable"]}
+        onChange={(v) => setTweak("density", v)}
+      />
+      <TweakSection label={T("Idioma", "Language")} />
+      <TweakRadio
+        label="ES / EN"
+        value={t.lang}
+        options={["es", "en"]}
+        onChange={(v) => setTweak("lang", v)}
+      />
+    </TweaksPanel>
+  );
+
   if (!session) {
     return (
       <div key={t.lang}>
@@ -131,32 +158,6 @@ function App() {
       default:            return <SettingsPage session={session} onSignOut={signOut} tweaks={t} setTweak={setTweak} />;
     }
   })();
-
-  const tweaksPanel = (
-    <TweaksPanel>
-      <TweakSection label={T("Estilo de vidrio", "Glass style")} />
-      <TweakRadio
-        label={T("Variante", "Variant")}
-        value={t.style}
-        options={["frost", "aqua", "deep"]}
-        onChange={(v) => setTweak("style", v)}
-      />
-      <TweakSection label={T("Diseño", "Layout")} />
-      <TweakRadio
-        label={T("Densidad", "Density")}
-        value={t.density}
-        options={["compact", "comfortable"]}
-        onChange={(v) => setTweak("density", v)}
-      />
-      <TweakSection label={T("Idioma", "Language")} />
-      <TweakRadio
-        label="ES / EN"
-        value={t.lang}
-        options={["es", "en"]}
-        onChange={(v) => setTweak("lang", v)}
-      />
-    </TweaksPanel>
-  );
 
   return (
     <div key={t.lang} className="min-h-screen relative text-[var(--ink)]">
