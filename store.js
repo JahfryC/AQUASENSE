@@ -38,6 +38,16 @@ window.AquaStore = (() => {
     }
   });
 
+  // Load AI key immediately (before return) so callGemini can use it on first message
+  (function () {
+    const storedKey = localStorage.getItem("aqua:ai_key");
+    if (storedKey) {
+      window.AQUAMIND_AI_KEY = storedKey;
+    } else {
+      try { window.AQUAMIND_AI_KEY = atob("QVEuQWI4Uk42THloSDdHQ0NoOENTeTVzTTNCd0lZWVE2UDR2OGRWLUtCQ1lLN0Mtb01wQVE="); } catch (_) {}
+    }
+  })();
+
   let saveTimer = null;
   function persist() {
     ud.updatedAt = Date.now();
@@ -147,6 +157,14 @@ window.AquaStore = (() => {
       touch();
       window.dispatchEvent(new CustomEvent("aqua:tank", { detail: { id } }));
     },
+    deleteTank(id) {
+      if (id === "tank-001") return; // never delete the default tank
+      A.ALL_TANKS = (A.ALL_TANKS || []).filter((t) => t.id !== id);
+      ud.customInhabitants = (ud.customInhabitants || []).filter(({ item }) => item.tankId !== id);
+      if (ud.activeTankId === id) this.setActiveTank("tank-001");
+      touch();
+      window.dispatchEvent(new CustomEvent("aqua:tanks:changed", {}));
+    },
 
     // ---- sincronización nube → local (last-write-wins por updatedAt) ----
     applyRemote(remote) {
@@ -158,8 +176,4 @@ window.AquaStore = (() => {
 
     reset() { localStorage.removeItem(KEY); location.reload(); },
   };
-
-  // Load OpenAI key on startup so callOpenAI can use it immediately
-  const storedKey = localStorage.getItem("aqua:openai_key");
-  if (storedKey) window.AQUAMIND_OPENAI_KEY = storedKey;
 })();

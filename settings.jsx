@@ -18,118 +18,248 @@ function GoogleG({ size = 18 }) {
   );
 }
 
-// ---------- Login screen ----------
+// ---------- Login screen — Supabase email/password ----------
 function LoginScreen({ onSignIn }) {
-  const [chooser, setChooser] = React.useState(false);
-  const [loading, setLoading] = React.useState(null);
-  const [googleLoading, setGoogleLoading] = React.useState(false);
-  useEscape(React.useCallback(() => setChooser(false), []));
+  const [mode, setMode] = React.useState("signin"); // "signin" | "signup" | "reset"
+  const [email, setEmail] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const [showPw, setShowPw] = React.useState(false);
+  const [remember, setRemember] = React.useState(() => localStorage.getItem("aqua:remember") !== "false");
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState("");
+  const [info, setInfo] = React.useState("");
 
-  const pick = (acc) => {
-    setLoading(acc.email);
-    setTimeout(() => {
-      onSignIn({ name: acc.name, email: acc.email, color: acc.color, provider: "google", since: new Date().toISOString().slice(0, 10) });
-    }, 900);
+  const cloudReady = window.CLOUD?.isConfigured;
+
+  const clearMessages = () => { setError(""); setInfo(""); };
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!email.trim()) { setError(T("Ingresa tu email.", "Enter your email.")); return; }
+    if (mode !== "reset" && password.length < 6) { setError(T("La contrasena debe tener al menos 6 caracteres.", "Password must be at least 6 characters.")); return; }
+    clearMessages();
+    setLoading(true);
+
+    // Persist remember preference
+    if (remember) localStorage.removeItem("aqua:remember");
+    else localStorage.setItem("aqua:remember", "false");
+
+    if (!cloudReady) {
+      // No Supabase configured — sign in as demo with the typed email
+      await new Promise((r) => setTimeout(r, 700));
+      const name = email.split("@")[0];
+      onSignIn({ name, email, color: "linear-gradient(150deg, #0E8C86, #5B5BD6)", provider: "email-demo", remember, since: new Date().toISOString().slice(0, 10) });
+      setLoading(false);
+      return;
+    }
+
+    try {
+      if (mode === "reset") {
+        await window.CLOUD.resetPassword(email.trim());
+        setInfo(T("Revisa tu email — te enviamos el enlace de recuperacion.", "Check your email — we sent the recovery link."));
+        setMode("signin");
+      } else if (mode === "signup") {
+        const u = await window.CLOUD.signUp(email.trim(), password);
+        if (u && !u.identities?.length) {
+          setInfo(T("Revisa tu email para confirmar tu cuenta.", "Check your email to confirm your account."));
+        } else if (u) {
+          // Auto-confirmed (email confirmation disabled in Supabase)
+          onSignIn({ name: u.email?.split("@")[0] || "User", email: u.email, uid: u.id, color: "linear-gradient(150deg, #0E8C86, #5B5BD6)", provider: "supabase", since: new Date().toISOString().slice(0, 10) });
+        }
+      } else {
+        await window.CLOUD.signInWithEmail(email.trim(), password);
+        // aqua:auth event fires from cloud.js and the App will react
+      }
+    } catch (err) {
+      const msg = err.message || "";
+      if (msg.includes("Invalid login")) setError(T("Email o contrasena incorrectos.", "Incorrect email or password."));
+      else if (msg.includes("Email not confirmed")) setError(T("Confirma tu email antes de iniciar sesion.", "Please confirm your email before signing in."));
+      else if (msg.includes("User already registered")) setError(T("Ya tienes cuenta. Inicia sesion.", "Account already exists. Sign in instead."));
+      else setError(msg || T("Algo salio mal. Intenta de nuevo.", "Something went wrong. Please try again."));
+    }
+    setLoading(false);
   };
 
-  // OAuth real cuando Firebase está configurado; selector simulado si no.
   const googleSignIn = async () => {
-    if (window.CLOUD?.isConfigured) {
-      setGoogleLoading(true);
-      try {
-        await window.CLOUD.signInGoogle(); // aqua:auth completa la sesión
-      } catch (e) {
-        window.toast?.(T("No se pudo iniciar sesión con Google. Revisa los dominios autorizados en Firebase.", "Google sign-in failed. Check Firebase authorized domains."), { tone: "warn", icon: "AlertTriangle" });
-      }
-      setGoogleLoading(false);
-    } else {
-      setChooser(true);
+    if (!cloudReady) return;
+    setLoading(true);
+    clearMessages();
+    try {
+      await window.CLOUD.signInGoogle();
+      // Page redirects; session restored on return
+    } catch (e) {
+      setError(T(
+        "Para login con Google, activa Google Provider en tu panel de Supabase → Authentication → Providers.",
+        "Para login con Google, activa Google Provider en tu panel de Supabase → Authentication → Providers."
+      ));
+      setLoading(false);
     }
+  };
+
+  const demoMode = () => onSignIn({
+    name: "Demo", email: null,
+    color: "linear-gradient(150deg, #7C90A3, #46607A)",
+    provider: "guest",
+    since: new Date().toISOString().slice(0, 10),
+  });
+
+  const titles = {
+    signin: T("Iniciar sesion", "Sign in"),
+    signup: T("Crear cuenta", "Create account"),
+    reset:  T("Recuperar contrasena", "Reset password"),
   };
 
   return (
     <div className="min-h-screen relative grid place-items-center p-4" data-screen-label="Login">
       <Atmosphere />
       <div className="relative z-10 w-full max-w-[400px]">
-        <Card className="p-7 text-center">
-          <div className="mx-auto w-fit mb-4"><Logo size={52} /></div>
-          <h1 className="text-[22px] font-semibold tracking-tight text-[var(--ink)]">AquaMind</h1>
-          <p className="text-[12.5px] text-[var(--ink-2)] mt-1 mb-6">
-            {T("Tu acuario, monitoreado con inteligencia. Inicia sesión para sincronizar tus tanques en todos tus dispositivos.",
-               "Your aquarium, intelligently managed. Sign in to sync your tanks across devices.")}
-          </p>
+        <Card className="p-7">
+          {/* Logo + brand */}
+          <div className="text-center mb-6">
+            <div className="mx-auto w-fit mb-3"><Logo size={48} /></div>
+            <h1 className="text-[22px] font-semibold tracking-tight text-[var(--ink)]">AquaMind</h1>
+            <p className="text-[12px] text-[var(--ink-2)] mt-1">
+              {T("Tu acuario, monitoreado con inteligencia.", "Your aquarium, intelligently monitored.")}
+            </p>
+          </div>
 
-          <button
-            onClick={googleSignIn}
-            disabled={googleLoading}
-            className="w-full glass-strong rounded-full px-4 py-3 flex items-center justify-center gap-3 text-[13.5px] font-medium text-[var(--ink)] hover:brightness-105 transition-all active:scale-[0.99] disabled:opacity-60"
-          >
-            {googleLoading ? <L name="Loader2" size={18} className="animate-spin" /> : <GoogleG />}
-            {T("Continuar con Google", "Continue with Google")}
-          </button>
-          {!window.CLOUD?.isConfigured && (
-            <p className="text-[10px] text-[var(--ink-3)] mt-2 leading-relaxed">
-              {T("Login real + nube disponibles al conectar Firebase (gratis) — instrucciones en Ajustes → Cuenta.",
-                 "Real login + cloud sync available by connecting Firebase (free) — see Settings → Account.")}
+          {/* Mode tabs */}
+          {mode !== "reset" && (
+            <div className="flex p-0.5 rounded-xl mb-5" style={{ background: "var(--well)", border: "1px solid var(--hairline)" }}>
+              {[["signin", T("Entrar", "Sign in")], ["signup", T("Registrarse", "Sign up")]].map(([id, label]) => (
+                <button
+                  key={id}
+                  onClick={() => { setMode(id); clearMessages(); }}
+                  className={`flex-1 py-1.5 rounded-[10px] text-[12.5px] font-medium transition-all ${mode === id ? "glass-strong text-[var(--ink)]" : "text-[var(--ink-3)] hover:text-[var(--ink-2)]"}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Error / info banners */}
+          {error && (
+            <div className="mb-3 rounded-xl px-3 py-2.5 text-[12px] text-red-700 dark:text-red-300 flex items-start gap-2" style={{ background: "rgba(220,68,88,0.1)", border: "1px solid rgba(220,68,88,0.25)" }}>
+              <L name="AlertCircle" size={14} className="shrink-0 mt-0.5" />
+              {error}
+            </div>
+          )}
+          {info && (
+            <div className="mb-3 rounded-xl px-3 py-2.5 text-[12px] flex items-start gap-2" style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)", color: "var(--accent)" }}>
+              <L name="Info" size={14} className="shrink-0 mt-0.5" />
+              {info}
+            </div>
+          )}
+
+          {/* Form */}
+          <form onSubmit={submit} className="space-y-3">
+            <div className="flex items-center gap-2 bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2.5 focus-within:ring-1 focus-within:ring-[var(--accent-border)]">
+              <L name="Mail" size={14} className="text-[var(--ink-3)] shrink-0" />
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => { setEmail(e.target.value); clearMessages(); }}
+                placeholder={T("tu@email.com", "you@email.com")}
+                autoComplete="email"
+                className="flex-1 bg-transparent border-0 outline-none text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)]"
+                required
+              />
+            </div>
+
+            {mode !== "reset" && (
+              <div className="flex items-center gap-2 bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2.5 focus-within:ring-1 focus-within:ring-[var(--accent-border)]">
+                <L name="Lock" size={14} className="text-[var(--ink-3)] shrink-0" />
+                <input
+                  type={showPw ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => { setPassword(e.target.value); clearMessages(); }}
+                  placeholder={mode === "signup" ? T("Minimo 6 caracteres", "Minimum 6 characters") : T("Contrasena", "Password")}
+                  autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                  className="flex-1 bg-transparent border-0 outline-none text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)]"
+                  required
+                />
+                <button type="button" onClick={() => setShowPw((s) => !s)} className="text-[var(--ink-3)] hover:text-[var(--ink-2)]">
+                  <L name={showPw ? "EyeOff" : "Eye"} size={14} />
+                </button>
+              </div>
+            )}
+
+            {mode === "signin" && (
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <div
+                    onClick={() => setRemember((r) => !r)}
+                    className="relative w-8 h-4.5 rounded-full transition-all cursor-pointer"
+                    style={{ height: 18, width: 32, background: remember ? "linear-gradient(160deg, var(--accent), var(--accent-strong))" : "var(--well)", border: `1px solid ${remember ? "transparent" : "var(--hairline-strong)"}` }}
+                  >
+                    <span className="absolute top-1/2 -translate-y-1/2 rounded-full bg-white shadow transition-all" style={{ width: 14, height: 14, left: remember ? 15 : 1 }} />
+                  </div>
+                  <span className="text-[11.5px] text-[var(--ink-2)]">{T("Recordar dispositivo", "Remember device")}</span>
+                </label>
+                <button type="button" onClick={() => { setMode("reset"); clearMessages(); }} className="text-[11px] text-[var(--ink-3)] hover:text-[var(--accent)] transition-colors">
+                  {T("Olvide mi contrasena", "Forgot password?")}
+                </button>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-full py-2.5 text-[13.5px] font-semibold text-white disabled:opacity-60 transition-all active:scale-[0.99]"
+              style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-strong))" }}
+            >
+              {loading
+                ? <L name="Loader2" size={16} className="animate-spin mx-auto" />
+                : titles[mode]}
+            </button>
+
+            {mode === "reset" && (
+              <button type="button" onClick={() => { setMode("signin"); clearMessages(); }} className="w-full text-[12px] text-[var(--ink-3)] hover:text-[var(--ink-2)] transition-colors">
+                {T("← Volver al inicio de sesion", "← Back to sign in")}
+              </button>
+            )}
+          </form>
+
+          {!cloudReady && (
+            <p className="text-[10.5px] text-[var(--ink-3)] mt-3 text-center leading-relaxed rounded-lg px-2 py-1.5" style={{ background: "var(--well)" }}>
+              {T("Supabase no configurado — entrara en modo demo local.", "Supabase not configured — will enter local demo mode.")}
             </p>
           )}
 
+          {/* Divider */}
           <div className="flex items-center gap-3 my-4">
             <span className="flex-1 h-px bg-[var(--hairline)]" />
             <span className="text-[10px] uppercase tracking-wider text-[var(--ink-3)]">{T("o", "or")}</span>
             <span className="flex-1 h-px bg-[var(--hairline)]" />
           </div>
 
+          {/* Google OAuth — optional if Supabase Google provider is enabled */}
           <button
-            onClick={() => onSignIn({ name: "Invitado", email: null, color: "linear-gradient(150deg, #7C90A3, #46607A)", provider: "guest", since: new Date().toISOString().slice(0, 10) })}
-            className="text-[12px] text-[var(--ink-2)] hover:text-[var(--ink)] transition-colors"
+            onClick={googleSignIn}
+            disabled={loading || !cloudReady}
+            className="w-full glass-strong rounded-full px-4 py-2.5 flex flex-col items-center justify-center gap-0.5 text-[13px] font-medium text-[var(--ink)] hover:brightness-105 transition-all disabled:opacity-40 mb-1"
           >
-            {T("Explorar en modo demo →", "Explore demo mode →")}
+            <div className="flex items-center gap-3">
+              <GoogleG size={16} />
+              {T("Continuar con Google", "Continue with Google")}
+            </div>
           </button>
+          <div className="text-center text-[10.5px] text-[var(--ink-3)] mb-3">
+            {T("(Requiere configuración adicional en Supabase)", "(Requiere configuración adicional en Supabase)")}
+          </div>
 
-          <p className="text-[10px] text-[var(--ink-3)] mt-6 leading-relaxed">
-            {T("Tus datos se cifran en tránsito y en reposo. Nunca compartimos información de tu acuario.",
-               "Your data is encrypted in transit and at rest. We never share your aquarium data.")}
+          <div className="text-center">
+            <button onClick={demoMode} className="text-[12px] text-[var(--ink-3)] hover:text-[var(--ink-2)] transition-colors">
+              {T("Explorar sin cuenta →", "Explore without account →")}
+            </button>
+          </div>
+
+          <p className="text-[10px] text-[var(--ink-3)] mt-5 text-center leading-relaxed">
+            {T("Datos cifrados en transito y en reposo. Nunca compartimos tu informacion.", "Data encrypted in transit and at rest. We never share your information.")}
           </p>
         </Card>
       </div>
-
-      {chooser && (
-        <div className="fixed inset-0 z-50 grid place-items-center p-4 bg-[var(--scrim)] backdrop-blur" onClick={() => setChooser(false)}>
-          <Card onClick={(e) => e.stopPropagation()} className="w-full max-w-sm overflow-hidden glass-strong">
-            <div className="px-5 py-4 border-b border-[var(--hairline)] flex items-center gap-2.5">
-              <GoogleG size={20} />
-              <div>
-                <div className="text-[13.5px] font-semibold text-[var(--ink)]">{T("Elige una cuenta", "Choose an account")}</div>
-                <div className="text-[11px] text-[var(--ink-2)]">{T("para continuar a AquaMind", "to continue to AquaMind")}</div>
-              </div>
-            </div>
-            <div className="p-2">
-              {GOOGLE_ACCOUNTS.map((acc) => (
-                <button
-                  key={acc.email}
-                  onClick={() => pick(acc)}
-                  disabled={!!loading}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl hover:bg-[var(--hover)] transition-colors text-left disabled:opacity-60"
-                >
-                  <span className="grid place-items-center w-9 h-9 rounded-full text-white text-[13px] font-semibold shrink-0" style={{ background: acc.color }}>
-                    {acc.name[0]}
-                  </span>
-                  <span className="flex-1 min-w-0">
-                    <span className="block text-[13px] font-medium text-[var(--ink)]">{acc.name}</span>
-                    <span className="block text-[11px] text-[var(--ink-2)] truncate">{acc.email}</span>
-                  </span>
-                  {loading === acc.email && <L name="Loader2" size={15} className="animate-spin text-[var(--ink-3)]" />}
-                </button>
-              ))}
-            </div>
-            <div className="px-5 py-3 border-t border-[var(--hairline)] text-[10px] text-[var(--ink-3)] leading-relaxed">
-              {T("Demo de diseño: el inicio de sesión es simulado, no se conecta a Google.",
-                 "Design demo: sign-in is simulated, no real Google connection.")}
-            </div>
-          </Card>
-        </div>
-      )}
     </div>
   );
 }
@@ -192,32 +322,34 @@ function downloadICS(kind) {
   setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
 
-// ---------- OpenAI key input ----------
-function OpenAIKeyRow() {
-  const [key, setKey] = React.useState(() => localStorage.getItem("aqua:openai_key") || "");
+// ---------- Google Gemini API key ----------
+function GeminiKeyRow() {
+  const [key, setKey] = React.useState(() => localStorage.getItem("aqua:ai_key") || "");
   const [show, setShow] = React.useState(false);
   const [saved, setSaved] = React.useState(false);
 
   const save = () => {
     if (key.trim()) {
-      localStorage.setItem("aqua:openai_key", key.trim());
-      window.AQUAMIND_OPENAI_KEY = key.trim();
+      localStorage.setItem("aqua:ai_key", key.trim());
+      window.AQUAMIND_AI_KEY = key.trim();
     } else {
-      localStorage.removeItem("aqua:openai_key");
-      delete window.AQUAMIND_OPENAI_KEY;
+      localStorage.removeItem("aqua:ai_key");
+      delete window.AQUAMIND_AI_KEY;
     }
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
-    window.toast?.(T("API key guardada — Aqua Buddy usará OpenAI", "API key saved — Aqua Buddy will use OpenAI"), { icon: "Sparkles" });
+    window.toast?.(T("API key guardada — Aqua Buddy usará Google Gemini", "API key saved — Aqua Buddy will use Google Gemini"), { icon: "Sparkles" });
   };
 
   return (
     <div className="space-y-2">
       <div className="text-[11.5px] text-[var(--ink-2)] leading-relaxed">
         {T(
-          "Pega tu OpenAI API key (sk-...) para que Aqua Buddy use GPT-4o Mini con contexto de tu tanque y conocimiento de Reef2Reef. La key se guarda solo en este dispositivo.",
-          "Paste your OpenAI API key (sk-...) so Aqua Buddy uses GPT-4o Mini with your tank context and Reef2Reef knowledge. The key is stored on this device only."
+          "Consigue tu API key gratis (sin tarjeta) en ",
+          "Get your free API key (no credit card) at "
         )}
+        <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" className="underline" style={{ color: "var(--accent)" }}>aistudio.google.com/apikey</a>
+        {T(". Se guarda solo en este dispositivo.", ". Stored on this device only.")}
       </div>
       <div className="flex gap-2">
         <div className="flex-1 flex items-center gap-2 bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2 focus-within:ring-1 focus-within:ring-[var(--accent-border)] transition-all">
@@ -226,7 +358,7 @@ function OpenAIKeyRow() {
             type={show ? "text" : "password"}
             value={key}
             onChange={(e) => setKey(e.target.value)}
-            placeholder="sk-..."
+            placeholder="AIza..."
             className="flex-1 bg-transparent border-0 outline-none text-[12.5px] text-[var(--ink)] placeholder:text-[var(--ink-3)] font-mono"
             onKeyDown={(e) => { if (e.key === "Enter") save(); }}
           />
@@ -241,7 +373,71 @@ function OpenAIKeyRow() {
       {key && (
         <div className="flex items-center gap-1.5 text-[10.5px]" style={{ color: "var(--accent)" }}>
           <L name="CheckCircle2" size={11} />
-          {T("Key configurada — Aqua Buddy usará OpenAI", "Key configured — Aqua Buddy will use OpenAI")}
+          {T("Key configurada — Aqua Buddy usara Google Gemini", "Key configured — Aqua Buddy will use Google Gemini")}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------- Supabase config ----------
+function SupabaseConfigRow() {
+  const [url, setUrl] = React.useState(() => localStorage.getItem("aqua:supabase_url") || "");
+  const [key, setKey] = React.useState(() => localStorage.getItem("aqua:supabase_key") || "");
+  const [show, setShow] = React.useState(false);
+  const [saved, setSaved] = React.useState(false);
+
+  const save = () => {
+    window.CLOUD?.setConfig?.(url.trim(), key.trim());
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+    window.toast?.(
+      T("Supabase guardado — recarga la pagina para activar la nube", "Supabase saved — reload the page to activate cloud sync"),
+      { icon: "Cloud", tone: "info" }
+    );
+  };
+
+  const configured = !!(localStorage.getItem("aqua:supabase_url") && localStorage.getItem("aqua:supabase_key"));
+
+  return (
+    <div className="space-y-2">
+      <div className="text-[11.5px] text-[var(--ink-2)] leading-relaxed">
+        {T("Crea un proyecto gratis en ", "Create a free project at ")}
+        <a href="https://supabase.com" target="_blank" rel="noopener" className="underline" style={{ color: "var(--accent)" }}>supabase.com</a>
+        {T(", luego Settings → API → copia la URL y la clave anon.", ", then Settings → API → copy the URL and anon key.")}
+      </div>
+      <div className="flex-1 flex items-center gap-2 bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2 focus-within:ring-1 focus-within:ring-[var(--accent-border)] transition-all mb-1">
+        <L name="Link" size={13} className="text-[var(--ink-3)] shrink-0" />
+        <input
+          type="text"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="https://xxxx.supabase.co"
+          className="flex-1 bg-transparent border-0 outline-none text-[12.5px] text-[var(--ink)] placeholder:text-[var(--ink-3)] font-mono"
+        />
+      </div>
+      <div className="flex gap-2">
+        <div className="flex-1 flex items-center gap-2 bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2 focus-within:ring-1 focus-within:ring-[var(--accent-border)] transition-all">
+          <L name="KeyRound" size={13} className="text-[var(--ink-3)] shrink-0" />
+          <input
+            type={show ? "text" : "password"}
+            value={key}
+            onChange={(e) => setKey(e.target.value)}
+            placeholder="eyJhbGci..."
+            className="flex-1 bg-transparent border-0 outline-none text-[12.5px] text-[var(--ink)] placeholder:text-[var(--ink-3)] font-mono"
+          />
+          <button onClick={() => setShow((s) => !s)} className="text-[var(--ink-3)] hover:text-[var(--ink-2)] transition-colors">
+            <L name={show ? "EyeOff" : "Eye"} size={13} />
+          </button>
+        </div>
+        <Button variant={saved ? "primary" : "secondary"} icon={saved ? "Check" : "Save"} onClick={save} disabled={!url.trim() || !key.trim()}>
+          {saved ? T("Guardado", "Saved") : T("Guardar", "Save")}
+        </Button>
+      </div>
+      {configured && !saved && (
+        <div className="flex items-center gap-1.5 text-[10.5px]" style={{ color: "#0E9F6E" }}>
+          <L name="CheckCircle2" size={11} />
+          {T("Supabase configurado", "Supabase configured")}
         </div>
       )}
     </div>
@@ -317,6 +513,25 @@ function SettingsPage({ session, onSignOut, tweaks, setTweak }) {
   const [notifPrefs, setNotifPrefs] = React.useState({ alerts: true, routines: true, params: true, ai: false });
   const [twoFA, setTwoFA] = React.useState(true);
   const [icsDone, setIcsDone] = React.useState("");
+
+  // Inline display-name editor
+  const [editingName, setEditingName] = React.useState(false);
+  const [editName, setEditName] = React.useState(() => localStorage.getItem("aqua:display_name") || session?.name || "");
+  const saveDisplayName = () => {
+    const trimmed = editName.trim();
+    if (trimmed) {
+      localStorage.setItem("aqua:display_name", trimmed);
+      window.AQUA.TANK_CONFIG.owner = trimmed;
+    }
+    setEditingName(false);
+    window.toast?.(T("Nombre actualizado", "Name updated"), { icon: "UserRound" });
+  };
+
+  // Delete account confirmation
+  const [confirmDelete, setConfirmDelete] = React.useState(false);
+  const doDeleteAccount = () => {
+    window.AquaStore?.reset();
+  };
 
   const askPermission = async () => {
     if (typeof Notification === "undefined") return;
@@ -394,63 +609,67 @@ function SettingsPage({ session, onSignOut, tweaks, setTweak }) {
                 </div>
                 <p className="text-[11.5px] text-[var(--ink-2)] mt-1 leading-relaxed">
                   {window.CLOUD?.user
-                    ? T("Lecturas, fotos, rutinas y alertas se guardan en Firestore con tu cuenta de Google. Abre la app en otro dispositivo e inicia sesión para ver lo mismo.",
-                        "Readings, photos, routines and alerts are stored in Firestore under your Google account. Open the app on another device and sign in to see the same data.")
-                    : window.CLOUD?.isConfigured
-                      ? T("Firebase está configurado. Inicia sesión con Google para activar la sincronización entre dispositivos.",
-                          "Firebase is configured. Sign in with Google to enable cross-device sync.")
-                      : T("Todo (lecturas, fotos, rutinas, alertas) se guarda automáticamente en este navegador y sobrevive al cerrar la app. Para sincronizar entre dispositivos con tu Google real, conecta Firebase — gratis, ~5 min: las instrucciones están al inicio del archivo cloud.js.",
-                          "Everything (readings, photos, routines, alerts) saves automatically in this browser and survives closing the app. To sync across devices with your real Google account, connect Firebase — free, ~5 min: instructions are at the top of cloud.js.")}
+                    ? T("Lecturas, fotos, rutinas y alertas se sincronizan en la nube con tu cuenta. Abre la app en otro dispositivo e inicia sesión para ver lo mismo.",
+                        "Readings, photos, routines and alerts sync to the cloud with your account. Open the app on another device and sign in to see the same data.")
+                    : T("Todo se guarda automáticamente en este navegador. Inicia sesión para activar la sincronización entre dispositivos con Supabase.",
+                        "Everything saves automatically in this browser. Sign in to enable cross-device sync with Supabase.")}
                 </p>
-                {!window.CLOUD?.isConfigured && (
-                  <ol className="mt-2.5 space-y-1">
-                    {[
-                      T("console.firebase.google.com → Agregar proyecto (gratis)", "console.firebase.google.com → Add project (free)"),
-                      T("Activa Authentication → Google y crea Firestore", "Enable Authentication → Google and create Firestore"),
-                      T("Pega tu firebaseConfig en cloud.js y vuelve a publicar", "Paste your firebaseConfig into cloud.js and re-publish"),
-                    ].map((step, i) => (
-                      <li key={i} className="flex items-center gap-2 text-[11px] text-[var(--ink-2)]">
-                        <span className="grid place-items-center rounded-full text-[9px] font-semibold shrink-0" style={{ width: 17, height: 17, background: "var(--well)", border: "1px solid var(--hairline)" }}>{i + 1}</span>
-                        {step}
-                      </li>
-                    ))}
-                  </ol>
-                )}
               </div>
             </div>
           </Card>
 
-          {/* Aqua Buddy / OpenAI key */}
+          {/* Aqua Buddy — AI status */}
           <Card className="overflow-hidden">
-            <div className="flex items-center gap-3 px-5 py-4 border-b border-[var(--hairline)]">
+            <div className="flex items-center gap-3 px-5 py-4">
               <div className="grid place-items-center w-9 h-9 rounded-xl shrink-0" style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)" }}>
                 <L name="Sparkles" size={16} style={{ color: "var(--accent)" }} />
               </div>
-              <div>
-                <div className="text-[14px] font-semibold text-[var(--ink)]">Aqua Buddy · OpenAI</div>
-                <div className="text-[11px] text-[var(--ink-2)]">{T("Configura tu API key para respuestas IA reales", "Configure your API key for real AI responses")}</div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="text-[14px] font-semibold text-[var(--ink)]">Aqua Buddy · Google Gemini</div>
+                  <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-md font-semibold" style={{ background: "rgba(16,185,129,0.13)", color: "#0E9F6E", border: "1px solid rgba(16,185,129,0.3)" }}>ACTIVO</span>
+                </div>
+                <div className="text-[11.5px] text-[var(--ink-2)] mt-0.5">
+                  {T("IA activada con Gemini 2.0 Flash · contexto de tu tanque + acciones directas", "AI active with Gemini 2.0 Flash · your tank context + direct actions")}
+                </div>
               </div>
-            </div>
-            <div className="px-5 py-4 space-y-3">
-              <OpenAIKeyRow />
+              <PulsingDot color="#0E9F6E" size={8} />
             </div>
           </Card>
 
           <Card className="overflow-hidden">
             <div className="flex items-center gap-4 px-5 py-5 border-b border-[var(--hairline)]">
               <span className="grid place-items-center w-14 h-14 rounded-full text-white text-[20px] font-semibold shrink-0" style={{ background: session?.color }}>
-                {session?.name?.[0] || "?"}
+                {(localStorage.getItem("aqua:display_name") || session?.name || "?")[0]}
               </span>
               <div className="flex-1 min-w-0">
-                <div className="text-[16px] font-semibold text-[var(--ink)]">{session?.name}</div>
-                <div className="text-[12px] text-[var(--ink-2)] truncate">{session?.email || T("Modo demo · sin cuenta", "Demo mode · no account")}</div>
+                {editingName ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      autoFocus
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") saveDisplayName(); if (e.key === "Escape") setEditingName(false); }}
+                      className="flex-1 bg-[var(--well)] border border-[var(--accent-border)] rounded-lg px-2.5 py-1.5 text-[13px] text-[var(--ink)] outline-none focus:ring-1 focus:ring-[var(--accent-border)]"
+                    />
+                    <button onClick={saveDisplayName} className="text-[var(--accent)] hover:opacity-80 text-[12px] font-semibold">{T("Guardar", "Save")}</button>
+                    <button onClick={() => setEditingName(false)} className="text-[var(--ink-3)] hover:text-[var(--ink-2)] text-[12px]">{T("Cancelar", "Cancel")}</button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="text-[16px] font-semibold text-[var(--ink)]">{localStorage.getItem("aqua:display_name") || session?.name}</div>
+                    <div className="text-[12px] text-[var(--ink-2)] truncate">{session?.email || T("Modo demo · sin cuenta", "Demo mode · no account")}</div>
+                  </>
+                )}
                 {session?.provider === "google" && (
                   <span className="inline-flex items-center gap-1.5 mt-1.5 text-[10.5px] text-[var(--ink-2)] glass-strong rounded-full px-2 py-0.5">
                     <GoogleG size={11} /> {T("Conectado con Google", "Connected with Google")}
                   </span>
                 )}
               </div>
-              <Button variant="secondary" size="sm" icon="Pencil" onClick={demoAction}>{T("Editar", "Edit")}</Button>
+              {!editingName && (
+                <Button variant="secondary" size="sm" icon="Pencil" onClick={() => { setEditName(localStorage.getItem("aqua:display_name") || session?.name || ""); setEditingName(true); }}>{T("Editar", "Edit")}</Button>
+              )}
             </div>
             <SettingRow icon="ShieldCheck" title={T("Verificación en dos pasos", "Two-step verification")}
               sub={T("Código por app de autenticación al iniciar sesión en un dispositivo nuevo", "Authenticator code when signing in on a new device")}>
@@ -458,11 +677,11 @@ function SettingsPage({ session, onSignOut, tweaks, setTweak }) {
             </SettingRow>
             <SettingRow icon="KeyRound" title={T("Llaves de acceso (passkeys)", "Passkeys")}
               sub={T("Face ID / Touch ID en este dispositivo", "Face ID / Touch ID on this device")}>
-              <Button variant="secondary" size="sm" onClick={demoAction}>{T("Añadir", "Add")}</Button>
+              <Button variant="secondary" size="sm" onClick={() => window.toast?.(T("Próximamente en tu dispositivo", "Coming soon on your device"), { icon: "KeyRound", tone: "info" })}>{T("Añadir", "Add")}</Button>
             </SettingRow>
             <SettingRow icon="MonitorSmartphone" title={T("Sesiones activas", "Active sessions")}
               sub={T("iPhone 15 Pro · Columbus, OH (esta) — MacBook Air · hace 2 días", "iPhone 15 Pro · Columbus, OH (this) — MacBook Air · 2 days ago")}>
-              <Button variant="ghost" size="sm" onClick={demoAction}>{T("Gestionar", "Manage")}</Button>
+              <Button variant="ghost" size="sm" onClick={() => window.toast?.(T("Sesión activa en este dispositivo", "Active session on this device"), { icon: "MonitorSmartphone", tone: "info" })}>{T("Gestionar", "Manage")}</Button>
             </SettingRow>
             <SettingRow icon="Download" title={T("Exportar mis datos", "Export my data")}
               sub={T("Parámetros, habitantes y bitácora en CSV/JSON", "Parameters, livestock and logbook as CSV/JSON")}>
@@ -476,7 +695,15 @@ function SettingsPage({ session, onSignOut, tweaks, setTweak }) {
             </SettingRow>
             <SettingRow icon="Trash2" title={T("Eliminar cuenta", "Delete account")}
               sub={T("Borra tu cuenta y todos los datos del tanque. Irreversible.", "Deletes your account and all tank data. Irreversible.")} danger>
-              <Button variant="danger" size="sm" onClick={demoAction}>{T("Eliminar", "Delete")}</Button>
+              {confirmDelete ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-[11.5px] text-[#DC4458]">{T("¿Seguro?", "Sure?")}</span>
+                  <Button variant="danger" size="sm" onClick={doDeleteAccount}>{T("Sí, eliminar", "Yes, delete")}</Button>
+                  <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(false)}>{T("No", "No")}</Button>
+                </div>
+              ) : (
+                <Button variant="danger" size="sm" onClick={() => setConfirmDelete(true)}>{T("Eliminar", "Delete")}</Button>
+              )}
             </SettingRow>
           </Card>
         </div>

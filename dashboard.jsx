@@ -146,10 +146,8 @@ function applyAquaCommand(raw) {
   return null; // no es una orden → responde como chat
 }
 
-// ---- AI plumbing ----
-// Rule-based fallback so the chat stays useful when the in-page Claude helper
-// isn't available (standalone HTML, plain browser). Answers are computed from
-// the same tank context the real prompt carries.
+// ---- AI plumbing — Google Gemini 2.0 Flash (gratis) + local fallback ----
+// Agrega tu key en Ajustes → Cuenta → Aqua Buddy. Se guarda en localStorage.
 function localAquaBuddy(q) {
   const m = q.toLowerCase();
   if (/\bkh\b|buffer|alcalin|alkalin|dkh/.test(m)) return T(
@@ -177,8 +175,8 @@ function localAquaBuddy(q) {
     "Magnesium at 1320 mg/L is in the optimal range (1250–1350). No extra supplementation needed — just keep up regular water changes with well-mixed saltwater."
   );
   return T(
-    "Estoy en modo demo sin conexión: pregúntame por KH, fosfatos, el Birdsnest, magnesio o cambios de agua. Con OpenAI configurado respondo cualquier consulta con IA real.",
-    "I'm in offline demo mode: ask me about KH, phosphates, the Birdsnest, magnesium or water changes. With OpenAI configured I answer anything with real AI."
+    "Estoy en modo demo. Pregúntame por KH, fosfatos, el Birdsnest, magnesio o cambios de agua. Configura tu API key de Google Gemini (gratis) en Ajustes para respuestas IA reales.",
+    "I'm in demo mode. Ask me about KH, phosphates, the Birdsnest, magnesium or water changes. Add your Google Gemini API key (free) in Settings for real AI responses."
   );
 }
 
@@ -206,8 +204,9 @@ ACTIVE ALERTS: ${alerts || "none"}.
 OWNER: ${TANK_CONFIG.owner} — experienced in freshwater, newer to saltwater.` : "";
 
   return `You are Aqua Buddy, the AI assistant for AquaMind — an aquarium intelligence app.
-You are an expert marine and freshwater aquarist with deep knowledge of reef chemistry, coral husbandry, fish health, and planted tank techniques. You also draw on community knowledge from Reef2Reef and other leading reef forums.
+You are an expert marine and freshwater aquarist with deep knowledge of reef chemistry, coral husbandry, fish health, and planted tank techniques. You draw on community knowledge from Reef2Reef and other leading reef forums.
 ${tankContext}
+CAPABILITIES: You can take actions in the app using function calls. When the user asks you to add/log/remind/create something, use the appropriate function — don't just describe it, do it.
 RULES:
 - Reply in ${lang}. Keep responses concise (3–5 sentences for the widget, longer for the AI chat page).
 - When the tank context is available, reference the owner's specific parameters, livestock, and equipment — give personalized advice with exact quantities (ml, g) based on the real tank volume.
@@ -216,30 +215,203 @@ RULES:
 - Mode: ${mode === "personalized" ? "personalized to this tank" : "general aquarium expert"}.`;
 }
 
-// Call OpenAI API directly via fetch (browser-side)
-async function callOpenAI(messages, system) {
-  const apiKey = window.AQUAMIND_OPENAI_KEY || localStorage.getItem("aqua:openai_key");
+// ---- Aqua Buddy tools (function calling) ----
+const AQUA_TOOLS = [
+  {
+    type: "function",
+    function: {
+      name: "add_routine",
+      description: "Adds a maintenance routine/task to the user's aquarium care schedule",
+      parameters: {
+        type: "object",
+        properties: {
+          task: { type: "string", description: "Name of the routine task" },
+          frequency: { type: "string", description: "How often: Diario, Semanal, Quincenal, Mensual, or custom phrase" },
+          detail: { type: "string", description: "Additional details or notes about the task" },
+        },
+        required: ["task", "frequency"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "log_parameter",
+      description: "Logs a water parameter reading to the aquarium history",
+      parameters: {
+        type: "object",
+        properties: {
+          param: { type: "string", enum: ["ph", "temperature", "salinity", "kh", "calcium", "magnesium", "nitrate", "phosphate", "ammonia"] },
+          value: { type: "number", description: "The measured numeric value" },
+        },
+        required: ["param", "value"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "add_inhabitant",
+      description: "Adds a new fish, coral, or CUC (clean-up crew) to the tank",
+      parameters: {
+        type: "object",
+        properties: {
+          kind: { type: "string", enum: ["fish", "corals", "cuc"], description: "Category of inhabitant" },
+          name: { type: "string", description: "Common name" },
+          species: { type: "string", description: "Scientific name if known" },
+          note: { type: "string", description: "Notes about this inhabitant" },
+        },
+        required: ["kind", "name"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "create_alert",
+      description: "Creates an alert or reminder in the app's alert center",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Short title for the alert or reminder" },
+          body: { type: "string", description: "More details about the alert" },
+          severity: { type: "string", enum: ["info", "warn", "danger"] },
+        },
+        required: ["title"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "update_parameter_note",
+      description: "Updates the note/comment displayed on a water parameter card",
+      parameters: {
+        type: "object",
+        properties: {
+          param: { type: "string", enum: ["ph", "temperature", "salinity", "kh", "calcium", "magnesium", "nitrate", "phosphate", "ammonia"] },
+          note: { type: "string", description: "The new note text" },
+        },
+        required: ["param", "note"],
+      },
+    },
+  },
+];
+
+function executeAquaTool(name, args) {
+  const A = window.AQUA;
+  const S = window.AquaStore;
+  const c1 = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
+  switch (name) {
+    case "add_routine": {
+      const r = {
+        id: "ru" + Date.now(),
+        task: c1(args.task),
+        detail: args.detail || T("Añadida vía Aqua Buddy", "Added via Aqua Buddy"),
+        frequency: args.frequency,
+        nextDue: "today",
+        time: "12:00",
+        icon: "CalendarCheck",
+      };
+      S.addRoutine(r);
+      window.toast?.(T(`Rutina "${r.task}" creada`, `Routine "${r.task}" created`), { icon: "CalendarCheck" });
+      return T(`Rutina "${r.task}" agregada (${args.frequency}).`, `Routine "${r.task}" added (${args.frequency}).`);
+    }
+    case "log_parameter": {
+      S.logReading(args.param, args.value);
+      const p = A.CURRENT_PARAMETERS[args.param];
+      window.toast?.(T(`${p?.label || args.param}: ${args.value} registrado`, `${p?.label || args.param}: ${args.value} logged`), { icon: "Activity" });
+      return T(`${p?.label || args.param} = ${args.value}${p?.unit ? " " + p.unit : ""} guardado.`, `${p?.label || args.param} = ${args.value}${p?.unit ? " " + p.unit : ""} saved.`);
+    }
+    case "add_inhabitant": {
+      const item = {
+        id: "ui" + Date.now(),
+        name: c1(args.name),
+        scientific: args.species || "",
+        added: A.MOCK_TODAY,
+        status: "ok",
+        note: args.note || T("Añadido vía Aqua Buddy", "Added via Aqua Buddy"),
+      };
+      S.addInhabitant(args.kind, item);
+      window.toast?.(T(`${item.name} agregado`, `${item.name} added`), { icon: "Fish" });
+      return T(`${item.name} añadido a Habitantes.`, `${item.name} added to Livestock.`);
+    }
+    case "create_alert": {
+      const a = {
+        id: "ua" + Date.now(),
+        severity: args.severity || "info",
+        badge: T("RECORDATORIO", "REMINDER"),
+        title: args.title,
+        body: args.body || "",
+        cta: T("Marcar hecho", "Mark done"),
+        tag: "Aqua Buddy",
+      };
+      S.addAlert(a);
+      window.toast?.(T("Alerta creada", "Alert created"), { icon: "Bell" });
+      return T(`Alerta "${args.title}" creada.`, `Alert "${args.title}" created.`);
+    }
+    case "update_parameter_note": {
+      const p = A.CURRENT_PARAMETERS[args.param];
+      if (p) { p.note = args.note; S.touch(); }
+      return T(`Nota de ${p?.label || args.param} actualizada.`, `Note for ${p?.label || args.param} updated.`);
+    }
+    default:
+      return T("Accion completada.", "Action completed.");
+  }
+}
+
+// Call Google Gemini 2.0 Flash — native REST API (supports AQ. key format)
+async function callGemini(messages, system, tools = null) {
+  const apiKey = window.AQUAMIND_AI_KEY || localStorage.getItem("aqua:ai_key");
   if (!apiKey) return null;
   try {
-    const resp = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        max_tokens: 400,
-        messages: [{ role: "system", content: system }, ...messages],
-      }),
+    // Convert to Gemini native content format
+    const contents = messages.map((m) => {
+      // Already Gemini-native (has parts array from a previous function-call round)
+      if (m.parts) return { role: m.role, parts: m.parts };
+      // Standard message → text part
+      const role = m.role === "assistant" ? "model" : "user";
+      return { role, parts: [{ text: typeof m.content === "string" ? m.content : JSON.stringify(m.content) }] };
     });
-    if (!resp.ok) return null;
-    const data = await resp.json();
-    return data.choices?.[0]?.message?.content?.trim() || null;
-  } catch {
+
+    const body = {
+      systemInstruction: { parts: [{ text: system }] },
+      contents,
+      generationConfig: { maxOutputTokens: 600 },
+    };
+    if (tools && tools.length) {
+      body.tools = [{
+        functionDeclarations: tools.map((t) => ({
+          name: t.function.name,
+          description: t.function.description,
+          parameters: t.function.parameters,
+        })),
+      }];
+    }
+
+    const resp = await fetch(
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+        body: JSON.stringify(body),
+      }
+    );
+    if (!resp.ok) {
+      const err = await resp.text().catch(() => "");
+      console.warn("[AquaBuddy] Gemini", resp.status, err.slice(0, 300));
+      return null;
+    }
+    return await resp.json();
+  } catch (e) {
+    console.warn("[AquaBuddy] fetch error:", e);
     return null;
   }
 }
 
 async function callAquaBuddy(userMessage, mode = "personalized", history = []) {
-  // First: command? (log reading, add routine, etc.) — executes locally, online or offline
+  // Rule-based command parser — fast, works offline, no key needed
   const command = applyAquaCommand(userMessage);
   if (command) {
     await new Promise((r) => setTimeout(r, 450));
@@ -252,25 +424,44 @@ async function callAquaBuddy(userMessage, mode = "personalized", history = []) {
     { role: "user", content: userMessage },
   ];
 
-  // Try OpenAI first
-  const openaiReply = await callOpenAI(messages, system);
-  if (openaiReply) return openaiReply;
+  // --- Google Gemini (native API) ---
+  const geminiData = await callGemini(messages, system, AQUA_TOOLS);
+  if (geminiData) {
+    const candidate = geminiData.candidates?.[0];
+    const parts = candidate?.content?.parts || [];
 
-  // Fallback to Claude if available
-  if (window.claude?.complete) {
-    try {
-      const text = await window.claude.complete({
-        messages: [{ role: "user", content: `[System]\n${system}\n\n[Question]\n${userMessage}` }],
-      });
-      if (text?.trim()) return text.trim();
-    } catch { /* fall through */ }
+    // Handle function calls
+    const funcParts = parts.filter((p) => p.functionCall);
+    if (funcParts.length > 0) {
+      const toolResultParts = funcParts.map((p) => ({
+        functionResponse: {
+          name: p.functionCall.name,
+          response: { result: executeAquaTool(p.functionCall.name, p.functionCall.args || {}) },
+        },
+      }));
+
+      // Follow-up: let Gemini narrate the completed actions
+      const followMessages = [
+        ...messages,
+        { role: "model", parts },
+        { role: "user", parts: toolResultParts },
+      ];
+      const follow = await callGemini(followMessages, system);
+      const followParts = follow?.candidates?.[0]?.content?.parts || [];
+      const followText = followParts.filter((p) => p.text).map((p) => p.text).join("").trim();
+      if (followText) return followText;
+      return toolResultParts.map((p) => p.functionResponse.response.result).join("\n");
+    }
+
+    const text = parts.filter((p) => p.text).map((p) => p.text).join("").trim();
+    if (text) return text;
   }
 
+  // --- Local knowledge base (sin key) ---
   await new Promise((r) => setTimeout(r, 800));
   return localAquaBuddy(userMessage);
 }
 
-// Backward-compat alias used by other call sites
 const callAquaBot = (msg, hist) => callAquaBuddy(msg, "personalized", hist);
 const localAquaBot = localAquaBuddy;
 
@@ -280,8 +471,6 @@ function ReefStatusHero({ onNavigate }) {
   const [input, setInput] = React.useState("");
   const [reply, setReply] = React.useState("");
   const [loading, setLoading] = React.useState(false);
-  const [attachment, setAttachment] = React.useState(null);
-  const fileRef = React.useRef(null);
 
   const send = async () => {
     const msg = input.trim();
@@ -293,14 +482,6 @@ function ReefStatusHero({ onNavigate }) {
     setLoading(false);
   };
 
-  const onFile = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => setAttachment(ev.target.result);
-    reader.readAsDataURL(file);
-  };
-
   return (
     <Card className="overflow-hidden">
       <div className="flex items-center justify-between px-5 pt-4 pb-3">
@@ -310,28 +491,35 @@ function ReefStatusHero({ onNavigate }) {
         <span className="text-[11px] text-[var(--ink-3)]">{fmtLongDate(window.AQUA.MOCK_TODAY)}</span>
       </div>
 
-      {/* Tank banner — user photo slot with overlay */}
-      <div className="relative mx-4 rounded-3xl overflow-hidden" style={{ height: 180 }}>
-        <PhotoSlot
-          id="photo-tank-hero"
-          radius={24}
-          placeholder={T("Toca o suelta aquí una foto panorámica de tu tanque — se guarda y queda fija", "Tap or drop a wide photo of your tank — it's saved and stays")}
-          style={{ position: "absolute", inset: 0 }}
+      {/* Tank banner — gradient with tank name/stats */}
+      <div className="relative mx-4 rounded-3xl overflow-hidden" style={{ height: 150 }}>
+        <div
+          className="absolute inset-0"
+          style={{ background: "linear-gradient(135deg, #0a2a3a 0%, #0e4a6a 40%, #115e5a 70%, #0d3d3a 100%)" }}
         />
-        <div className="absolute inset-x-0 bottom-0 h-24 pointer-events-none" style={{ background: "linear-gradient(to top, rgba(8,22,34,0.65), transparent)" }} />
-        <div className="absolute left-4 bottom-3 pointer-events-none">
-          <div className="text-[22px] font-semibold text-white tracking-tight" style={{ textShadow: "0 1px 8px rgba(0,0,0,0.45)" }}>{TANK_CONFIG.name}</div>
-          <div className="mt-1 flex items-center gap-2">
+        <svg className="absolute inset-0 w-full h-full" preserveAspectRatio="none" viewBox="0 0 400 150">
+          <path d="M0,75 C100,55 200,95 300,70 C350,57 380,80 400,75 L400,150 L0,150 Z" fill="rgba(255,255,255,0.05)" />
+          <path d="M0,105 C80,90 160,115 240,100 C310,87 370,110 400,103 L400,150 L0,150 Z" fill="rgba(255,255,255,0.03)" />
+        </svg>
+        <div className="absolute inset-x-0 bottom-0 h-20 pointer-events-none" style={{ background: "linear-gradient(to top, rgba(8,22,34,0.55), transparent)" }} />
+        <div className="absolute left-4 bottom-3">
+          <div className="text-[20px] font-semibold text-white tracking-tight" style={{ textShadow: "0 1px 8px rgba(0,0,0,0.45)" }}>{TANK_CONFIG.name}</div>
+          <div className="mt-1 flex items-center gap-2 flex-wrap">
             <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10.5px] font-semibold uppercase tracking-[0.06em]" style={{ background: "rgba(245,158,11,0.92)", color: "#3A2A05" }}>
               <span className="w-1.5 h-1.5 rounded-full bg-[#3A2A05]" />
               {T("Estado: Necesita atención", "Status: Needs attention")}
             </span>
           </div>
         </div>
-        <div className="absolute right-3 bottom-3 pointer-events-none hidden sm:block">
+        <div className="absolute right-3 bottom-3 hidden sm:block">
           <span className="text-[10.5px] text-white/85 px-2 py-1 rounded-full" style={{ background: "rgba(8,22,34,0.45)", backdropFilter: "blur(8px)" }}>
             {T("2 parámetros fuera de rango · 1 alerta crítica", "2 parameters out of range · 1 critical alert")}
           </span>
+        </div>
+        <div className="absolute top-3 right-3">
+          <div className="grid place-items-center w-9 h-9 rounded-xl" style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.18)" }}>
+            <L name="Droplet" size={16} style={{ color: "#2DD4BF" }} />
+          </div>
         </div>
       </div>
 
@@ -364,17 +552,6 @@ function ReefStatusHero({ onNavigate }) {
         </div>
 
         <div className="flex items-center gap-2 mt-2.5">
-          <Button variant="secondary" size="sm" icon="ImageUp" onClick={() => fileRef.current?.click()}>
-            {T("Subir foto/video", "Upload Photo/Video")}
-          </Button>
-          <input ref={fileRef} type="file" accept="image/*,video/*" className="hidden" onChange={onFile} />
-          {attachment && (
-            <span className="inline-flex items-center gap-1.5 text-[11px] text-[var(--ink-2)]">
-              <img src={attachment} alt="" className="w-7 h-7 rounded-lg object-cover border border-[var(--hairline)]" />
-              {T("adjunto listo", "attachment ready")}
-              <button onClick={() => setAttachment(null)} className="text-[var(--ink-3)] hover:text-[var(--ink)]"><L name="X" size={11} /></button>
-            </span>
-          )}
           <button onClick={() => onNavigate("ai")} className="ml-auto text-[11.5px] text-[var(--accent)] hover:opacity-80 inline-flex items-center gap-1">
             {T("Abrir chat completo", "Open full chat")} <L name="ArrowRight" size={11} />
           </button>
@@ -493,7 +670,7 @@ function WaterParamsCard({ onNavigate }) {
 
       <div className="mt-3 flex items-center gap-2">
         <Button variant="primary" size="sm" icon="Plus" onClick={() => setLogOpen(true)}>{T("Nueva lectura", "Add New Reading")}</Button>
-        <Button variant="ghost" size="sm" icon="Camera" onClick={() => onNavigate("inhabitants")}>{T("Diagnóstico foto", "Photo diagnosis")}</Button>
+        <Button variant="ghost" size="sm" icon="ArrowRight" onClick={() => onNavigate("parameters")}>{T("Ver historial", "Full history")}</Button>
       </div>
       {logOpen && ReadingModal && <ReadingModal paramKeys={Object.keys(CURRENT_PARAMETERS)} onClose={() => setLogOpen(false)} />}
     </Card>
@@ -571,20 +748,32 @@ function LightingScheduleCard({ onNavigate }) {
   );
 }
 
-// ---- Livestock inventory (with photo slots) ----
+// ---- Livestock inventory ----
+const KIND_AVATAR_COLOR = {
+  fish: ["#60A5FA", "#22D3EE"],
+  coral: ["#F87171", "#C77F00"],
+  cuc: ["#0E9F6E", "#22D3EE"],
+};
 function LivestockRow({ item, kind, onNavigate }) {
   const s = STATUS_COLOR[item.status];
-  // La miniatura es interactiva (subir foto), así que el contenedor no puede
-  // ser un <button>: el área de texto navega, la foto sube imagen.
+  const [a, b] = KIND_AVATAR_COLOR[kind] || KIND_AVATAR_COLOR.fish;
   return (
-    <div className="w-full flex items-center gap-2.5 p-1.5 rounded-2xl hover:bg-[var(--hover)] transition-colors">
-      <PhotoSlot id={`photo-${item.id}`} radius={12} style={{ width: 40, height: 40, flexShrink: 0 }} />
-      <button onClick={() => onNavigate("inhabitants")} className="flex-1 min-w-0 text-left cursor-pointer">
+    <button onClick={() => onNavigate("inhabitants")} className="w-full flex items-center gap-2.5 p-1.5 rounded-2xl hover:bg-[var(--hover)] transition-colors text-left">
+      {/* 40×40 avatar with PhotoSlot overlay */}
+      <div style={{ width: 40, height: 40, position: "relative", borderRadius: 12, overflow: "hidden", flexShrink: 0 }}>
+        {/* Fallback gradient avatar */}
+        <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", background: `linear-gradient(135deg, ${a}, ${b})` }}>
+          <span style={{ color: "white", fontSize: 13, fontWeight: 700 }}>{item.name.charAt(0).toUpperCase()}</span>
+        </div>
+        {/* PhotoSlot overlays the avatar — shows upload UI on hover */}
+        <PhotoSlot id={`photo-${item.id}`} radius={12} style={{ position: "absolute", inset: 0 }} />
+      </div>
+      <div className="flex-1 min-w-0">
         <div className="text-[12.5px] font-medium text-[var(--ink)] truncate">{item.name}</div>
         <div className="text-[10.5px] text-[var(--ink-2)] truncate">{item.note}</div>
-      </button>
+      </div>
       <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: s.fg }} />
-    </div>
+    </button>
   );
 }
 
@@ -623,29 +812,8 @@ function LivestockInventory({ onNavigate }) {
   );
 }
 
-// ---- Gallery strip ----
-function GalleryStrip() {
-  return (
-    <Card className="p-5">
-      <SectionHeader
-        kicker={T("Galería", "Gallery")}
-        title={T("Fotos del tanque", "Tank photos")}
-        action={<span className="text-[10.5px] text-[var(--ink-3)]">{T("Toca o arrastra — se guardan solas", "Tap or drag — they save automatically")}</span>}
-      />
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {[1, 2, 3, 4].map((n) => (
-          <PhotoSlot
-            key={n}
-            id={`photo-gallery-${n}`}
-            radius={18}
-            placeholder={T(`Foto ${n}`, `Photo ${n}`)}
-            style={{ width: "100%", aspectRatio: "4 / 3", position: "relative" }}
-          />
-        ))}
-      </div>
-    </Card>
-  );
-}
+// ---- Gallery strip (placeholder — photo feature removed) ----
+function GalleryStrip() { return null; }
 
 // ---- Alert card (used here + AlertsPage) ----
 function AlertCard({ alert, onDismiss, onCTA, index = 0 }) {
@@ -836,7 +1004,7 @@ function AquaBotWidget({ fullPage = false }) {
   const prompts = mode === "personalized" ? QUICK_PROMPTS() : GENERAL_PROMPTS();
 
   return (
-    <Card className="flex flex-col overflow-hidden h-full">
+    <Card className="flex flex-col overflow-hidden" style={{ maxHeight: fullPage ? "none" : 520 }}>
       <div className="flex items-center gap-2.5 px-4 py-3 border-b border-[var(--hairline)]">
         <div className="grid place-items-center w-8 h-8 rounded-xl" style={{ background: "linear-gradient(135deg, var(--accent-soft), rgba(99,102,241,0.16))", border: "1px solid var(--accent-border)" }}>
           <L name="Sparkles" size={14} style={{ color: "var(--accent)" }} />
@@ -877,7 +1045,7 @@ function AquaBotWidget({ fullPage = false }) {
         </div>
       )}
 
-      <div ref={scroller} className="flex-1 px-4 py-3 overflow-y-auto space-y-2.5 min-h-[260px] max-h-[420px]">
+      <div ref={scroller} className={`flex-1 px-4 py-3 overflow-y-auto space-y-2.5 ${fullPage ? "min-h-[300px]" : "min-h-[200px] max-h-[320px]"}`}>
         {messages.map((m, i) => (
           <div key={i} className={`flex gap-2 ${m.from === "user" ? "justify-end" : ""}`}>
             {m.from === "bot" && (
@@ -1050,7 +1218,7 @@ function Dashboard({ onNavigate, alerts: allAlerts, onDismissAlert, routinesDone
           >
             {T("Ver mapa", "View map")}
           </Button>
-          <Button variant="primary" icon="ShoppingBag" onClick={demoAction}>{T("Reservar", "Reserve")}</Button>
+          <Button variant="primary" icon="ShoppingBag" onClick={() => window.open("https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent("Matt's Corals, 265 Lincoln Cir B, Gahanna, OH"), "_blank", "noopener")}>{T("Reservar", "Reserve")}</Button>
         </div>
       </Card>
     </div>
@@ -1061,4 +1229,5 @@ Object.assign(window, {
   Dashboard, AlertCard, AquaBotWidget, RoutinesTimeline, RoutineItem,
   ReefStatusHero, WaterParamsCard, LightingScheduleCard, LivestockInventory, GalleryStrip,
   TankVitalsStrip, PARAM_ICON, callAquaBot, callAquaBuddy, localAquaBuddy, localAquaBot, alertCTAAction, applyAquaCommand,
+  AQUA_TOOLS, executeAquaTool, callGemini, buildAquaBuddyPrompt,
 });

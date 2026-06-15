@@ -25,10 +25,23 @@ function App() {
 
   // ---- session (prototype auth) ----
   const [session, setSession] = React.useState(() => {
-    try { return JSON.parse(localStorage.getItem("aqua:session") || "null"); } catch (e) { return null; }
+    try {
+      return JSON.parse(
+        localStorage.getItem("aqua:session") ||
+        sessionStorage.getItem("aqua:session") ||
+        "null"
+      );
+    } catch (e) { return null; }
   });
   const signIn = (user) => {
-    localStorage.setItem("aqua:session", JSON.stringify(user));
+    const remember = localStorage.getItem("aqua:remember") !== "false";
+    if (remember || user.remember !== false) {
+      localStorage.setItem("aqua:session", JSON.stringify(user));
+      sessionStorage.removeItem("aqua:session");
+    } else {
+      sessionStorage.setItem("aqua:session", JSON.stringify(user));
+      localStorage.removeItem("aqua:session");
+    }
     setSession(user);
   };
   const signOut = () => {
