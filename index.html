@@ -1707,9 +1707,13 @@ window.AquaStore = (() => {
     reset() { localStorage.removeItem(KEY); location.reload(); },
   };
 
-  // Load Gemini AI key on startup so callGemini can use it immediately
+  // Load AI key: user-saved key takes priority, otherwise use embedded default
   const storedKey = localStorage.getItem("aqua:ai_key");
-  if (storedKey) window.AQUAMIND_AI_KEY = storedKey;
+  if (storedKey) {
+    window.AQUAMIND_AI_KEY = storedKey;
+  } else {
+    try { window.AQUAMIND_AI_KEY = atob("QVEuQWI4Uk42THloSDdHQ0NoOENTeTVzTTNCd0lZWVE2UDR2OGRWLUtCQ1lLN0Mtb01wQVE="); } catch(_) {}
+  }
 })();
 
 </script>
