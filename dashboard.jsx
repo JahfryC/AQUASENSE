@@ -151,32 +151,32 @@ function applyAquaCommand(raw) {
 function localAquaBuddy(q) {
   const m = q.toLowerCase();
   if (/\bkh\b|buffer|alcalin|alkalin|dkh/.test(m)) return T(
-    "Con KH en 7.0 dKH, dosifica 7 ml de Reef Buffer hoy (calculado para los 23 gal reales). Eso sube ~0.3 dKH/día — nunca más de 1 dKH/día. Re-mide en 24 h y repite hasta estabilizar en 8–8.5.",
-    "With KH at 7.0 dKH, dose 7 ml of Reef Buffer today (computed for the real 23 gal). That raises ~0.3 dKH/day — never exceed 1 dKH/day. Re-test in 24 h and repeat until stable at 8–8.5."
+    "Para subir el KH, dosa de forma gradual — nunca más de 1 dKH/día para evitar estrés en los corales. Usa carbonato sódico (soda ash) o un buffer comercial, re-mide en 24 h y repite hasta alcanzar el rango ideal (8–10 dKH).",
+    "To raise KH, dose gradually — never more than 1 dKH/day to avoid coral stress. Use sodium carbonate (soda ash) or a commercial buffer, re-test in 24 h and repeat until you reach the ideal range (8–10 dKH)."
   );
-  if (/birdsnest|blanque|bleach|seriatopora|sps/.test(m)) return T(
-    "El Birdsnest es tu coral más sensible: KH 7.0 + el apagón de 6 h explican el blanqueo. Prioridad: estabilizar KH en 8–8.5, flujo moderado y no lo muevas. Si la base conserva tejido, puede recuperarse en 2–3 semanas.",
-    "The Birdsnest is your most sensitive coral: KH 7.0 plus the 6 h outage explain the bleaching. Priority: stabilize KH at 8–8.5, moderate flow, and don't move it. If the base keeps tissue it can recover in 2–3 weeks."
+  if (/blanque|bleach|coral|seriatopora|sps|lps/.test(m)) return T(
+    "El blanqueo en corales suele estar ligado a cambios bruscos de KH, temperatura o luz. Estabiliza los parámetros, mantén flujo moderado y no muevas el coral. Si la base conserva tejido, puede recuperarse en 2–3 semanas.",
+    "Coral bleaching is usually tied to sudden changes in KH, temperature or light. Stabilize parameters, maintain moderate flow and don't move the coral. If the base keeps tissue it can recover in 2–3 weeks."
   );
   if (/fosfat|phosphat|po4|po₄|algas|algae/.test(m)) return T(
-    "PO₄ en 0.25 ppm (meta 0.03–0.10): deja actuar el PhosGuard 48 h más, haz un cambio de 25% (5–6 gal) y reduce la alimentación a la mitad esta semana. Re-mide en 3 días.",
-    "PO₄ at 0.25 ppm (target 0.03–0.10): give PhosGuard 48 h more, do a 25% water change (5–6 gal) and halve feeding this week. Re-test in 3 days."
+    "Para reducir fosfatos: haz un cambio de agua del 20–25%, reduce la alimentación esta semana y considera medios absorbentes como GFO o PhosGuard. Re-mide en 3 días para ver la tendencia.",
+    "To reduce phosphates: do a 20–25% water change, reduce feeding this week and consider absorbent media like GFO or PhosGuard. Re-test in 3 days to track the trend."
   );
   if (/cambio|water change|agua|rodi/.test(m)) return T(
-    "Cambio de 25%: 5–6 gal de RODI + Instant Ocean a 1.025 SG y 79 °F, quincenal. Con los fosfatos altos conviene adelantarlo a esta semana. Matt's Corals vende RODI a $0.75/gal.",
-    "25% change: 5–6 gal RODI + Instant Ocean at 1.025 SG and 79 °F, biweekly. With phosphates high, move it up to this week. Matt's Corals sells RODI at $0.75/gal."
+    "Para un cambio de agua: prepara RODI + sal de calidad a la gravedad específica y temperatura de tu tanque (1.025 SG, 78°F para marina), luego cambia el 10–25% semanalmente o cada dos semanas.",
+    "For a water change: prepare RODI + quality salt at your tank's specific gravity and temperature (1.025 SG, 78°F for saltwater), then change 10–25% weekly or biweekly."
   );
   if (/\bph\b/.test(m)) return T(
-    "El pH 7.9 es consecuencia de la KH baja — corrige primero la alcalinidad y el pH subirá solo. Más aireación y agitación de superficie ayudan; no persigas el pH con químicos.",
-    "pH 7.9 follows from the low KH — fix alkalinity first and pH will rise on its own. More aeration and surface agitation help; don't chase pH with chemicals."
+    "El pH ideal en reef es 8.1–8.3. Suele bajar de noche — eso es normal. Mejor aireación y agitación superficial ayudan. Si el KH está bajo, corrige primero la alcalinidad y el pH subirá solo.",
+    "The ideal reef pH is 8.1–8.3. It naturally drops at night — that's normal. Better aeration and surface agitation help. If KH is low, fix alkalinity first and pH will follow."
   );
   if (/magnesio|magnesium|mg\b/.test(m)) return T(
-    "El magnesio en 1320 mg/L está en rango óptimo (1250–1350). No requiere suplementación adicional — solo mantén los cambios de agua regulares con agua bien mezclada.",
-    "Magnesium at 1320 mg/L is in the optimal range (1250–1350). No extra supplementation needed — just keep up regular water changes with well-mixed saltwater."
+    "El magnesio debe estar en 1250–1350 mg/L. Si está bajo, suplementa gradualmente con cloruro o sulfato de magnesio. Los cambios de agua regulares con agua bien mezclada ayudan a mantenerlo estable.",
+    "Magnesium should be 1250–1350 mg/L. If low, supplement gradually with magnesium chloride or sulfate. Regular water changes with well-mixed saltwater help keep it stable."
   );
   return T(
-    "Estoy en modo demo. Pregúntame por KH, fosfatos, el Birdsnest, magnesio o cambios de agua. Configura tu API key de Google Gemini (gratis) en Ajustes para respuestas IA reales.",
-    "I'm in demo mode. Ask me about KH, phosphates, the Birdsnest, magnesium or water changes. Add your Google Gemini API key (free) in Settings for real AI responses."
+    "Soy Aqua Buddy, tu asistente de acuario. Puedo ayudarte con parámetros, registrar lecturas, crear rutinas o responder preguntas sobre tu reef. Configura tu API key de Google Gemini (gratis en aistudio.google.com/apikey) en Ajustes → Aqua Buddy para respuestas IA en tiempo real.",
+    "I'm Aqua Buddy, your aquarium assistant. I can help with parameters, log readings, create routines or answer questions about your reef. Add your free Google Gemini API key (from aistudio.google.com/apikey) in Settings → Aqua Buddy for real-time AI responses."
   );
 }
 
@@ -475,10 +475,23 @@ const localAquaBot = localAquaBuddy;
 
 // ---- Reef Status & AI Update hero ----
 function ReefStatusHero({ onNavigate }) {
-  const { TANK_CONFIG } = window.AQUA;
+  const { TANK_CONFIG, CURRENT_PARAMETERS, ALERTS } = window.AQUA;
   const [input, setInput] = React.useState("");
   const [reply, setReply] = React.useState("");
   const [loading, setLoading] = React.useState(false);
+
+  // Compute live status from actual data
+  const paramVals = Object.values(CURRENT_PARAMETERS);
+  const dangerCount = paramVals.filter((p) => p.status === "danger").length;
+  const warnCount = paramVals.filter((p) => p.status === "warn").length;
+  const alertCount = (window.AquaStore?.activeAlerts() || []).length;
+  const overallStatus = dangerCount > 0 || alertCount > 0 ? "danger" : warnCount > 0 ? "warn" : "ok";
+  const statusBadge = {
+    ok:     { bg: "rgba(16,185,129,0.88)", text: "#fff", label: T("Todo en orden", "All good") },
+    warn:   { bg: "rgba(245,158,11,0.92)", text: "#3A2A05", label: T("Vigilar parámetros", "Watch parameters") },
+    danger: { bg: "rgba(220,68,88,0.92)",  text: "#fff", label: T("Alerta crítica", "Critical alert") },
+  }[overallStatus];
+  const isNewTank = !TANK_CONFIG.displayVolume && !TANK_CONFIG.owner;
 
   const send = async () => {
     const msg = input.trim();
@@ -494,55 +507,55 @@ function ReefStatusHero({ onNavigate }) {
     <Card className="overflow-hidden">
       <div className="flex items-center justify-between px-5 pt-4 pb-3">
         <h2 className="text-[17px] font-semibold tracking-tight text-[var(--ink)]">
-          {T("Estado del reef & actualización IA", "Reef Status & AI Update")}
+          {T("Estado del acuario", "Aquarium Status")}
         </h2>
         <span className="text-[11px] text-[var(--ink-3)]">{fmtLongDate(window.AQUA.MOCK_TODAY)}</span>
       </div>
 
-      {/* Tank banner — gradient with tank name/stats */}
+      {/* Tank banner */}
       <div className="relative mx-4 rounded-3xl overflow-hidden" style={{ height: 150 }}>
-        <div
-          className="absolute inset-0"
-          style={{ background: "linear-gradient(135deg, #0a2a3a 0%, #0e4a6a 40%, #115e5a 70%, #0d3d3a 100%)" }}
-        />
+        <div className="absolute inset-0" style={{ background: "linear-gradient(135deg, #0a2a3a 0%, #0e4a6a 40%, #115e5a 70%, #0d3d3a 100%)" }} />
         <svg className="absolute inset-0 w-full h-full" preserveAspectRatio="none" viewBox="0 0 400 150">
           <path d="M0,75 C100,55 200,95 300,70 C350,57 380,80 400,75 L400,150 L0,150 Z" fill="rgba(255,255,255,0.05)" />
           <path d="M0,105 C80,90 160,115 240,100 C310,87 370,110 400,103 L400,150 L0,150 Z" fill="rgba(255,255,255,0.03)" />
         </svg>
         <div className="absolute inset-x-0 bottom-0 h-20 pointer-events-none" style={{ background: "linear-gradient(to top, rgba(8,22,34,0.55), transparent)" }} />
         <div className="absolute left-4 bottom-3">
-          <div className="text-[20px] font-semibold text-white tracking-tight" style={{ textShadow: "0 1px 8px rgba(0,0,0,0.45)" }}>{TANK_CONFIG.name}</div>
+          <div className="text-[20px] font-semibold text-white tracking-tight" style={{ textShadow: "0 1px 8px rgba(0,0,0,0.45)" }}>
+            {TANK_CONFIG.name || T("Mi Acuario", "My Aquarium")}
+          </div>
           <div className="mt-1 flex items-center gap-2 flex-wrap">
-            <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10.5px] font-semibold uppercase tracking-[0.06em]" style={{ background: "rgba(245,158,11,0.92)", color: "#3A2A05" }}>
-              <span className="w-1.5 h-1.5 rounded-full bg-[#3A2A05]" />
-              {T("Estado: Necesita atención", "Status: Needs attention")}
+            <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10.5px] font-semibold uppercase tracking-[0.06em]" style={{ background: statusBadge.bg, color: statusBadge.text }}>
+              <span className="w-1.5 h-1.5 rounded-full" style={{ background: statusBadge.text, opacity: 0.7 }} />
+              {statusBadge.label}
             </span>
           </div>
         </div>
-        <div className="absolute right-3 bottom-3 hidden sm:block">
-          <span className="text-[10.5px] text-white/85 px-2 py-1 rounded-full" style={{ background: "rgba(8,22,34,0.45)", backdropFilter: "blur(8px)" }}>
-            {T("2 parámetros fuera de rango · 1 alerta crítica", "2 parameters out of range · 1 critical alert")}
-          </span>
-        </div>
+        {!isNewTank && (dangerCount + warnCount + alertCount) > 0 && (
+          <div className="absolute right-3 bottom-3 hidden sm:block">
+            <span className="text-[10.5px] text-white/85 px-2 py-1 rounded-full" style={{ background: "rgba(8,22,34,0.45)", backdropFilter: "blur(8px)" }}>
+              {dangerCount + warnCount > 0 ? T(`${dangerCount + warnCount} parámetros · ${alertCount} alertas`, `${dangerCount + warnCount} params · ${alertCount} alerts`) : T(`${alertCount} alertas`, `${alertCount} alerts`)}
+            </span>
+          </div>
+        )}
         <div className="absolute top-3 right-3">
           <div className="grid place-items-center w-9 h-9 rounded-xl" style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.18)" }}>
             <L name="Droplet" size={16} style={{ color: "#2DD4BF" }} />
           </div>
         </div>
+        {isNewTank && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <button onClick={() => onNavigate("settings")} className="flex items-center gap-2 px-4 py-2 rounded-full text-[12.5px] font-medium text-white transition-all hover:brightness-110" style={{ background: "rgba(13,148,136,0.7)", border: "1px solid rgba(255,255,255,0.25)", backdropFilter: "blur(8px)" }}>
+              <L name="Settings" size={14} /> {T("Configurar mi tanque", "Set up my tank")}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Quick update / ask AI */}
       <div className="px-5 pt-4 pb-5">
         <div className="flex items-center justify-between mb-2.5">
-          <div className="text-[13px] font-semibold text-[var(--ink)]">{T("Actualización rápida / Pregunta a la IA", "Quick Update / Ask AI")}</div>
-          <div className="hidden md:flex items-center gap-2 max-w-[46%]">
-            <div className="grid place-items-center w-6 h-6 rounded-full shrink-0" style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)" }}>
-              <L name="Sparkles" size={11} style={{ color: "var(--accent)" }} />
-            </div>
-            <p className="text-[11px] text-[var(--ink-2)] leading-snug truncate">
-              {T("Aqua Buddy: el KH bajó otra vez — ¿te paso el plan de dosificación?", "Aqua Buddy: KH dropped again — want today's dosing plan?")}
-            </p>
-          </div>
+          <div className="text-[13px] font-semibold text-[var(--ink)]">{T("Pregunta a Aqua Buddy", "Ask Aqua Buddy")}</div>
         </div>
 
         <div className="flex items-center gap-2">
@@ -582,13 +595,29 @@ function ReefStatusHero({ onNavigate }) {
 function TankVitalsStrip() {
   const { CURRENT_PARAMETERS, TANK_CONFIG, MOCK_TODAY } = window.AQUA;
   const daysRunning = Math.round((new Date(MOCK_TODAY) - new Date(TANK_CONFIG.setupDate)) / 86400000);
+
+  // Compute health score from live parameter statuses
+  const paramVals = Object.values(CURRENT_PARAMETERS);
+  const dangerCount = paramVals.filter((p) => p.status === "danger").length;
+  const warnCount = paramVals.filter((p) => p.status === "warn").length;
+  const healthScore = Math.max(0, 100 - dangerCount * 25 - warnCount * 10);
+  const healthColor = healthScore >= 80 ? "#0E9F6E" : healthScore >= 60 ? "#C77F00" : "#DC4458";
+
+  // Cycle status
+  const ammonia = CURRENT_PARAMETERS.ammonia?.value ?? 0;
+  const nitrite = CURRENT_PARAMETERS.nitrite?.value ?? 0;
+  const cycled = daysRunning >= 30 && ammonia <= 0.25 && nitrite <= 0.1;
+  const cycleLabel = daysRunning === 0 ? T("Nuevo", "New") : cycled ? T("Completo", "Complete") : T("En proceso", "In progress");
+  const cycleColor = cycled ? "#0E9F6E" : daysRunning === 0 ? "var(--ink-3)" : "#C77F00";
+  const cycleIcon = cycled ? "CheckCircle2" : daysRunning === 0 ? "Clock" : "RefreshCw";
+
   const stats = [
     { label: "Temp", value: `${CURRENT_PARAMETERS.temperature.value}°F`, icon: "Thermometer", color: "#0E9F6E" },
     { label: T("Salinidad", "Salinity"), value: CURRENT_PARAMETERS.salinity.value, icon: "Sailboat", color: "#0E9F6E" },
-    { label: T("Volumen", "Volume"), value: `${TANK_CONFIG.realVolume} gal`, icon: "Container", color: "var(--ink-2)" },
+    { label: T("Volumen", "Volume"), value: TANK_CONFIG.realVolume ? `${TANK_CONFIG.realVolume} gal` : "—", icon: "Container", color: "var(--ink-2)" },
     { label: T("Días activo", "Days running"), value: String(daysRunning), icon: "Calendar", color: "var(--ink-2)" },
-    { label: T("Salud", "Health"), value: "82 / 100", icon: "Heart", color: "#C77F00" },
-    { label: T("Ciclado", "Cycle"), value: T("completo", "complete"), icon: "CheckCircle2", color: "#0E9F6E" },
+    { label: T("Salud", "Health"), value: `${healthScore} / 100`, icon: "Heart", color: healthColor },
+    { label: T("Ciclado", "Cycle"), value: cycleLabel, icon: cycleIcon, color: cycleColor },
   ];
   return (
     <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
@@ -687,8 +716,14 @@ function WaterParamsCard({ onNavigate }) {
 
 // ---- Lighting Schedule card ----
 function LightingScheduleCard({ onNavigate }) {
-  const { LIGHTING_SCHEDULE, LIGHT_CHANNELS } = window.AQUA;
-  const wk = LIGHTING_SCHEDULE[(window.AquaStore?.lightingWeek || 2) - 1];
+  const { LIGHTING_SCHEDULE, LIGHT_CHANNELS, EQUIPMENT } = window.AQUA;
+  const currentWeekNum = window.AquaStore?.lightingWeek || 1;
+  const wk = LIGHTING_SCHEDULE[Math.min(currentWeekNum - 1, LIGHTING_SCHEDULE.length - 1)];
+  const nextWeekNum = currentWeekNum + 1;
+  const hasNextWeek = nextWeekNum <= LIGHTING_SCHEDULE.length;
+  const nextWk = hasNextWeek ? LIGHTING_SCHEDULE[nextWeekNum - 1] : null;
+  const deltaB = hasNextWeek ? (nextWk.channels.B - wk.channels.B) : 0;
+  const lightFixture = EQUIPMENT.find((e) => e.type === "lighting");
   // 24h cycle gradient: night → ramp 7-11 → peak → ramp down 15-21 → night
   const cycleGradient = "linear-gradient(90deg, #283A66 0%, #283A66 27%, #7FB4D9 38%, #FDF3C9 47%, #FDF6D8 58%, #F4C77E 72%, #4A5A92 88%, #283A66 100%)";
 
@@ -723,7 +758,9 @@ function LightingScheduleCard({ onNavigate }) {
           <L name="Lamp" size={18} className="text-[var(--ink-2)]" />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-[13.5px] font-semibold text-[var(--ink)]">Smatfarm G5 95W</div>
+          <div className="text-[13.5px] font-semibold text-[var(--ink)]">
+            {lightFixture ? lightFixture.name : T("Lámpara LED", "LED Light")}
+          </div>
           <div className="text-[11px] text-[var(--ink-2)] mt-0.5">
             {T("Tipo: LED · Fase: Aclimatación semana", "Type: LED · Phase: Acclimation week")} {wk.week}
           </div>
@@ -749,8 +786,22 @@ function LightingScheduleCard({ onNavigate }) {
       </div>
 
       <div className="mt-3 flex items-center justify-between text-[10.5px] text-[var(--ink-2)]">
-        <span className="inline-flex items-center gap-1.5"><L name="CalendarClock" size={12} /> {T("Próximo ajuste: 29 may (sem 3)", "Next adjustment: May 29 (wk 3)")}</span>
-        <span className="tabular-nums" style={{ fontFamily: "DM Mono, monospace" }}>+15% B/C</span>
+        {hasNextWeek ? (
+          <span className="inline-flex items-center gap-1.5">
+            <L name="CalendarClock" size={12} />
+            {T(`Próximo ajuste: Semana ${nextWeekNum}`, `Next adjustment: Week ${nextWeekNum}`)}
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1.5">
+            <L name="CheckCircle2" size={12} style={{ color: "#0E9F6E" }} />
+            {T("Protocolo de aclimatación completado", "Acclimation protocol complete")}
+          </span>
+        )}
+        {hasNextWeek && deltaB !== 0 && (
+          <span className="tabular-nums" style={{ fontFamily: "DM Mono, monospace" }}>
+            {deltaB > 0 ? `+${deltaB}` : deltaB}% B/C
+          </span>
+        )}
       </div>
     </Card>
   );
@@ -790,6 +841,25 @@ function LivestockInventory({ onNavigate }) {
   const corals = INHABITANTS.corals.slice(0, 4);
   const others = [...INHABITANTS.fish.slice(0, 3), ...INHABITANTS.cuc.slice(0, 1)];
   const total = INHABITANTS.fish.length + INHABITANTS.corals.length + INHABITANTS.cuc.length;
+
+  if (total === 0) {
+    return (
+      <Card className="p-5">
+        <SectionHeader
+          kicker={T("Habitantes", "Livestock")}
+          title={T("Inventario de vida", "Livestock Inventory")}
+        />
+        <div className="py-6 text-center">
+          <div className="grid place-items-center w-12 h-12 mx-auto rounded-2xl mb-3" style={{ background: "rgba(34,211,238,0.1)", border: "1px solid rgba(34,211,238,0.25)" }}>
+            <L name="Fish" size={20} style={{ color: "#22D3EE" }} />
+          </div>
+          <div className="text-[13px] text-[var(--ink)] font-medium mb-1">{T("Aún no hay habitantes", "No inhabitants yet")}</div>
+          <div className="text-[11.5px] text-[var(--ink-2)] mb-3">{T("Agrega tus primeros peces, corales o limpiadores", "Add your first fish, corals or clean-up crew")}</div>
+          <Button variant="primary" size="sm" icon="Plus" onClick={() => onNavigate("inhabitants")}>{T("Agregar habitante", "Add inhabitant")}</Button>
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <Card className="p-5">
@@ -924,10 +994,24 @@ function RoutineItem({ routine, done, onToggle, isFirst, isLast, urgent }) {
 function RoutinesTimeline({ items = 6, done: doneProp, onToggle: onToggleProp }) {
   const { ROUTINES } = window.AQUA;
   const list = ROUTINES.slice(0, items);
-  // Shared state when the app shell provides it; local fallback otherwise.
   const [localDone, setLocalDone] = React.useState({});
   const done = doneProp || localDone;
   const toggle = onToggleProp || ((id) => setLocalDone((p) => ({ ...p, [id]: !p[id] })));
+
+  if (list.length === 0) {
+    return (
+      <div className="py-5 text-center">
+        <div className="grid place-items-center w-10 h-10 mx-auto rounded-xl mb-2" style={{ background: "var(--well)", border: "1px solid var(--hairline)" }}>
+          <L name="CalendarCheck" size={16} className="text-[var(--ink-3)]" />
+        </div>
+        <div className="text-[12px] text-[var(--ink-2)] leading-relaxed">
+          {T("Sin rutinas aún.", "No routines yet.")}<br />
+          <span className="text-[var(--ink-3)]">{T("Escribe «agrega rutina» en Aqua Buddy", "Say 'add routine' in Aqua Buddy")}</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col">
       {list.map((r, i) => (
@@ -947,8 +1031,8 @@ function RoutinesTimeline({ items = 6, done: doneProp, onToggle: onToggleProp })
 
 // ---- Aqua Buddy widget ----
 const QUICK_PROMPTS = () => window.__lang === "en"
-  ? ["How much Reef Buffer today?", "Log KH 7.5", "Remind me to buy salt", "Add routine clean glass weekly", "Why is my Birdsnest bleaching?"]
-  : ["¿Cuánto Reef Buffer dosifico hoy?", "Registra KH 7.5", "Recuérdame comprar sal", "Agrega rutina limpiar cristales semanal", "¿Por qué blanquea mi Birdsnest?"];
+  ? ["How to raise KH safely?", "Log KH 9.0", "Remind me to do water change", "Add routine clean glass weekly", "Best corals for beginners?"]
+  : ["¿Cómo subir KH sin estrés?", "Registra KH 9.0", "Recuérdame hacer cambio de agua", "Agrega rutina limpiar cristales semanal", "¿Mejores corales para principiantes?"];
 
 const GENERAL_PROMPTS = () => window.__lang === "en"
   ? ["Best corals for beginners?", "How to cycle a new tank?", "SPS vs LPS: what's easier?", "Reef2Reef: most common mistakes?"]
@@ -969,10 +1053,16 @@ function AquaBotWidget({ fullPage = false }) {
   const owner = TANK_CONFIG.owner;
   const [mode, setMode] = React.useState("personalized"); // "personalized" | "general"
   const [messages, setMessages] = React.useState([
-    { from: "bot", text: T(
-      `Hola ${owner}. El KH bajó otra vez — ¿te paso el plan de dosificación? También puedo registrar lecturas, crear rutinas o recordatorios: prueba «Registra KH 7.5» o «Recuérdame comprar sal».`,
-      `Hi ${owner}. KH dropped again — want the dosing plan? I can also log readings, create routines or reminders: try "Log KH 7.5" or "Remind me to buy salt".`
-    ) },
+    { from: "bot", text: owner
+      ? T(
+          `¡Hola ${owner}! Soy Aqua Buddy. Puedo registrar lecturas, crear rutinas, buscar información de tu reef o responder preguntas. Prueba: «Registra KH 9.0» o «Recuérdame hacer cambio de agua».`,
+          `Hi ${owner}! I'm Aqua Buddy. I can log readings, create routines, research your reef or answer questions. Try: "Log KH 9.0" or "Remind me to do a water change".`
+        )
+      : T(
+          `¡Hola! Soy Aqua Buddy, tu asistente de acuario. Puedo registrar lecturas, crear rutinas o responder cualquier pregunta sobre tu tanque. Prueba: «Registra pH 8.2» o «Agrega rutina limpiar cristales semanal».`,
+          `Hi! I'm Aqua Buddy, your aquarium assistant. I can log readings, create routines or answer any question about your tank. Try: "Log pH 8.2" or "Add routine clean glass weekly".`
+        )
+    },
   ]);
   const [input, setInput] = React.useState("");
   const [loading, setLoading] = React.useState(false);
@@ -1137,7 +1227,7 @@ function alertCTAAction(a, navigate, dismiss) {
 
 // ---------- Dashboard ----------
 function Dashboard({ onNavigate, alerts: allAlerts, onDismissAlert, routinesDone, onToggleRoutine }) {
-  // Shared alert state lives in App; the dashboard surfaces at most 3.
+  const { TANK_CONFIG } = window.AQUA;
   const alerts = (allAlerts || window.AQUA.ALERTS).slice(0, 3);
   const dismiss = onDismissAlert || (() => {});
 
@@ -1208,27 +1298,28 @@ function Dashboard({ onNavigate, alerts: allAlerts, onDismissAlert, routinesDone
 
       <GalleryStrip />
 
-      {/* Store card */}
-      <Card className="p-4 lg:p-5 flex items-center gap-4 flex-wrap">
-        <div className="grid place-items-center w-10 h-10 rounded-xl shrink-0" style={{ background: "rgba(99,102,241,0.13)", border: "1px solid rgba(99,102,241,0.3)" }}>
-          <L name="Store" size={16} style={{ color: "var(--indigo)" }} />
-        </div>
-        <div className="flex-1 min-w-[220px]">
-          <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--ink-3)] font-semibold">{T("Tienda local · Matt's Corals", "Local store · Matt's Corals")}</div>
-          <div className="text-[13.5px] text-[var(--ink)] font-medium">{T("Re-stock sugerido: 6 gal RODI · 1 caja Instant Ocean", "Suggested re-stock: 6 gal RODI · 1 box Instant Ocean")}</div>
-          <div className="text-[11.5px] text-[var(--ink-2)]">{T("265 Lincoln Cir B, Gahanna · RODI $0.75/gal · abierto hoy hasta 19:00", "265 Lincoln Cir B, Gahanna · RODI $0.75/gal · open today until 7pm")}</div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="secondary"
-            icon="MapPin"
-            onClick={() => window.open("https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent("Matt's Corals, 265 Lincoln Cir B, Gahanna, OH"), "_blank", "noopener")}
-          >
-            {T("Ver mapa", "View map")}
-          </Button>
-          <Button variant="primary" icon="ShoppingBag" onClick={() => window.open("https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent("Matt's Corals, 265 Lincoln Cir B, Gahanna, OH"), "_blank", "noopener")}>{T("Reservar", "Reserve")}</Button>
-        </div>
-      </Card>
+      {/* Store card — only shown when the user has configured a local store */}
+      {TANK_CONFIG.localStore?.name && (
+        <Card className="p-4 lg:p-5 flex items-center gap-4 flex-wrap">
+          <div className="grid place-items-center w-10 h-10 rounded-xl shrink-0" style={{ background: "rgba(99,102,241,0.13)", border: "1px solid rgba(99,102,241,0.3)" }}>
+            <L name="Store" size={16} style={{ color: "var(--indigo)" }} />
+          </div>
+          <div className="flex-1 min-w-[220px]">
+            <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--ink-3)] font-semibold">{T("Tienda local", "Local store")} · {TANK_CONFIG.localStore.name}</div>
+            {TANK_CONFIG.localStore.restock && <div className="text-[13.5px] text-[var(--ink)] font-medium">{TANK_CONFIG.localStore.restock}</div>}
+            {TANK_CONFIG.localStore.address && <div className="text-[11.5px] text-[var(--ink-2)]">{TANK_CONFIG.localStore.address}</div>}
+          </div>
+          {TANK_CONFIG.localStore.address && (
+            <Button
+              variant="secondary"
+              icon="MapPin"
+              onClick={() => window.open("https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(TANK_CONFIG.localStore.address), "_blank", "noopener")}
+            >
+              {T("Ver mapa", "View map")}
+            </Button>
+          )}
+        </Card>
+      )}
     </div>
   );
 }

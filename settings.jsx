@@ -63,8 +63,12 @@ function LoginScreen({ onSignIn, isNew = false }) {
         if (u && !u.identities?.length) {
           setInfo(T("Revisa tu email para confirmar tu cuenta.", "Check your email to confirm your account."));
         } else if (u) {
-          // Auto-confirmed (email confirmation disabled in Supabase)
-          onSignIn({ name: u.email?.split("@")[0] || "User", email: u.email, uid: u.id, color: "linear-gradient(150deg, #0E8C86, #5B5BD6)", provider: "supabase", since: new Date().toISOString().slice(0, 10) });
+          // Auto-confirmed: wipe all old data so new account starts truly fresh,
+          // save session, then reload (onboarding will trigger on clean load)
+          const newUser = { name: u.email?.split("@")[0] || "User", email: u.email, uid: u.id, color: "linear-gradient(150deg, #0E8C86, #5B5BD6)", provider: "supabase", since: new Date().toISOString().slice(0, 10) };
+          Object.keys(localStorage).filter((k) => k.startsWith("aqua:")).forEach((k) => localStorage.removeItem(k));
+          localStorage.setItem("aqua:session", JSON.stringify(newUser));
+          location.reload();
         }
       } else {
         await window.CLOUD.signInWithEmail(email.trim(), password);

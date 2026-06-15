@@ -71,14 +71,8 @@ window.AQUA = (() => {
     { key: "F", name: "Rojo",          color: "#F87171", description: "Pigmentos rojos / LPS" },
   ];
 
-  // Generic starter routines
-  const ROUTINES = [
-    { id: "r1", task: "Alimentar peces",        detail: "Alimentación diaria",            frequency: "Diario",    nextDue: "today",      time: "09:00", icon: "Fish" },
-    { id: "r2", task: "Revisar parámetros",     detail: "pH, temperatura, salinidad",     frequency: "2x/semana", nextDue: "today",      time: "10:00", icon: "Activity" },
-    { id: "r3", task: "Limpiar cristales",      detail: "Espátula o imán",               frequency: "Semanal",   nextDue: "today",      time: "11:00", icon: "Sparkles" },
-    { id: "r4", task: "Cambio de agua 20%",     detail: "Agua preparada a la salinidad correcta", frequency: "Quincenal", nextDue: "today", time: "10:00", icon: "Waves" },
-    { id: "r5", task: "Limpiar filtro/skimmer", detail: "Mantenimiento mensual",          frequency: "Mensual",   nextDue: "today",      time: "11:00", icon: "Wind" },
-  ];
+  // No pre-populated routines — user adds their own
+  const ROUTINES = [];
 
   const ALERTS = [];
 

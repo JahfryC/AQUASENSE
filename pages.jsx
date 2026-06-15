@@ -644,12 +644,13 @@ function AddInhabitantModal({ onClose }) {
 }
 
 function InhabitantsPage() {
-  const { INHABITANTS } = window.AQUA;
+  const { INHABITANTS, TANK_CONFIG } = window.AQUA;
   const [tab, setTab] = useState("all");
   const [addOpen, setAddOpen] = useState(false);
+  const total = INHABITANTS.fish.length + INHABITANTS.corals.length + INHABITANTS.cuc.length;
 
   const tabs = [
-    { id: "all",    label: T("Todos","All"),   count: INHABITANTS.fish.length + INHABITANTS.corals.length + INHABITANTS.cuc.length },
+    { id: "all",    label: T("Todos","All"),   count: total },
     { id: "fish",   label: T("Peces","Fish"),   count: INHABITANTS.fish.length },
     { id: "corals", label: T("Corales","Corals"), count: INHABITANTS.corals.length },
     { id: "cuc",    label: "CUC",     count: INHABITANTS.cuc.length },
@@ -660,7 +661,12 @@ function InhabitantsPage() {
       <div className="flex items-end justify-between flex-wrap gap-3">
         <div>
           <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--ink-3)] mb-1">Habitantes</div>
-          <h1 className="text-[20px] lg:text-[22px] font-medium text-[var(--ink)] tracking-tight">{T("El equipo del 20G High Reef","The 20G High Reef crew")}</h1>
+          <h1 className="text-[20px] lg:text-[22px] font-medium text-[var(--ink)] tracking-tight">
+            {total > 0
+              ? T(`El equipo de ${TANK_CONFIG.name || "tu acuario"}`, `${TANK_CONFIG.name || "Your aquarium"} crew`)
+              : T("Añade tus primeros habitantes", "Add your first inhabitants")
+            }
+          </h1>
         </div>
         <Button variant="primary" icon="Plus" onClick={() => setAddOpen(true)}>{T("Agregar habitante","Add inhabitant")}</Button>
       </div>
@@ -678,7 +684,17 @@ function InhabitantsPage() {
         ))}
       </div>
 
-      {(tab === "all" || tab === "fish") && (
+      {total === 0 && (
+        <div className="py-12 text-center">
+          <div className="grid place-items-center w-16 h-16 mx-auto rounded-3xl mb-4" style={{ background: "rgba(34,211,238,0.1)", border: "1px solid rgba(34,211,238,0.25)" }}>
+            <L name="Fish" size={28} style={{ color: "#22D3EE" }} />
+          </div>
+          <div className="text-[15px] text-[var(--ink)] font-medium mb-1">{T("Tu tanque está vacío", "Your tank is empty")}</div>
+          <div className="text-[12.5px] text-[var(--ink-2)] mb-4">{T("Agrega tus primeros peces, corales o limpiadores para comenzar", "Add your first fish, corals or clean-up crew to get started")}</div>
+          <Button variant="primary" icon="Plus" onClick={() => setAddOpen(true)}>{T("Agregar primer habitante", "Add first inhabitant")}</Button>
+        </div>
+      )}
+      {(tab === "all" || tab === "fish") && INHABITANTS.fish.length > 0 && (
         <div>
           <SectionHeader kicker={T("Peces","Fish")} title={`${INHABITANTS.fish.length} ${T("en el tanque","in the tank")}`} />
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -686,7 +702,7 @@ function InhabitantsPage() {
           </div>
         </div>
       )}
-      {(tab === "all" || tab === "corals") && (
+      {(tab === "all" || tab === "corals") && INHABITANTS.corals.length > 0 && (
         <div className="mt-5">
           <SectionHeader kicker={T("Corales","Corals")} title={`${INHABITANTS.corals.length} ${T("colonias","colonies")}`} />
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -694,7 +710,7 @@ function InhabitantsPage() {
           </div>
         </div>
       )}
-      {(tab === "all" || tab === "cuc") && (
+      {(tab === "all" || tab === "cuc") && INHABITANTS.cuc.length > 0 && (
         <div className="mt-5">
           <SectionHeader kicker="Clean-up Crew" title={`${INHABITANTS.cuc.length} ${T("ayudantes","helpers")}`} />
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -715,8 +731,8 @@ function LightingPage() {
     <div className="px-4 lg:px-6 py-5 lg:py-6 space-y-4">
       <div className="flex items-end justify-between flex-wrap gap-3">
         <div>
-          <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--ink-3)] mb-1">{T("Iluminación · Smatfarm G5 95W","Lighting · Smatfarm G5 95W")}</div>
-          <h1 className="text-[20px] lg:text-[22px] font-medium text-[var(--ink)] tracking-tight">{T("Protocolo de aclimatación · 4 semanas","Acclimation protocol · 4 weeks")}</h1>
+          <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--ink-3)] mb-1">{T("Iluminación · Protocolo de aclimatación","Lighting · Acclimation protocol")}</div>
+          <h1 className="text-[20px] lg:text-[22px] font-medium text-[var(--ink)] tracking-tight">{T("Programa de luz · 4 semanas","Lighting schedule · 4 weeks")}</h1>
           <p className="text-[12.5px] text-[var(--ink-2)] mt-1">{T("Aumentos graduales por canal para evitar estrés lumínico en corales nuevos","Gradual per-channel ramps to avoid light stress on new corals")}</p>
         </div>
         <div className="flex items-center gap-2">
@@ -876,10 +892,13 @@ function RoutinesPage({ routinesDone, onToggleRoutine }) {
   const done = routinesDone || localDone;
   const toggle = onToggleRoutine || ((id) => setLocalDone((p) => ({ ...p, [id]: !p[id] })));
 
+  const nextWeekDate = new Date(MOCK_TODAY);
+  nextWeekDate.setDate(nextWeekDate.getDate() + 7);
+  const nextWeekStr = nextWeekDate.toISOString().slice(0, 10);
   const groups = {
     today: ROUTINES.filter((r) => r.nextDue === "today"),
-    week: ROUTINES.filter((r) => r.nextDue !== "today" && r.nextDue <= "2026-05-27"),
-    later: ROUTINES.filter((r) => r.nextDue > "2026-05-27"),
+    week: ROUTINES.filter((r) => r.nextDue !== "today" && r.nextDue <= nextWeekStr),
+    later: ROUTINES.filter((r) => r.nextDue > nextWeekStr),
   };
 
   return (
@@ -899,6 +918,9 @@ function RoutinesPage({ routinesDone, onToggleRoutine }) {
             {groups.today.map((r, i) => (
               <RoutineItem key={r.id} routine={r} done={!!done[r.id]} onToggle={() => toggle(r.id)} isFirst={i === 0} isLast={i === groups.today.length - 1} urgent />
             ))}
+            {groups.today.length === 0 && (
+              <div className="text-[11.5px] text-[var(--ink-3)] py-5 text-center">{T("¡Todo al día por hoy!", "All caught up for today!")}</div>
+            )}
           </div>
         </Card>
         <Card className="p-4">
@@ -918,6 +940,9 @@ function RoutinesPage({ routinesDone, onToggleRoutine }) {
             {groups.later.map((r, i) => (
               <RoutineItem key={r.id} routine={r} done={!!done[r.id]} onToggle={() => toggle(r.id)} isFirst={i === 0} isLast={i === groups.later.length - 1} urgent={false} />
             ))}
+            {groups.later.length === 0 && (
+              <div className="text-[11.5px] text-[var(--ink-3)] py-5 text-center">{T("Sin rutinas más adelante", "No upcoming routines")}</div>
+            )}
           </div>
         </Card>
       </div>
@@ -1001,12 +1026,25 @@ function AquaBotPage() {
             </ul>
           </Card>
 
+          {!window.AQUAMIND_AI_KEY && !localStorage.getItem("aqua:ai_key") && (
+            <Card className="p-4">
+              <div className="flex items-start gap-2.5">
+                <div className="grid place-items-center w-8 h-8 rounded-xl shrink-0 mt-0.5" style={{ background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.3)" }}>
+                  <L name="Key" size={14} style={{ color: "#C77F00" }} />
+                </div>
+                <div>
+                  <div className="text-[12.5px] font-semibold text-[var(--ink)] mb-0.5">{T("API key de Gemini requerida", "Gemini API key required")}</div>
+                  <div className="text-[11px] text-[var(--ink-2)] leading-relaxed">{T("Obtén tu key gratuita en ", "Get your free key at ")}<span className="font-medium" style={{ color: "var(--accent)" }}>aistudio.google.com/apikey</span>{T(" y agrégala en Ajustes → Cuenta → Aqua Buddy.", " and add it in Settings → Account → Aqua Buddy.")}</div>
+                </div>
+              </div>
+            </Card>
+          )}
           <Card className="p-4">
             <SectionHeader kicker={T("Modo personalizado","Personalized mode")} title={T("Preguntas sobre tu tanque","Questions about your tank")} />
             <div className="flex flex-col gap-1.5">
               {[
-                T("Plan diario para subir KH sin chocar pH","Daily plan to raise KH without crashing pH"),
-                T("¿Por qué blanquea el Birdsnest?","Why is the Birdsnest bleaching?"),
+                T("¿Cómo están mis parámetros actuales?","How are my current parameters?"),
+                T("¿Qué debo hacer esta semana en mi acuario?","What should I do this week in my aquarium?"),
                 T("Esquema completo de cambios de agua","Full water-change scheme"),
                 T("¿Es seguro agregar un nuevo coral ahora?","Is it safe to add a new coral now?"),
               ].map((q) => (
@@ -1026,7 +1064,7 @@ function AquaBotPage() {
             <div className="flex flex-col gap-1.5">
               {[
                 T("¿Mejores corales para principiantes?","Best corals for beginners?"),
-                T("¿Cómo identificar RTN vs STN?","How to identify RTN vs STN?"),
+                T("¿Cómo ciclar un tanque nuevo?","How to cycle a new tank?"),
                 T("¿SPS o LPS para empezar?","SPS or LPS to start?"),
                 T("Guía de aclimatación de nuevos peces","New fish acclimation guide"),
               ].map((q) => (
