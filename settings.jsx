@@ -39,7 +39,7 @@ function LoginScreen({ onSignIn }) {
       try {
         await window.CLOUD.signInGoogle(); // aqua:auth completa la sesión
       } catch (e) {
-        window.toast?.(T("No se pudo iniciar sesión con Google. Revisa los dominios autorizados en Firebase.", "Google sign-in failed. Check Firebase authorized domains."), { tone: "warn", icon: "AlertTriangle" });
+        window.toast?.(T("No se pudo iniciar sesion con Google. Revisa la configuracion de Supabase Auth.", "Google sign-in failed. Check your Supabase Auth configuration."), { tone: "warn", icon: "AlertTriangle" });
       }
       setGoogleLoading(false);
     } else {
@@ -69,8 +69,8 @@ function LoginScreen({ onSignIn }) {
           </button>
           {!window.CLOUD?.isConfigured && (
             <p className="text-[10px] text-[var(--ink-3)] mt-2 leading-relaxed">
-              {T("Login real + nube disponibles al conectar Firebase (gratis) — instrucciones en Ajustes → Cuenta.",
-                 "Real login + cloud sync available by connecting Firebase (free) — see Settings → Account.")}
+              {T("Login real + nube disponibles al conectar Supabase (gratis) — instrucciones en Ajustes → Cuenta.",
+                 "Real login + cloud sync available by connecting Supabase (free) — see Settings → Account.")}
             </p>
           )}
 
@@ -192,32 +192,34 @@ function downloadICS(kind) {
   setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
 
-// ---------- OpenAI key input ----------
-function OpenAIKeyRow() {
-  const [key, setKey] = React.useState(() => localStorage.getItem("aqua:openai_key") || "");
+// ---------- Google Gemini API key ----------
+function GeminiKeyRow() {
+  const [key, setKey] = React.useState(() => localStorage.getItem("aqua:ai_key") || "");
   const [show, setShow] = React.useState(false);
   const [saved, setSaved] = React.useState(false);
 
   const save = () => {
     if (key.trim()) {
-      localStorage.setItem("aqua:openai_key", key.trim());
-      window.AQUAMIND_OPENAI_KEY = key.trim();
+      localStorage.setItem("aqua:ai_key", key.trim());
+      window.AQUAMIND_AI_KEY = key.trim();
     } else {
-      localStorage.removeItem("aqua:openai_key");
-      delete window.AQUAMIND_OPENAI_KEY;
+      localStorage.removeItem("aqua:ai_key");
+      delete window.AQUAMIND_AI_KEY;
     }
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
-    window.toast?.(T("API key guardada — Aqua Buddy usará OpenAI", "API key saved — Aqua Buddy will use OpenAI"), { icon: "Sparkles" });
+    window.toast?.(T("API key guardada — Aqua Buddy usará Google Gemini", "API key saved — Aqua Buddy will use Google Gemini"), { icon: "Sparkles" });
   };
 
   return (
     <div className="space-y-2">
       <div className="text-[11.5px] text-[var(--ink-2)] leading-relaxed">
         {T(
-          "Pega tu OpenAI API key (sk-...) para que Aqua Buddy use GPT-4o Mini con contexto de tu tanque y conocimiento de Reef2Reef. La key se guarda solo en este dispositivo.",
-          "Paste your OpenAI API key (sk-...) so Aqua Buddy uses GPT-4o Mini with your tank context and Reef2Reef knowledge. The key is stored on this device only."
+          "Consigue tu API key gratis (sin tarjeta) en ",
+          "Get your free API key (no credit card) at "
         )}
+        <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" className="underline" style={{ color: "var(--accent)" }}>aistudio.google.com/apikey</a>
+        {T(". Se guarda solo en este dispositivo.", ". Stored on this device only.")}
       </div>
       <div className="flex gap-2">
         <div className="flex-1 flex items-center gap-2 bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2 focus-within:ring-1 focus-within:ring-[var(--accent-border)] transition-all">
@@ -226,7 +228,7 @@ function OpenAIKeyRow() {
             type={show ? "text" : "password"}
             value={key}
             onChange={(e) => setKey(e.target.value)}
-            placeholder="sk-..."
+            placeholder="AIza..."
             className="flex-1 bg-transparent border-0 outline-none text-[12.5px] text-[var(--ink)] placeholder:text-[var(--ink-3)] font-mono"
             onKeyDown={(e) => { if (e.key === "Enter") save(); }}
           />
@@ -241,7 +243,71 @@ function OpenAIKeyRow() {
       {key && (
         <div className="flex items-center gap-1.5 text-[10.5px]" style={{ color: "var(--accent)" }}>
           <L name="CheckCircle2" size={11} />
-          {T("Key configurada — Aqua Buddy usará OpenAI", "Key configured — Aqua Buddy will use OpenAI")}
+          {T("Key configurada — Aqua Buddy usara Google Gemini", "Key configured — Aqua Buddy will use Google Gemini")}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------- Supabase config ----------
+function SupabaseConfigRow() {
+  const [url, setUrl] = React.useState(() => localStorage.getItem("aqua:supabase_url") || "");
+  const [key, setKey] = React.useState(() => localStorage.getItem("aqua:supabase_key") || "");
+  const [show, setShow] = React.useState(false);
+  const [saved, setSaved] = React.useState(false);
+
+  const save = () => {
+    window.CLOUD?.setConfig?.(url.trim(), key.trim());
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+    window.toast?.(
+      T("Supabase guardado — recarga la pagina para activar la nube", "Supabase saved — reload the page to activate cloud sync"),
+      { icon: "Cloud", tone: "info" }
+    );
+  };
+
+  const configured = !!(localStorage.getItem("aqua:supabase_url") && localStorage.getItem("aqua:supabase_key"));
+
+  return (
+    <div className="space-y-2">
+      <div className="text-[11.5px] text-[var(--ink-2)] leading-relaxed">
+        {T("Crea un proyecto gratis en ", "Create a free project at ")}
+        <a href="https://supabase.com" target="_blank" rel="noopener" className="underline" style={{ color: "var(--accent)" }}>supabase.com</a>
+        {T(", luego Settings → API → copia la URL y la clave anon.", ", then Settings → API → copy the URL and anon key.")}
+      </div>
+      <div className="flex-1 flex items-center gap-2 bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2 focus-within:ring-1 focus-within:ring-[var(--accent-border)] transition-all mb-1">
+        <L name="Link" size={13} className="text-[var(--ink-3)] shrink-0" />
+        <input
+          type="text"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="https://xxxx.supabase.co"
+          className="flex-1 bg-transparent border-0 outline-none text-[12.5px] text-[var(--ink)] placeholder:text-[var(--ink-3)] font-mono"
+        />
+      </div>
+      <div className="flex gap-2">
+        <div className="flex-1 flex items-center gap-2 bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2 focus-within:ring-1 focus-within:ring-[var(--accent-border)] transition-all">
+          <L name="KeyRound" size={13} className="text-[var(--ink-3)] shrink-0" />
+          <input
+            type={show ? "text" : "password"}
+            value={key}
+            onChange={(e) => setKey(e.target.value)}
+            placeholder="eyJhbGci..."
+            className="flex-1 bg-transparent border-0 outline-none text-[12.5px] text-[var(--ink)] placeholder:text-[var(--ink-3)] font-mono"
+          />
+          <button onClick={() => setShow((s) => !s)} className="text-[var(--ink-3)] hover:text-[var(--ink-2)] transition-colors">
+            <L name={show ? "EyeOff" : "Eye"} size={13} />
+          </button>
+        </div>
+        <Button variant={saved ? "primary" : "secondary"} icon={saved ? "Check" : "Save"} onClick={save} disabled={!url.trim() || !key.trim()}>
+          {saved ? T("Guardado", "Saved") : T("Guardar", "Save")}
+        </Button>
+      </div>
+      {configured && !saved && (
+        <div className="flex items-center gap-1.5 text-[10.5px]" style={{ color: "#0E9F6E" }}>
+          <L name="CheckCircle2" size={11} />
+          {T("Supabase configurado", "Supabase configured")}
         </div>
       )}
     </div>
@@ -420,19 +486,38 @@ function SettingsPage({ session, onSignOut, tweaks, setTweak }) {
             </div>
           </Card>
 
-          {/* Aqua Buddy / OpenAI key */}
+          {/* Aqua Buddy — Google Gemini */}
           <Card className="overflow-hidden">
             <div className="flex items-center gap-3 px-5 py-4 border-b border-[var(--hairline)]">
               <div className="grid place-items-center w-9 h-9 rounded-xl shrink-0" style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)" }}>
                 <L name="Sparkles" size={16} style={{ color: "var(--accent)" }} />
               </div>
-              <div>
-                <div className="text-[14px] font-semibold text-[var(--ink)]">Aqua Buddy · OpenAI</div>
-                <div className="text-[11px] text-[var(--ink-2)]">{T("Configura tu API key para respuestas IA reales", "Configure your API key for real AI responses")}</div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <div className="text-[14px] font-semibold text-[var(--ink)]">Aqua Buddy · Google Gemini</div>
+                  <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-md font-semibold" style={{ background: "rgba(16,185,129,0.13)", color: "#0E9F6E", border: "1px solid rgba(16,185,129,0.3)" }}>GRATIS</span>
+                </div>
+                <div className="text-[11px] text-[var(--ink-2)]">{T("AI con contexto de tu tanque + acciones directas en la app", "AI with your tank context + direct actions in the app")}</div>
               </div>
             </div>
             <div className="px-5 py-4 space-y-3">
-              <OpenAIKeyRow />
+              <GeminiKeyRow />
+            </div>
+          </Card>
+
+          {/* Supabase cloud sync */}
+          <Card className="overflow-hidden">
+            <div className="flex items-center gap-3 px-5 py-4 border-b border-[var(--hairline)]">
+              <div className="grid place-items-center w-9 h-9 rounded-xl shrink-0" style={{ background: "rgba(16,185,129,0.13)", border: "1px solid rgba(16,185,129,0.3)" }}>
+                <L name="Database" size={16} style={{ color: "#0E9F6E" }} />
+              </div>
+              <div>
+                <div className="text-[14px] font-semibold text-[var(--ink)]">Supabase · Base de datos</div>
+                <div className="text-[11px] text-[var(--ink-2)]">{T("Sincroniza tu tanque entre dispositivos con login Google", "Sync your tank across devices with Google login")}</div>
+              </div>
+            </div>
+            <div className="px-5 py-4 space-y-3">
+              <SupabaseConfigRow />
             </div>
           </Card>
 

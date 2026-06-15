@@ -159,7 +159,7 @@ window.AquaStore = (() => {
     reset() { localStorage.removeItem(KEY); location.reload(); },
   };
 
-  // Load OpenAI key on startup so callOpenAI can use it immediately
-  const storedKey = localStorage.getItem("aqua:openai_key");
-  if (storedKey) window.AQUAMIND_OPENAI_KEY = storedKey;
+  // Load Gemini AI key on startup so callGemini can use it immediately
+  const storedKey = localStorage.getItem("aqua:ai_key");
+  if (storedKey) window.AQUAMIND_AI_KEY = storedKey;
 })();

@@ -1,115 +1,158 @@
-// cloud.js — inicio de sesión REAL con Google + datos en la nube (Firestore).
-// Funciona con el plan gratuito de Firebase (Spark): sin tarjeta, sin costo.
+// cloud.js — Supabase integration (auth + cloud sync)
+// Free tier: 500 MB DB, 50k monthly active users, unlimited auth
 //
-// ════════════ CÓMO ACTIVARLO (5 minutos, gratis) ════════════
-// 1. Entra a https://console.firebase.google.com → "Agregar proyecto"
-//    (nombre: aquasense; desactiva Analytics).
-// 2. Menú Compilación → Authentication → Comenzar → pestaña "Método de
-//    acceso" → Google → Habilitar → Guardar.
-// 3. Menú Compilación → Firestore Database → Crear base de datos →
-//    modo producción → en la pestaña "Reglas" pega y publica:
+// ════════════ SETUP (5 minutes, gratis) ════════════
+// 1. Ve a https://supabase.com → New project (elige región cerca tuya)
+// 2. En el SQL Editor pega y ejecuta el schema de abajo.
+// 3. Authentication → Providers → Google → habilita y añade
+//    Client ID/Secret desde console.cloud.google.com (OAuth 2.0).
+// 4. Settings → API → copia "Project URL" y "anon public key".
+// 5. En AquaMind → Ajustes → Integraciones pega esos valores.
 //
-//      rules_version = '2';
-//      service cloud.firestore {
-//        match /databases/{database}/documents {
-//          match /users/{uid}/{document=**} {
-//            allow read, write: if request.auth != null && request.auth.uid == uid;
-//          }
-//        }
-//      }
-//
-// 4. ⚙ Configuración del proyecto → "Tus apps" → icono Web </> →
-//    registra la app → copia el objeto firebaseConfig.
-// 5. Pégalo abajo reemplazando `null`. Ejemplo:
-//      const FIREBASE_CONFIG = { apiKey: "AIza…", authDomain: "aquasense-xxx.firebaseapp.com",
-//        projectId: "aquasense-xxx", storageBucket: "…", messagingSenderId: "…", appId: "…" };
-// 6. En Authentication → Settings → Dominios autorizados, añade el dominio
-//    donde publicaste la app (p. ej. aquasense.netlify.app).
-// ═════════════════════════════════════════════════════════════
-const FIREBASE_CONFIG =  {
-  apiKey: "AIzaSyBGJKIg9SDqv7CJSx-TB-Q7KtRzy5U88-w",
-  authDomain: "aquasense1-d059a.firebaseapp.com",
-  projectId: "aquasense1-d059a",
-  storageBucket: "aquasense1-d059a.firebasestorage.app",
-  messagingSenderId: "259308806928",
-  appId: "1:259308806928:web:c1662f248115335d433b95",
-  measurementId: "G-J1N9E7VR43"
-};
+// SCHEMA SQL (ejecutar en Supabase SQL Editor):
+//   create extension if not exists "uuid-ossp";
+//   create table if not exists aquamind_data (
+//     id uuid default uuid_generate_v4() primary key,
+//     user_id uuid references auth.users(id) on delete cascade not null unique,
+//     data jsonb not null default '{}',
+//     updated_at timestamptz default now() not null
+//   );
+//   alter table aquamind_data enable row level security;
+//   create policy "own data" on aquamind_data for all using (auth.uid() = user_id);
+// ═════════════════════════════════════════════════
 
 window.CLOUD = (() => {
-  const SDK = "https://www.gstatic.com/firebasejs/10.14.1/";
-  let auth = null, db = null, user = null, unsubscribe = null;
+  const CDN = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js";
+  let client = null, user = null, realtimeChannel = null;
+
+  function getConfig() {
+    return {
+      url: localStorage.getItem("aqua:supabase_url") || "",
+      key: localStorage.getItem("aqua:supabase_key") || "",
+    };
+  }
 
   const loadScript = (src) => new Promise((res, rej) => {
+    if (window.supabase) { res(); return; }
     const s = document.createElement("script");
     s.src = src; s.onload = res; s.onerror = rej;
     document.head.appendChild(s);
   });
 
   async function init() {
-    if (!FIREBASE_CONFIG) return "local";
+    const { url, key } = getConfig();
+    if (!url || !key) return "local";
     try {
-      await loadScript(SDK + "firebase-app-compat.js");
-      await Promise.all([
-        loadScript(SDK + "firebase-auth-compat.js"),
-        loadScript(SDK + "firebase-firestore-compat.js"),
-      ]);
-      firebase.initializeApp(FIREBASE_CONFIG);
-      auth = firebase.auth();
-      db = firebase.firestore();
-      auth.onAuthStateChanged((u) => {
-        user = u;
-        window.dispatchEvent(new CustomEvent("aqua:auth", {
-          detail: u ? { name: u.displayName || u.email, email: u.email, uid: u.uid, photo: u.photoURL, provider: "google-cloud" } : null,
-        }));
-        if (u) startSync(u.uid); else stopSync();
+      await loadScript(CDN);
+      client = window.supabase.createClient(url, key);
+
+      // Restore existing session (handles OAuth redirect return)
+      const { data: { session } } = await client.auth.getSession();
+      if (session?.user) handleUser(session.user);
+
+      client.auth.onAuthStateChange((_event, session) => {
+        handleUser(session?.user || null);
       });
+
       return "cloud";
     } catch (e) {
-      return "local"; // sin red o SDK bloqueado → la app sigue en modo local
+      console.warn("[AquaMind] Supabase init failed:", e);
+      return "local";
     }
   }
-  const ready = init();
 
-  const docRef = (uid) => db.collection("users").doc(uid).collection("tanks").doc("tank-001");
-
-  function startSync(uid) {
-    stopSync();
-    unsubscribe = docRef(uid).onSnapshot(
-      (snap) => {
-        const d = snap.data();
-        // ignora ecos de nuestras propias escrituras pendientes
-        if (d && !snap.metadata.hasPendingWrites) window.AquaStore?.applyRemote(d);
-      },
-      () => {}
-    );
-    push(window.AquaStore?.ud); // sube el estado local más reciente al conectar
+  function handleUser(u) {
+    user = u;
+    window.dispatchEvent(new CustomEvent("aqua:auth", {
+      detail: u ? {
+        name: u.user_metadata?.full_name || u.email,
+        email: u.email,
+        uid: u.id,
+        photo: u.user_metadata?.avatar_url,
+        provider: "supabase-google",
+      } : null,
+    }));
+    if (u) startSync(u.id);
+    else stopSync();
   }
-  function stopSync() { if (unsubscribe) { unsubscribe(); unsubscribe = null; } }
+
+  async function startSync(uid) {
+    stopSync();
+    // Pull latest from cloud
+    try {
+      const { data } = await client
+        .from("aquamind_data")
+        .select("data")
+        .eq("user_id", uid)
+        .single();
+      if (data?.data) window.AquaStore?.applyRemote(data.data);
+    } catch (_) {}
+
+    // Real-time subscription for changes from other devices
+    realtimeChannel = client
+      .channel("aquamind_data_changes")
+      .on("postgres_changes", {
+        event: "UPDATE",
+        schema: "public",
+        table: "aquamind_data",
+        filter: `user_id=eq.${uid}`,
+      }, (payload) => {
+        if (payload.new?.data) window.AquaStore?.applyRemote(payload.new.data);
+      })
+      .subscribe();
+  }
+
+  function stopSync() {
+    if (realtimeChannel && client) {
+      client.removeChannel(realtimeChannel);
+      realtimeChannel = null;
+    }
+  }
 
   async function push(ud) {
-    if (!user || !db || !ud) return;
-    try { await docRef(user.uid).set(JSON.parse(JSON.stringify(ud))); } catch (e) { /* offline: localStorage ya lo tiene */ }
+    if (!client || !user || !ud) return;
+    try {
+      await client
+        .from("aquamind_data")
+        .upsert(
+          { user_id: user.id, data: JSON.parse(JSON.stringify(ud)), updated_at: new Date().toISOString() },
+          { onConflict: "user_id" }
+        );
+    } catch (_) { /* offline — localStorage already saved it */ }
   }
 
   async function signInGoogle() {
-    await ready;
-    if (!auth) throw new Error("cloud-not-configured");
-    const result = await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
-    return result.user;
+    if (!client) throw new Error("cloud-not-configured");
+    const { error } = await client.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: window.location.href },
+    });
+    if (error) throw error;
+    // Page will redirect — session is restored on return via getSession()
   }
 
   async function signOut() {
     stopSync();
-    try { await auth?.signOut(); } catch (e) {}
+    try { await client?.auth.signOut(); } catch (_) {}
+    user = null;
+    window.dispatchEvent(new CustomEvent("aqua:auth", { detail: null }));
   }
 
+  const ready = init();
+
   return {
-    get isConfigured() { return !!FIREBASE_CONFIG; },
+    get isConfigured() {
+      const { url, key } = getConfig();
+      return !!(url && key);
+    },
     get user() { return user; },
     ready,
     signInGoogle,
     signOut,
     push,
+    setConfig(url, key) {
+      localStorage.setItem("aqua:supabase_url", url.trim());
+      localStorage.setItem("aqua:supabase_key", key.trim());
+    },
   };
 })();

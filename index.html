@@ -1707,126 +1707,169 @@ window.AquaStore = (() => {
     reset() { localStorage.removeItem(KEY); location.reload(); },
   };
 
-  // Load OpenAI key on startup so callOpenAI can use it immediately
-  const storedKey = localStorage.getItem("aqua:openai_key");
-  if (storedKey) window.AQUAMIND_OPENAI_KEY = storedKey;
+  // Load Gemini AI key on startup so callGemini can use it immediately
+  const storedKey = localStorage.getItem("aqua:ai_key");
+  if (storedKey) window.AQUAMIND_AI_KEY = storedKey;
 })();
 
 </script>
 <script>/* cloud.js */
-// cloud.js — inicio de sesión REAL con Google + datos en la nube (Firestore).
-// Funciona con el plan gratuito de Firebase (Spark): sin tarjeta, sin costo.
+// cloud.js — Supabase integration (auth + cloud sync)
+// Free tier: 500 MB DB, 50k monthly active users, unlimited auth
 //
-// ════════════ CÓMO ACTIVARLO (5 minutos, gratis) ════════════
-// 1. Entra a https://console.firebase.google.com → "Agregar proyecto"
-//    (nombre: aquasense; desactiva Analytics).
-// 2. Menú Compilación → Authentication → Comenzar → pestaña "Método de
-//    acceso" → Google → Habilitar → Guardar.
-// 3. Menú Compilación → Firestore Database → Crear base de datos →
-//    modo producción → en la pestaña "Reglas" pega y publica:
+// ════════════ SETUP (5 minutes, gratis) ════════════
+// 1. Ve a https://supabase.com → New project (elige región cerca tuya)
+// 2. En el SQL Editor pega y ejecuta el schema de abajo.
+// 3. Authentication → Providers → Google → habilita y añade
+//    Client ID/Secret desde console.cloud.google.com (OAuth 2.0).
+// 4. Settings → API → copia "Project URL" y "anon public key".
+// 5. En AquaMind → Ajustes → Integraciones pega esos valores.
 //
-//      rules_version = '2';
-//      service cloud.firestore {
-//        match /databases/{database}/documents {
-//          match /users/{uid}/{document=**} {
-//            allow read, write: if request.auth != null && request.auth.uid == uid;
-//          }
-//        }
-//      }
-//
-// 4. ⚙ Configuración del proyecto → "Tus apps" → icono Web </> →
-//    registra la app → copia el objeto firebaseConfig.
-// 5. Pégalo abajo reemplazando `null`. Ejemplo:
-//      const FIREBASE_CONFIG = { apiKey: "AIza…", authDomain: "aquasense-xxx.firebaseapp.com",
-//        projectId: "aquasense-xxx", storageBucket: "…", messagingSenderId: "…", appId: "…" };
-// 6. En Authentication → Settings → Dominios autorizados, añade el dominio
-//    donde publicaste la app (p. ej. aquasense.netlify.app).
-// ═════════════════════════════════════════════════════════════
-const FIREBASE_CONFIG =  {
-  apiKey: "AIzaSyBGJKIg9SDqv7CJSx-TB-Q7KtRzy5U88-w",
-  authDomain: "aquasense1-d059a.firebaseapp.com",
-  projectId: "aquasense1-d059a",
-  storageBucket: "aquasense1-d059a.firebasestorage.app",
-  messagingSenderId: "259308806928",
-  appId: "1:259308806928:web:c1662f248115335d433b95",
-  measurementId: "G-J1N9E7VR43"
-};
+// SCHEMA SQL (ejecutar en Supabase SQL Editor):
+//   create extension if not exists "uuid-ossp";
+//   create table if not exists aquamind_data (
+//     id uuid default uuid_generate_v4() primary key,
+//     user_id uuid references auth.users(id) on delete cascade not null unique,
+//     data jsonb not null default '{}',
+//     updated_at timestamptz default now() not null
+//   );
+//   alter table aquamind_data enable row level security;
+//   create policy "own data" on aquamind_data for all using (auth.uid() = user_id);
+// ═════════════════════════════════════════════════
 
 window.CLOUD = (() => {
-  const SDK = "https://www.gstatic.com/firebasejs/10.14.1/";
-  let auth = null, db = null, user = null, unsubscribe = null;
+  const CDN = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js";
+  let client = null, user = null, realtimeChannel = null;
+
+  function getConfig() {
+    return {
+      url: localStorage.getItem("aqua:supabase_url") || "",
+      key: localStorage.getItem("aqua:supabase_key") || "",
+    };
+  }
 
   const loadScript = (src) => new Promise((res, rej) => {
+    if (window.supabase) { res(); return; }
     const s = document.createElement("script");
     s.src = src; s.onload = res; s.onerror = rej;
     document.head.appendChild(s);
   });
 
   async function init() {
-    if (!FIREBASE_CONFIG) return "local";
+    const { url, key } = getConfig();
+    if (!url || !key) return "local";
     try {
-      await loadScript(SDK + "firebase-app-compat.js");
-      await Promise.all([
-        loadScript(SDK + "firebase-auth-compat.js"),
-        loadScript(SDK + "firebase-firestore-compat.js"),
-      ]);
-      firebase.initializeApp(FIREBASE_CONFIG);
-      auth = firebase.auth();
-      db = firebase.firestore();
-      auth.onAuthStateChanged((u) => {
-        user = u;
-        window.dispatchEvent(new CustomEvent("aqua:auth", {
-          detail: u ? { name: u.displayName || u.email, email: u.email, uid: u.uid, photo: u.photoURL, provider: "google-cloud" } : null,
-        }));
-        if (u) startSync(u.uid); else stopSync();
+      await loadScript(CDN);
+      client = window.supabase.createClient(url, key);
+
+      // Restore existing session (handles OAuth redirect return)
+      const { data: { session } } = await client.auth.getSession();
+      if (session?.user) handleUser(session.user);
+
+      client.auth.onAuthStateChange((_event, session) => {
+        handleUser(session?.user || null);
       });
+
       return "cloud";
     } catch (e) {
-      return "local"; // sin red o SDK bloqueado → la app sigue en modo local
+      console.warn("[AquaMind] Supabase init failed:", e);
+      return "local";
     }
   }
-  const ready = init();
 
-  const docRef = (uid) => db.collection("users").doc(uid).collection("tanks").doc("tank-001");
-
-  function startSync(uid) {
-    stopSync();
-    unsubscribe = docRef(uid).onSnapshot(
-      (snap) => {
-        const d = snap.data();
-        // ignora ecos de nuestras propias escrituras pendientes
-        if (d && !snap.metadata.hasPendingWrites) window.AquaStore?.applyRemote(d);
-      },
-      () => {}
-    );
-    push(window.AquaStore?.ud); // sube el estado local más reciente al conectar
+  function handleUser(u) {
+    user = u;
+    window.dispatchEvent(new CustomEvent("aqua:auth", {
+      detail: u ? {
+        name: u.user_metadata?.full_name || u.email,
+        email: u.email,
+        uid: u.id,
+        photo: u.user_metadata?.avatar_url,
+        provider: "supabase-google",
+      } : null,
+    }));
+    if (u) startSync(u.id);
+    else stopSync();
   }
-  function stopSync() { if (unsubscribe) { unsubscribe(); unsubscribe = null; } }
+
+  async function startSync(uid) {
+    stopSync();
+    // Pull latest from cloud
+    try {
+      const { data } = await client
+        .from("aquamind_data")
+        .select("data")
+        .eq("user_id", uid)
+        .single();
+      if (data?.data) window.AquaStore?.applyRemote(data.data);
+    } catch (_) {}
+
+    // Real-time subscription for changes from other devices
+    realtimeChannel = client
+      .channel("aquamind_data_changes")
+      .on("postgres_changes", {
+        event: "UPDATE",
+        schema: "public",
+        table: "aquamind_data",
+        filter: `user_id=eq.${uid}`,
+      }, (payload) => {
+        if (payload.new?.data) window.AquaStore?.applyRemote(payload.new.data);
+      })
+      .subscribe();
+  }
+
+  function stopSync() {
+    if (realtimeChannel && client) {
+      client.removeChannel(realtimeChannel);
+      realtimeChannel = null;
+    }
+  }
 
   async function push(ud) {
-    if (!user || !db || !ud) return;
-    try { await docRef(user.uid).set(JSON.parse(JSON.stringify(ud))); } catch (e) { /* offline: localStorage ya lo tiene */ }
+    if (!client || !user || !ud) return;
+    try {
+      await client
+        .from("aquamind_data")
+        .upsert(
+          { user_id: user.id, data: JSON.parse(JSON.stringify(ud)), updated_at: new Date().toISOString() },
+          { onConflict: "user_id" }
+        );
+    } catch (_) { /* offline — localStorage already saved it */ }
   }
 
   async function signInGoogle() {
-    await ready;
-    if (!auth) throw new Error("cloud-not-configured");
-    const result = await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
-    return result.user;
+    if (!client) throw new Error("cloud-not-configured");
+    const { error } = await client.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: window.location.href },
+    });
+    if (error) throw error;
+    // Page will redirect — session is restored on return via getSession()
   }
 
   async function signOut() {
     stopSync();
-    try { await auth?.signOut(); } catch (e) {}
+    try { await client?.auth.signOut(); } catch (_) {}
+    user = null;
+    window.dispatchEvent(new CustomEvent("aqua:auth", { detail: null }));
   }
 
+  const ready = init();
+
   return {
-    get isConfigured() { return !!FIREBASE_CONFIG; },
+    get isConfigured() {
+      const { url, key } = getConfig();
+      return !!(url && key);
+    },
     get user() { return user; },
     ready,
     signInGoogle,
     signOut,
     push,
+    setConfig(url, key) {
+      localStorage.setItem("aqua:supabase_url", url.trim());
+      localStorage.setItem("aqua:supabase_key", key.trim());
+    },
   };
 })();
 
@@ -3762,10 +3805,8 @@ function applyAquaCommand(raw) {
   return null; // no es una orden → responde como chat
 }
 
-// ---- AI plumbing ----
-// Rule-based fallback so the chat stays useful when the in-page Claude helper
-// isn't available (standalone HTML, plain browser). Answers are computed from
-// the same tank context the real prompt carries.
+// ---- AI plumbing — Google Gemini 2.0 Flash (free) + tool use ----
+// Fallback local knowledge when no API key is configured.
 function localAquaBuddy(q) {
   const m = q.toLowerCase();
   if (/\bkh\b|buffer|alcalin|alkalin|dkh/.test(m)) return T("Con KH en 7.0 dKH, dosifica 7 ml de Reef Buffer hoy (calculado para los 23 gal reales). Eso sube ~0.3 dKH/día — nunca más de 1 dKH/día. Re-mide en 24 h y repite hasta estabilizar en 8–8.5.", "With KH at 7.0 dKH, dose 7 ml of Reef Buffer today (computed for the real 23 gal). That raises ~0.3 dKH/day — never exceed 1 dKH/day. Re-test in 24 h and repeat until stable at 8–8.5.");
@@ -3774,7 +3815,7 @@ function localAquaBuddy(q) {
   if (/cambio|water change|agua|rodi/.test(m)) return T("Cambio de 25%: 5–6 gal de RODI + Instant Ocean a 1.025 SG y 79 °F, quincenal. Con los fosfatos altos conviene adelantarlo a esta semana. Matt's Corals vende RODI a $0.75/gal.", "25% change: 5–6 gal RODI + Instant Ocean at 1.025 SG and 79 °F, biweekly. With phosphates high, move it up to this week. Matt's Corals sells RODI at $0.75/gal.");
   if (/\bph\b/.test(m)) return T("El pH 7.9 es consecuencia de la KH baja — corrige primero la alcalinidad y el pH subirá solo. Más aireación y agitación de superficie ayudan; no persigas el pH con químicos.", "pH 7.9 follows from the low KH — fix alkalinity first and pH will rise on its own. More aeration and surface agitation help; don't chase pH with chemicals.");
   if (/magnesio|magnesium|mg\b/.test(m)) return T("El magnesio en 1320 mg/L está en rango óptimo (1250–1350). No requiere suplementación adicional — solo mantén los cambios de agua regulares con agua bien mezclada.", "Magnesium at 1320 mg/L is in the optimal range (1250–1350). No extra supplementation needed — just keep up regular water changes with well-mixed saltwater.");
-  return T("Estoy en modo demo sin conexión: pregúntame por KH, fosfatos, el Birdsnest, magnesio o cambios de agua. Con OpenAI configurado respondo cualquier consulta con IA real.", "I'm in offline demo mode: ask me about KH, phosphates, the Birdsnest, magnesium or water changes. With OpenAI configured I answer anything with real AI.");
+  return T("Estoy en modo demo. Pregúntame por KH, fosfatos, el Birdsnest, magnesio o cambios de agua. Configura tu API key de Google Gemini (gratis) en Ajustes para respuestas IA reales.", "I'm in demo mode. Ask me about KH, phosphates, the Birdsnest, magnesium or water changes. Add your Google Gemini API key (free) in Settings for real AI responses.");
 }
 
 // Build a rich system prompt from live tank data for Aqua Buddy
@@ -3801,8 +3842,9 @@ EQUIPMENT: ${equipment}.
 ACTIVE ALERTS: ${alerts || "none"}.
 OWNER: ${TANK_CONFIG.owner} — experienced in freshwater, newer to saltwater.` : "";
   return `You are Aqua Buddy, the AI assistant for AquaMind — an aquarium intelligence app.
-You are an expert marine and freshwater aquarist with deep knowledge of reef chemistry, coral husbandry, fish health, and planted tank techniques. You also draw on community knowledge from Reef2Reef and other leading reef forums.
+You are an expert marine and freshwater aquarist with deep knowledge of reef chemistry, coral husbandry, fish health, and planted tank techniques. You draw on community knowledge from Reef2Reef and other leading reef forums.
 ${tankContext}
+CAPABILITIES: You can take actions in the app using function calls. When the user asks you to add/log/remind/create something, use the appropriate function — don't just describe it, do it.
 RULES:
 - Reply in ${lang}. Keep responses concise (3–5 sentences for the widget, longer for the AI chat page).
 - When the tank context is available, reference the owner's specific parameters, livestock, and equipment — give personalized advice with exact quantities (ml, g) based on the real tank volume.
@@ -3811,35 +3853,233 @@ RULES:
 - Mode: ${mode === "personalized" ? "personalized to this tank" : "general aquarium expert"}.`;
 }
 
-// Call OpenAI API directly via fetch (browser-side)
-async function callOpenAI(messages, system) {
-  const apiKey = window.AQUAMIND_OPENAI_KEY || localStorage.getItem("aqua:openai_key");
+// ---- Aqua Buddy tools (function calling) ----
+const AQUA_TOOLS = [{
+  type: "function",
+  function: {
+    name: "add_routine",
+    description: "Adds a maintenance routine/task to the user's aquarium care schedule",
+    parameters: {
+      type: "object",
+      properties: {
+        task: {
+          type: "string",
+          description: "Name of the routine task"
+        },
+        frequency: {
+          type: "string",
+          description: "How often: Diario, Semanal, Quincenal, Mensual, or custom phrase"
+        },
+        detail: {
+          type: "string",
+          description: "Additional details or notes about the task"
+        }
+      },
+      required: ["task", "frequency"]
+    }
+  }
+}, {
+  type: "function",
+  function: {
+    name: "log_parameter",
+    description: "Logs a water parameter reading to the aquarium history",
+    parameters: {
+      type: "object",
+      properties: {
+        param: {
+          type: "string",
+          enum: ["ph", "temperature", "salinity", "kh", "calcium", "magnesium", "nitrate", "phosphate", "ammonia"]
+        },
+        value: {
+          type: "number",
+          description: "The measured numeric value"
+        }
+      },
+      required: ["param", "value"]
+    }
+  }
+}, {
+  type: "function",
+  function: {
+    name: "add_inhabitant",
+    description: "Adds a new fish, coral, or CUC (clean-up crew) to the tank",
+    parameters: {
+      type: "object",
+      properties: {
+        kind: {
+          type: "string",
+          enum: ["fish", "corals", "cuc"],
+          description: "Category of inhabitant"
+        },
+        name: {
+          type: "string",
+          description: "Common name"
+        },
+        species: {
+          type: "string",
+          description: "Scientific name if known"
+        },
+        note: {
+          type: "string",
+          description: "Notes about this inhabitant"
+        }
+      },
+      required: ["kind", "name"]
+    }
+  }
+}, {
+  type: "function",
+  function: {
+    name: "create_alert",
+    description: "Creates an alert or reminder in the app's alert center",
+    parameters: {
+      type: "object",
+      properties: {
+        title: {
+          type: "string",
+          description: "Short title for the alert or reminder"
+        },
+        body: {
+          type: "string",
+          description: "More details about the alert"
+        },
+        severity: {
+          type: "string",
+          enum: ["info", "warn", "danger"]
+        }
+      },
+      required: ["title"]
+    }
+  }
+}, {
+  type: "function",
+  function: {
+    name: "update_parameter_note",
+    description: "Updates the note/comment displayed on a water parameter card",
+    parameters: {
+      type: "object",
+      properties: {
+        param: {
+          type: "string",
+          enum: ["ph", "temperature", "salinity", "kh", "calcium", "magnesium", "nitrate", "phosphate", "ammonia"]
+        },
+        note: {
+          type: "string",
+          description: "The new note text"
+        }
+      },
+      required: ["param", "note"]
+    }
+  }
+}];
+function executeAquaTool(name, args) {
+  const A = window.AQUA;
+  const S = window.AquaStore;
+  const c1 = s => s.charAt(0).toUpperCase() + s.slice(1);
+  switch (name) {
+    case "add_routine":
+      {
+        const r = {
+          id: "ru" + Date.now(),
+          task: c1(args.task),
+          detail: args.detail || T("Añadida vía Aqua Buddy", "Added via Aqua Buddy"),
+          frequency: args.frequency,
+          nextDue: "today",
+          time: "12:00",
+          icon: "CalendarCheck"
+        };
+        S.addRoutine(r);
+        window.toast?.(T(`Rutina "${r.task}" creada`, `Routine "${r.task}" created`), {
+          icon: "CalendarCheck"
+        });
+        return T(`Rutina "${r.task}" agregada (${args.frequency}).`, `Routine "${r.task}" added (${args.frequency}).`);
+      }
+    case "log_parameter":
+      {
+        S.logReading(args.param, args.value);
+        const p = A.CURRENT_PARAMETERS[args.param];
+        window.toast?.(T(`${p?.label || args.param}: ${args.value} registrado`, `${p?.label || args.param}: ${args.value} logged`), {
+          icon: "Activity"
+        });
+        return T(`${p?.label || args.param} = ${args.value}${p?.unit ? " " + p.unit : ""} guardado.`, `${p?.label || args.param} = ${args.value}${p?.unit ? " " + p.unit : ""} saved.`);
+      }
+    case "add_inhabitant":
+      {
+        const item = {
+          id: "ui" + Date.now(),
+          name: c1(args.name),
+          scientific: args.species || "",
+          added: A.MOCK_TODAY,
+          status: "ok",
+          note: args.note || T("Añadido vía Aqua Buddy", "Added via Aqua Buddy")
+        };
+        S.addInhabitant(args.kind, item);
+        window.toast?.(T(`${item.name} agregado`, `${item.name} added`), {
+          icon: "Fish"
+        });
+        return T(`${item.name} añadido a Habitantes.`, `${item.name} added to Livestock.`);
+      }
+    case "create_alert":
+      {
+        const a = {
+          id: "ua" + Date.now(),
+          severity: args.severity || "info",
+          badge: T("RECORDATORIO", "REMINDER"),
+          title: args.title,
+          body: args.body || "",
+          cta: T("Marcar hecho", "Mark done"),
+          tag: "Aqua Buddy"
+        };
+        S.addAlert(a);
+        window.toast?.(T("Alerta creada", "Alert created"), {
+          icon: "Bell"
+        });
+        return T(`Alerta "${args.title}" creada.`, `Alert "${args.title}" created.`);
+      }
+    case "update_parameter_note":
+      {
+        const p = A.CURRENT_PARAMETERS[args.param];
+        if (p) {
+          p.note = args.note;
+          S.touch();
+        }
+        return T(`Nota de ${p?.label || args.param} actualizada.`, `Note for ${p?.label || args.param} updated.`);
+      }
+    default:
+      return T("Accion completada.", "Action completed.");
+  }
+}
+
+// Call Google Gemini 2.0 Flash via OpenAI-compatible endpoint (free tier)
+async function callGemini(messages, system, tools = null) {
+  const apiKey = window.AQUAMIND_AI_KEY || localStorage.getItem("aqua:ai_key");
   if (!apiKey) return null;
   try {
-    const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+    const body = {
+      model: "gemini-2.0-flash",
+      max_tokens: 500,
+      messages: [{
+        role: "system",
+        content: system
+      }, ...messages]
+    };
+    if (tools) body.tools = tools;
+    const resp = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`
       },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        max_tokens: 400,
-        messages: [{
-          role: "system",
-          content: system
-        }, ...messages]
-      })
+      body: JSON.stringify(body)
     });
     if (!resp.ok) return null;
-    const data = await resp.json();
-    return data.choices?.[0]?.message?.content?.trim() || null;
+    return await resp.json();
   } catch {
     return null;
   }
 }
 async function callAquaBuddy(userMessage, mode = "personalized", history = []) {
-  // First: command? (log reading, add routine, etc.) — executes locally, online or offline
+  // First: rule-based command parser (fast, works offline, no API key needed)
   const command = applyAquaCommand(userMessage);
   if (command) {
     await new Promise(r => setTimeout(r, 450));
@@ -3854,27 +4094,44 @@ async function callAquaBuddy(userMessage, mode = "personalized", history = []) {
     content: userMessage
   }];
 
-  // Try OpenAI first
-  const openaiReply = await callOpenAI(messages, system);
-  if (openaiReply) return openaiReply;
+  // Call Gemini with tool use
+  const data = await callGemini(messages, system, AQUA_TOOLS);
+  if (data) {
+    const choice = data.choices?.[0];
 
-  // Fallback to Claude if available
-  if (window.claude?.complete) {
-    try {
-      const text = await window.claude.complete({
-        messages: [{
-          role: "user",
-          content: `[System]\n${system}\n\n[Question]\n${userMessage}`
-        }]
-      });
-      if (text?.trim()) return text.trim();
-    } catch {/* fall through */}
+    // Execute any tool calls the model requested
+    if (choice?.message?.tool_calls?.length > 0) {
+      const toolResults = [];
+      for (const tc of choice.message.tool_calls) {
+        let args = {};
+        try {
+          args = JSON.parse(tc.function.arguments);
+        } catch (_) {}
+        const result = executeAquaTool(tc.function.name, args);
+        toolResults.push({
+          role: "tool",
+          tool_call_id: tc.id,
+          content: result
+        });
+      }
+
+      // Ask Gemini for a final response now that tools are done
+      const followMsgs = [...messages, choice.message, ...toolResults];
+      const follow = await callGemini(followMsgs, system);
+      const followText = follow?.choices?.[0]?.message?.content?.trim();
+      if (followText) return followText;
+      return toolResults.map(r => r.content).join("\n");
+    }
+
+    // Plain text response
+    const text = choice?.message?.content?.trim();
+    if (text) return text;
   }
+
+  // Fallback: local knowledge base (works without API key)
   await new Promise(r => setTimeout(r, 800));
   return localAquaBuddy(userMessage);
 }
-
-// Backward-compat alias used by other call sites
 const callAquaBot = (msg, hist) => callAquaBuddy(msg, "personalized", hist);
 const localAquaBot = localAquaBuddy;
 
@@ -5005,7 +5262,10 @@ Object.assign(window, {
   localAquaBuddy,
   localAquaBot,
   alertCTAAction,
-  applyAquaCommand
+  applyAquaCommand,
+  AQUA_TOOLS,
+  executeAquaTool,
+  callGemini
 });
 </script>
 <script>/* pages.jsx (precompiled) */
@@ -6313,7 +6573,7 @@ function LoginScreen({
       try {
         await window.CLOUD.signInGoogle(); // aqua:auth completa la sesión
       } catch (e) {
-        window.toast?.(T("No se pudo iniciar sesión con Google. Revisa los dominios autorizados en Firebase.", "Google sign-in failed. Check Firebase authorized domains."), {
+        window.toast?.(T("No se pudo iniciar sesion con Google. Revisa la configuracion de Supabase Auth.", "Google sign-in failed. Check your Supabase Auth configuration."), {
           tone: "warn",
           icon: "AlertTriangle"
         });
@@ -6348,7 +6608,7 @@ function LoginScreen({
     className: "animate-spin"
   }) : /*#__PURE__*/React.createElement(GoogleG, null), T("Continuar con Google", "Continue with Google")), !window.CLOUD?.isConfigured && /*#__PURE__*/React.createElement("p", {
     className: "text-[10px] text-[var(--ink-3)] mt-2 leading-relaxed"
-  }, T("Login real + nube disponibles al conectar Firebase (gratis) — instrucciones en Ajustes → Cuenta.", "Real login + cloud sync available by connecting Firebase (free) — see Settings → Account.")), /*#__PURE__*/React.createElement("div", {
+  }, T("Login real + nube disponibles al conectar Supabase (gratis) — instrucciones en Ajustes → Cuenta.", "Real login + cloud sync available by connecting Supabase (free) — see Settings → Account.")), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-3 my-4"
   }, /*#__PURE__*/React.createElement("span", {
     className: "flex-1 h-px bg-[var(--hairline)]"
@@ -6449,22 +6709,22 @@ function downloadICS(kind) {
   setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
 
-// ---------- OpenAI key input ----------
-function OpenAIKeyRow() {
-  const [key, setKey] = React.useState(() => localStorage.getItem("aqua:openai_key") || "");
+// ---------- Google Gemini API key ----------
+function GeminiKeyRow() {
+  const [key, setKey] = React.useState(() => localStorage.getItem("aqua:ai_key") || "");
   const [show, setShow] = React.useState(false);
   const [saved, setSaved] = React.useState(false);
   const save = () => {
     if (key.trim()) {
-      localStorage.setItem("aqua:openai_key", key.trim());
-      window.AQUAMIND_OPENAI_KEY = key.trim();
+      localStorage.setItem("aqua:ai_key", key.trim());
+      window.AQUAMIND_AI_KEY = key.trim();
     } else {
-      localStorage.removeItem("aqua:openai_key");
-      delete window.AQUAMIND_OPENAI_KEY;
+      localStorage.removeItem("aqua:ai_key");
+      delete window.AQUAMIND_AI_KEY;
     }
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
-    window.toast?.(T("API key guardada — Aqua Buddy usará OpenAI", "API key saved — Aqua Buddy will use OpenAI"), {
+    window.toast?.(T("API key guardada — Aqua Buddy usará Google Gemini", "API key saved — Aqua Buddy will use Google Gemini"), {
       icon: "Sparkles"
     });
   };
@@ -6472,7 +6732,15 @@ function OpenAIKeyRow() {
     className: "space-y-2"
   }, /*#__PURE__*/React.createElement("div", {
     className: "text-[11.5px] text-[var(--ink-2)] leading-relaxed"
-  }, T("Pega tu OpenAI API key (sk-...) para que Aqua Buddy use GPT-4o Mini con contexto de tu tanque y conocimiento de Reef2Reef. La key se guarda solo en este dispositivo.", "Paste your OpenAI API key (sk-...) so Aqua Buddy uses GPT-4o Mini with your tank context and Reef2Reef knowledge. The key is stored on this device only.")), /*#__PURE__*/React.createElement("div", {
+  }, T("Consigue tu API key gratis (sin tarjeta) en ", "Get your free API key (no credit card) at "), /*#__PURE__*/React.createElement("a", {
+    href: "https://aistudio.google.com/apikey",
+    target: "_blank",
+    rel: "noopener",
+    className: "underline",
+    style: {
+      color: "var(--accent)"
+    }
+  }, "aistudio.google.com/apikey"), T(". Se guarda solo en este dispositivo.", ". Stored on this device only.")), /*#__PURE__*/React.createElement("div", {
     className: "flex gap-2"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex-1 flex items-center gap-2 bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2 focus-within:ring-1 focus-within:ring-[var(--accent-border)] transition-all"
@@ -6484,7 +6752,7 @@ function OpenAIKeyRow() {
     type: show ? "text" : "password",
     value: key,
     onChange: e => setKey(e.target.value),
-    placeholder: "sk-...",
+    placeholder: "AIza...",
     className: "flex-1 bg-transparent border-0 outline-none text-[12.5px] text-[var(--ink)] placeholder:text-[var(--ink-3)] font-mono",
     onKeyDown: e => {
       if (e.key === "Enter") save();
@@ -6507,7 +6775,83 @@ function OpenAIKeyRow() {
   }, /*#__PURE__*/React.createElement(L, {
     name: "CheckCircle2",
     size: 11
-  }), T("Key configurada — Aqua Buddy usará OpenAI", "Key configured — Aqua Buddy will use OpenAI")));
+  }), T("Key configurada — Aqua Buddy usara Google Gemini", "Key configured — Aqua Buddy will use Google Gemini")));
+}
+
+// ---------- Supabase config ----------
+function SupabaseConfigRow() {
+  const [url, setUrl] = React.useState(() => localStorage.getItem("aqua:supabase_url") || "");
+  const [key, setKey] = React.useState(() => localStorage.getItem("aqua:supabase_key") || "");
+  const [show, setShow] = React.useState(false);
+  const [saved, setSaved] = React.useState(false);
+  const save = () => {
+    window.CLOUD?.setConfig?.(url.trim(), key.trim());
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+    window.toast?.(T("Supabase guardado — recarga la pagina para activar la nube", "Supabase saved — reload the page to activate cloud sync"), {
+      icon: "Cloud",
+      tone: "info"
+    });
+  };
+  const configured = !!(localStorage.getItem("aqua:supabase_url") && localStorage.getItem("aqua:supabase_key"));
+  return /*#__PURE__*/React.createElement("div", {
+    className: "space-y-2"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-[11.5px] text-[var(--ink-2)] leading-relaxed"
+  }, T("Crea un proyecto gratis en ", "Create a free project at "), /*#__PURE__*/React.createElement("a", {
+    href: "https://supabase.com",
+    target: "_blank",
+    rel: "noopener",
+    className: "underline",
+    style: {
+      color: "var(--accent)"
+    }
+  }, "supabase.com"), T(", luego Settings → API → copia la URL y la clave anon.", ", then Settings → API → copy the URL and anon key.")), /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 flex items-center gap-2 bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2 focus-within:ring-1 focus-within:ring-[var(--accent-border)] transition-all mb-1"
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "Link",
+    size: 13,
+    className: "text-[var(--ink-3)] shrink-0"
+  }), /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    value: url,
+    onChange: e => setUrl(e.target.value),
+    placeholder: "https://xxxx.supabase.co",
+    className: "flex-1 bg-transparent border-0 outline-none text-[12.5px] text-[var(--ink)] placeholder:text-[var(--ink-3)] font-mono"
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 flex items-center gap-2 bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2 focus-within:ring-1 focus-within:ring-[var(--accent-border)] transition-all"
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "KeyRound",
+    size: 13,
+    className: "text-[var(--ink-3)] shrink-0"
+  }), /*#__PURE__*/React.createElement("input", {
+    type: show ? "text" : "password",
+    value: key,
+    onChange: e => setKey(e.target.value),
+    placeholder: "eyJhbGci...",
+    className: "flex-1 bg-transparent border-0 outline-none text-[12.5px] text-[var(--ink)] placeholder:text-[var(--ink-3)] font-mono"
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShow(s => !s),
+    className: "text-[var(--ink-3)] hover:text-[var(--ink-2)] transition-colors"
+  }, /*#__PURE__*/React.createElement(L, {
+    name: show ? "EyeOff" : "Eye",
+    size: 13
+  }))), /*#__PURE__*/React.createElement(Button, {
+    variant: saved ? "primary" : "secondary",
+    icon: saved ? "Check" : "Save",
+    onClick: save,
+    disabled: !url.trim() || !key.trim()
+  }, saved ? T("Guardado", "Saved") : T("Guardar", "Save"))), configured && !saved && /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-1.5 text-[10.5px]",
+    style: {
+      color: "#0E9F6E"
+    }
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "CheckCircle2",
+    size: 11
+  }), T("Supabase configurado", "Supabase configured")));
 }
 
 // ---------- shared bits ----------
@@ -6745,13 +7089,46 @@ function SettingsPage({
     style: {
       color: "var(--accent)"
     }
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "flex-1"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-[14px] font-semibold text-[var(--ink)]"
+  }, "Aqua Buddy \xB7 Google Gemini"), /*#__PURE__*/React.createElement("span", {
+    className: "text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-md font-semibold",
+    style: {
+      background: "rgba(16,185,129,0.13)",
+      color: "#0E9F6E",
+      border: "1px solid rgba(16,185,129,0.3)"
+    }
+  }, "GRATIS")), /*#__PURE__*/React.createElement("div", {
+    className: "text-[11px] text-[var(--ink-2)]"
+  }, T("AI con contexto de tu tanque + acciones directas en la app", "AI with your tank context + direct actions in the app")))), /*#__PURE__*/React.createElement("div", {
+    className: "px-5 py-4 space-y-3"
+  }, /*#__PURE__*/React.createElement(GeminiKeyRow, null))), /*#__PURE__*/React.createElement(Card, {
+    className: "overflow-hidden"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3 px-5 py-4 border-b border-[var(--hairline)]"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "grid place-items-center w-9 h-9 rounded-xl shrink-0",
+    style: {
+      background: "rgba(16,185,129,0.13)",
+      border: "1px solid rgba(16,185,129,0.3)"
+    }
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "Database",
+    size: 16,
+    style: {
+      color: "#0E9F6E"
+    }
   })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "text-[14px] font-semibold text-[var(--ink)]"
-  }, "Aqua Buddy \xB7 OpenAI"), /*#__PURE__*/React.createElement("div", {
+  }, "Supabase \xB7 Base de datos"), /*#__PURE__*/React.createElement("div", {
     className: "text-[11px] text-[var(--ink-2)]"
-  }, T("Configura tu API key para respuestas IA reales", "Configure your API key for real AI responses")))), /*#__PURE__*/React.createElement("div", {
+  }, T("Sincroniza tu tanque entre dispositivos con login Google", "Sync your tank across devices with Google login")))), /*#__PURE__*/React.createElement("div", {
     className: "px-5 py-4 space-y-3"
-  }, /*#__PURE__*/React.createElement(OpenAIKeyRow, null))), /*#__PURE__*/React.createElement(Card, {
+  }, /*#__PURE__*/React.createElement(SupabaseConfigRow, null))), /*#__PURE__*/React.createElement(Card, {
     className: "overflow-hidden"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-4 px-5 py-5 border-b border-[var(--hairline)]"

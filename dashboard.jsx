@@ -146,10 +146,8 @@ function applyAquaCommand(raw) {
   return null; // no es una orden → responde como chat
 }
 
-// ---- AI plumbing ----
-// Rule-based fallback so the chat stays useful when the in-page Claude helper
-// isn't available (standalone HTML, plain browser). Answers are computed from
-// the same tank context the real prompt carries.
+// ---- AI plumbing — Google Gemini 2.0 Flash (free) + tool use ----
+// Fallback local knowledge when no API key is configured.
 function localAquaBuddy(q) {
   const m = q.toLowerCase();
   if (/\bkh\b|buffer|alcalin|alkalin|dkh/.test(m)) return T(
@@ -177,8 +175,8 @@ function localAquaBuddy(q) {
     "Magnesium at 1320 mg/L is in the optimal range (1250–1350). No extra supplementation needed — just keep up regular water changes with well-mixed saltwater."
   );
   return T(
-    "Estoy en modo demo sin conexión: pregúntame por KH, fosfatos, el Birdsnest, magnesio o cambios de agua. Con OpenAI configurado respondo cualquier consulta con IA real.",
-    "I'm in offline demo mode: ask me about KH, phosphates, the Birdsnest, magnesium or water changes. With OpenAI configured I answer anything with real AI."
+    "Estoy en modo demo. Pregúntame por KH, fosfatos, el Birdsnest, magnesio o cambios de agua. Configura tu API key de Google Gemini (gratis) en Ajustes para respuestas IA reales.",
+    "I'm in demo mode. Ask me about KH, phosphates, the Birdsnest, magnesium or water changes. Add your Google Gemini API key (free) in Settings for real AI responses."
   );
 }
 
@@ -206,8 +204,9 @@ ACTIVE ALERTS: ${alerts || "none"}.
 OWNER: ${TANK_CONFIG.owner} — experienced in freshwater, newer to saltwater.` : "";
 
   return `You are Aqua Buddy, the AI assistant for AquaMind — an aquarium intelligence app.
-You are an expert marine and freshwater aquarist with deep knowledge of reef chemistry, coral husbandry, fish health, and planted tank techniques. You also draw on community knowledge from Reef2Reef and other leading reef forums.
+You are an expert marine and freshwater aquarist with deep knowledge of reef chemistry, coral husbandry, fish health, and planted tank techniques. You draw on community knowledge from Reef2Reef and other leading reef forums.
 ${tankContext}
+CAPABILITIES: You can take actions in the app using function calls. When the user asks you to add/log/remind/create something, use the appropriate function — don't just describe it, do it.
 RULES:
 - Reply in ${lang}. Keep responses concise (3–5 sentences for the widget, longer for the AI chat page).
 - When the tank context is available, reference the owner's specific parameters, livestock, and equipment — give personalized advice with exact quantities (ml, g) based on the real tank volume.
@@ -216,30 +215,181 @@ RULES:
 - Mode: ${mode === "personalized" ? "personalized to this tank" : "general aquarium expert"}.`;
 }
 
-// Call OpenAI API directly via fetch (browser-side)
-async function callOpenAI(messages, system) {
-  const apiKey = window.AQUAMIND_OPENAI_KEY || localStorage.getItem("aqua:openai_key");
+// ---- Aqua Buddy tools (function calling) ----
+const AQUA_TOOLS = [
+  {
+    type: "function",
+    function: {
+      name: "add_routine",
+      description: "Adds a maintenance routine/task to the user's aquarium care schedule",
+      parameters: {
+        type: "object",
+        properties: {
+          task: { type: "string", description: "Name of the routine task" },
+          frequency: { type: "string", description: "How often: Diario, Semanal, Quincenal, Mensual, or custom phrase" },
+          detail: { type: "string", description: "Additional details or notes about the task" },
+        },
+        required: ["task", "frequency"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "log_parameter",
+      description: "Logs a water parameter reading to the aquarium history",
+      parameters: {
+        type: "object",
+        properties: {
+          param: { type: "string", enum: ["ph", "temperature", "salinity", "kh", "calcium", "magnesium", "nitrate", "phosphate", "ammonia"] },
+          value: { type: "number", description: "The measured numeric value" },
+        },
+        required: ["param", "value"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "add_inhabitant",
+      description: "Adds a new fish, coral, or CUC (clean-up crew) to the tank",
+      parameters: {
+        type: "object",
+        properties: {
+          kind: { type: "string", enum: ["fish", "corals", "cuc"], description: "Category of inhabitant" },
+          name: { type: "string", description: "Common name" },
+          species: { type: "string", description: "Scientific name if known" },
+          note: { type: "string", description: "Notes about this inhabitant" },
+        },
+        required: ["kind", "name"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "create_alert",
+      description: "Creates an alert or reminder in the app's alert center",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Short title for the alert or reminder" },
+          body: { type: "string", description: "More details about the alert" },
+          severity: { type: "string", enum: ["info", "warn", "danger"] },
+        },
+        required: ["title"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "update_parameter_note",
+      description: "Updates the note/comment displayed on a water parameter card",
+      parameters: {
+        type: "object",
+        properties: {
+          param: { type: "string", enum: ["ph", "temperature", "salinity", "kh", "calcium", "magnesium", "nitrate", "phosphate", "ammonia"] },
+          note: { type: "string", description: "The new note text" },
+        },
+        required: ["param", "note"],
+      },
+    },
+  },
+];
+
+function executeAquaTool(name, args) {
+  const A = window.AQUA;
+  const S = window.AquaStore;
+  const c1 = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
+  switch (name) {
+    case "add_routine": {
+      const r = {
+        id: "ru" + Date.now(),
+        task: c1(args.task),
+        detail: args.detail || T("Añadida vía Aqua Buddy", "Added via Aqua Buddy"),
+        frequency: args.frequency,
+        nextDue: "today",
+        time: "12:00",
+        icon: "CalendarCheck",
+      };
+      S.addRoutine(r);
+      window.toast?.(T(`Rutina "${r.task}" creada`, `Routine "${r.task}" created`), { icon: "CalendarCheck" });
+      return T(`Rutina "${r.task}" agregada (${args.frequency}).`, `Routine "${r.task}" added (${args.frequency}).`);
+    }
+    case "log_parameter": {
+      S.logReading(args.param, args.value);
+      const p = A.CURRENT_PARAMETERS[args.param];
+      window.toast?.(T(`${p?.label || args.param}: ${args.value} registrado`, `${p?.label || args.param}: ${args.value} logged`), { icon: "Activity" });
+      return T(`${p?.label || args.param} = ${args.value}${p?.unit ? " " + p.unit : ""} guardado.`, `${p?.label || args.param} = ${args.value}${p?.unit ? " " + p.unit : ""} saved.`);
+    }
+    case "add_inhabitant": {
+      const item = {
+        id: "ui" + Date.now(),
+        name: c1(args.name),
+        scientific: args.species || "",
+        added: A.MOCK_TODAY,
+        status: "ok",
+        note: args.note || T("Añadido vía Aqua Buddy", "Added via Aqua Buddy"),
+      };
+      S.addInhabitant(args.kind, item);
+      window.toast?.(T(`${item.name} agregado`, `${item.name} added`), { icon: "Fish" });
+      return T(`${item.name} añadido a Habitantes.`, `${item.name} added to Livestock.`);
+    }
+    case "create_alert": {
+      const a = {
+        id: "ua" + Date.now(),
+        severity: args.severity || "info",
+        badge: T("RECORDATORIO", "REMINDER"),
+        title: args.title,
+        body: args.body || "",
+        cta: T("Marcar hecho", "Mark done"),
+        tag: "Aqua Buddy",
+      };
+      S.addAlert(a);
+      window.toast?.(T("Alerta creada", "Alert created"), { icon: "Bell" });
+      return T(`Alerta "${args.title}" creada.`, `Alert "${args.title}" created.`);
+    }
+    case "update_parameter_note": {
+      const p = A.CURRENT_PARAMETERS[args.param];
+      if (p) { p.note = args.note; S.touch(); }
+      return T(`Nota de ${p?.label || args.param} actualizada.`, `Note for ${p?.label || args.param} updated.`);
+    }
+    default:
+      return T("Accion completada.", "Action completed.");
+  }
+}
+
+// Call Google Gemini 2.0 Flash via OpenAI-compatible endpoint (free tier)
+async function callGemini(messages, system, tools = null) {
+  const apiKey = window.AQUAMIND_AI_KEY || localStorage.getItem("aqua:ai_key");
   if (!apiKey) return null;
   try {
-    const resp = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        max_tokens: 400,
-        messages: [{ role: "system", content: system }, ...messages],
-      }),
-    });
+    const body = {
+      model: "gemini-2.0-flash",
+      max_tokens: 500,
+      messages: [{ role: "system", content: system }, ...messages],
+    };
+    if (tools) body.tools = tools;
+
+    const resp = await fetch(
+      "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify(body),
+      }
+    );
     if (!resp.ok) return null;
-    const data = await resp.json();
-    return data.choices?.[0]?.message?.content?.trim() || null;
+    return await resp.json();
   } catch {
     return null;
   }
 }
 
 async function callAquaBuddy(userMessage, mode = "personalized", history = []) {
-  // First: command? (log reading, add routine, etc.) — executes locally, online or offline
+  // First: rule-based command parser (fast, works offline, no API key needed)
   const command = applyAquaCommand(userMessage);
   if (command) {
     await new Promise((r) => setTimeout(r, 450));
@@ -252,25 +402,39 @@ async function callAquaBuddy(userMessage, mode = "personalized", history = []) {
     { role: "user", content: userMessage },
   ];
 
-  // Try OpenAI first
-  const openaiReply = await callOpenAI(messages, system);
-  if (openaiReply) return openaiReply;
+  // Call Gemini with tool use
+  const data = await callGemini(messages, system, AQUA_TOOLS);
+  if (data) {
+    const choice = data.choices?.[0];
 
-  // Fallback to Claude if available
-  if (window.claude?.complete) {
-    try {
-      const text = await window.claude.complete({
-        messages: [{ role: "user", content: `[System]\n${system}\n\n[Question]\n${userMessage}` }],
-      });
-      if (text?.trim()) return text.trim();
-    } catch { /* fall through */ }
+    // Execute any tool calls the model requested
+    if (choice?.message?.tool_calls?.length > 0) {
+      const toolResults = [];
+      for (const tc of choice.message.tool_calls) {
+        let args = {};
+        try { args = JSON.parse(tc.function.arguments); } catch (_) {}
+        const result = executeAquaTool(tc.function.name, args);
+        toolResults.push({ role: "tool", tool_call_id: tc.id, content: result });
+      }
+
+      // Ask Gemini for a final response now that tools are done
+      const followMsgs = [...messages, choice.message, ...toolResults];
+      const follow = await callGemini(followMsgs, system);
+      const followText = follow?.choices?.[0]?.message?.content?.trim();
+      if (followText) return followText;
+      return toolResults.map((r) => r.content).join("\n");
+    }
+
+    // Plain text response
+    const text = choice?.message?.content?.trim();
+    if (text) return text;
   }
 
+  // Fallback: local knowledge base (works without API key)
   await new Promise((r) => setTimeout(r, 800));
   return localAquaBuddy(userMessage);
 }
 
-// Backward-compat alias used by other call sites
 const callAquaBot = (msg, hist) => callAquaBuddy(msg, "personalized", hist);
 const localAquaBot = localAquaBuddy;
 
@@ -1061,4 +1225,5 @@ Object.assign(window, {
   Dashboard, AlertCard, AquaBotWidget, RoutinesTimeline, RoutineItem,
   ReefStatusHero, WaterParamsCard, LightingScheduleCard, LivestockInventory, GalleryStrip,
   TankVitalsStrip, PARAM_ICON, callAquaBot, callAquaBuddy, localAquaBuddy, localAquaBot, alertCTAAction, applyAquaCommand,
+  AQUA_TOOLS, executeAquaTool, callGemini,
 });
