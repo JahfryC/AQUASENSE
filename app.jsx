@@ -38,16 +38,16 @@ function App() {
     setActivePage("dashboard");
   };
 
-  // Login REAL con Google (Firebase): cloud.js emite aqua:auth al conectar
-  // o cerrar sesión; aquí lo reflejamos en la sesión de la app.
+  // Supabase auth: cloud.js emite aqua:auth al conectar o cerrar sesion.
   React.useEffect(() => {
     const fn = (e) => {
       if (e.detail) {
         signIn({ ...e.detail, color: "linear-gradient(150deg, var(--accent), var(--indigo))" });
-        window.toast?.(T(`Sesión iniciada: ${e.detail.email} — datos sincronizando con la nube`, `Signed in: ${e.detail.email} — data syncing to the cloud`), { icon: "CloudUpload" });
+        window.toast?.(T(`Sesion iniciada: ${e.detail.email} — datos sincronizando con la nube`, `Signed in: ${e.detail.email} — data syncing to the cloud`), { icon: "CloudUpload" });
       } else {
+        // Sign-out from Supabase: clear any cloud-backed session
         setSession((s) => {
-          if (s?.provider === "google-cloud") { localStorage.removeItem("aqua:session"); return null; }
+          if (s?.provider?.startsWith("supabase")) { localStorage.removeItem("aqua:session"); return null; }
           return s;
         });
       }

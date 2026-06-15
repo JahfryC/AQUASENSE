@@ -18,118 +18,225 @@ function GoogleG({ size = 18 }) {
   );
 }
 
-// ---------- Login screen ----------
+// ---------- Login screen — Supabase email/password ----------
 function LoginScreen({ onSignIn }) {
-  const [chooser, setChooser] = React.useState(false);
-  const [loading, setLoading] = React.useState(null);
-  const [googleLoading, setGoogleLoading] = React.useState(false);
-  useEscape(React.useCallback(() => setChooser(false), []));
+  const [mode, setMode] = React.useState("signin"); // "signin" | "signup" | "reset"
+  const [email, setEmail] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const [showPw, setShowPw] = React.useState(false);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState("");
+  const [info, setInfo] = React.useState("");
 
-  const pick = (acc) => {
-    setLoading(acc.email);
-    setTimeout(() => {
-      onSignIn({ name: acc.name, email: acc.email, color: acc.color, provider: "google", since: new Date().toISOString().slice(0, 10) });
-    }, 900);
+  const cloudReady = window.CLOUD?.isConfigured;
+
+  const clearMessages = () => { setError(""); setInfo(""); };
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!email.trim()) { setError(T("Ingresa tu email.", "Enter your email.")); return; }
+    if (mode !== "reset" && password.length < 6) { setError(T("La contrasena debe tener al menos 6 caracteres.", "Password must be at least 6 characters.")); return; }
+    clearMessages();
+    setLoading(true);
+
+    if (!cloudReady) {
+      // No Supabase configured — sign in as demo with the typed email
+      await new Promise((r) => setTimeout(r, 700));
+      const name = email.split("@")[0];
+      onSignIn({ name, email, color: "linear-gradient(150deg, #0E8C86, #5B5BD6)", provider: "email-demo", since: new Date().toISOString().slice(0, 10) });
+      setLoading(false);
+      return;
+    }
+
+    try {
+      if (mode === "reset") {
+        await window.CLOUD.resetPassword(email.trim());
+        setInfo(T("Revisa tu email — te enviamos el enlace de recuperacion.", "Check your email — we sent the recovery link."));
+        setMode("signin");
+      } else if (mode === "signup") {
+        const u = await window.CLOUD.signUp(email.trim(), password);
+        if (u && !u.identities?.length) {
+          setInfo(T("Revisa tu email para confirmar tu cuenta.", "Check your email to confirm your account."));
+        } else if (u) {
+          // Auto-confirmed (email confirmation disabled in Supabase)
+          onSignIn({ name: u.email?.split("@")[0] || "User", email: u.email, uid: u.id, color: "linear-gradient(150deg, #0E8C86, #5B5BD6)", provider: "supabase", since: new Date().toISOString().slice(0, 10) });
+        }
+      } else {
+        await window.CLOUD.signInWithEmail(email.trim(), password);
+        // aqua:auth event fires from cloud.js and the App will react
+      }
+    } catch (err) {
+      const msg = err.message || "";
+      if (msg.includes("Invalid login")) setError(T("Email o contrasena incorrectos.", "Incorrect email or password."));
+      else if (msg.includes("Email not confirmed")) setError(T("Confirma tu email antes de iniciar sesion.", "Please confirm your email before signing in."));
+      else if (msg.includes("User already registered")) setError(T("Ya tienes cuenta. Inicia sesion.", "Account already exists. Sign in instead."));
+      else setError(msg || T("Algo salio mal. Intenta de nuevo.", "Something went wrong. Please try again."));
+    }
+    setLoading(false);
   };
 
-  // OAuth real cuando Firebase está configurado; selector simulado si no.
   const googleSignIn = async () => {
-    if (window.CLOUD?.isConfigured) {
-      setGoogleLoading(true);
-      try {
-        await window.CLOUD.signInGoogle(); // aqua:auth completa la sesión
-      } catch (e) {
-        window.toast?.(T("No se pudo iniciar sesion con Google. Revisa la configuracion de Supabase Auth.", "Google sign-in failed. Check your Supabase Auth configuration."), { tone: "warn", icon: "AlertTriangle" });
-      }
-      setGoogleLoading(false);
-    } else {
-      setChooser(true);
+    if (!cloudReady) return;
+    setLoading(true);
+    clearMessages();
+    try {
+      await window.CLOUD.signInGoogle();
+      // Page redirects; session restored on return
+    } catch (e) {
+      setError(T("No se pudo conectar con Google. Revisa Supabase Auth → Providers.", "Could not connect with Google. Check Supabase Auth → Providers."));
+      setLoading(false);
     }
+  };
+
+  const demoMode = () => onSignIn({
+    name: "Demo", email: null,
+    color: "linear-gradient(150deg, #7C90A3, #46607A)",
+    provider: "guest",
+    since: new Date().toISOString().slice(0, 10),
+  });
+
+  const titles = {
+    signin: T("Iniciar sesion", "Sign in"),
+    signup: T("Crear cuenta", "Create account"),
+    reset:  T("Recuperar contrasena", "Reset password"),
   };
 
   return (
     <div className="min-h-screen relative grid place-items-center p-4" data-screen-label="Login">
       <Atmosphere />
       <div className="relative z-10 w-full max-w-[400px]">
-        <Card className="p-7 text-center">
-          <div className="mx-auto w-fit mb-4"><Logo size={52} /></div>
-          <h1 className="text-[22px] font-semibold tracking-tight text-[var(--ink)]">AquaMind</h1>
-          <p className="text-[12.5px] text-[var(--ink-2)] mt-1 mb-6">
-            {T("Tu acuario, monitoreado con inteligencia. Inicia sesión para sincronizar tus tanques en todos tus dispositivos.",
-               "Your aquarium, intelligently managed. Sign in to sync your tanks across devices.")}
-          </p>
+        <Card className="p-7">
+          {/* Logo + brand */}
+          <div className="text-center mb-6">
+            <div className="mx-auto w-fit mb-3"><Logo size={48} /></div>
+            <h1 className="text-[22px] font-semibold tracking-tight text-[var(--ink)]">AquaMind</h1>
+            <p className="text-[12px] text-[var(--ink-2)] mt-1">
+              {T("Tu acuario, monitoreado con inteligencia.", "Your aquarium, intelligently monitored.")}
+            </p>
+          </div>
 
-          <button
-            onClick={googleSignIn}
-            disabled={googleLoading}
-            className="w-full glass-strong rounded-full px-4 py-3 flex items-center justify-center gap-3 text-[13.5px] font-medium text-[var(--ink)] hover:brightness-105 transition-all active:scale-[0.99] disabled:opacity-60"
-          >
-            {googleLoading ? <L name="Loader2" size={18} className="animate-spin" /> : <GoogleG />}
-            {T("Continuar con Google", "Continue with Google")}
-          </button>
-          {!window.CLOUD?.isConfigured && (
-            <p className="text-[10px] text-[var(--ink-3)] mt-2 leading-relaxed">
-              {T("Login real + nube disponibles al conectar Supabase (gratis) — instrucciones en Ajustes → Cuenta.",
-                 "Real login + cloud sync available by connecting Supabase (free) — see Settings → Account.")}
+          {/* Mode tabs */}
+          {mode !== "reset" && (
+            <div className="flex p-0.5 rounded-xl mb-5" style={{ background: "var(--well)", border: "1px solid var(--hairline)" }}>
+              {[["signin", T("Entrar", "Sign in")], ["signup", T("Registrarse", "Sign up")]].map(([id, label]) => (
+                <button
+                  key={id}
+                  onClick={() => { setMode(id); clearMessages(); }}
+                  className={`flex-1 py-1.5 rounded-[10px] text-[12.5px] font-medium transition-all ${mode === id ? "glass-strong text-[var(--ink)]" : "text-[var(--ink-3)] hover:text-[var(--ink-2)]"}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Error / info banners */}
+          {error && (
+            <div className="mb-3 rounded-xl px-3 py-2.5 text-[12px] text-red-700 dark:text-red-300 flex items-start gap-2" style={{ background: "rgba(220,68,88,0.1)", border: "1px solid rgba(220,68,88,0.25)" }}>
+              <L name="AlertCircle" size={14} className="shrink-0 mt-0.5" />
+              {error}
+            </div>
+          )}
+          {info && (
+            <div className="mb-3 rounded-xl px-3 py-2.5 text-[12px] flex items-start gap-2" style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)", color: "var(--accent)" }}>
+              <L name="Info" size={14} className="shrink-0 mt-0.5" />
+              {info}
+            </div>
+          )}
+
+          {/* Form */}
+          <form onSubmit={submit} className="space-y-3">
+            <div className="flex items-center gap-2 bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2.5 focus-within:ring-1 focus-within:ring-[var(--accent-border)]">
+              <L name="Mail" size={14} className="text-[var(--ink-3)] shrink-0" />
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => { setEmail(e.target.value); clearMessages(); }}
+                placeholder={T("tu@email.com", "you@email.com")}
+                autoComplete="email"
+                className="flex-1 bg-transparent border-0 outline-none text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)]"
+                required
+              />
+            </div>
+
+            {mode !== "reset" && (
+              <div className="flex items-center gap-2 bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2.5 focus-within:ring-1 focus-within:ring-[var(--accent-border)]">
+                <L name="Lock" size={14} className="text-[var(--ink-3)] shrink-0" />
+                <input
+                  type={showPw ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => { setPassword(e.target.value); clearMessages(); }}
+                  placeholder={mode === "signup" ? T("Minimo 6 caracteres", "Minimum 6 characters") : T("Contrasena", "Password")}
+                  autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                  className="flex-1 bg-transparent border-0 outline-none text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)]"
+                  required
+                />
+                <button type="button" onClick={() => setShowPw((s) => !s)} className="text-[var(--ink-3)] hover:text-[var(--ink-2)]">
+                  <L name={showPw ? "EyeOff" : "Eye"} size={14} />
+                </button>
+              </div>
+            )}
+
+            {mode === "signin" && (
+              <div className="text-right">
+                <button type="button" onClick={() => { setMode("reset"); clearMessages(); }} className="text-[11px] text-[var(--ink-3)] hover:text-[var(--accent)] transition-colors">
+                  {T("Olvide mi contrasena", "Forgot password?")}
+                </button>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-full py-2.5 text-[13.5px] font-semibold text-white disabled:opacity-60 transition-all active:scale-[0.99]"
+              style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-strong))" }}
+            >
+              {loading
+                ? <L name="Loader2" size={16} className="animate-spin mx-auto" />
+                : titles[mode]}
+            </button>
+
+            {mode === "reset" && (
+              <button type="button" onClick={() => { setMode("signin"); clearMessages(); }} className="w-full text-[12px] text-[var(--ink-3)] hover:text-[var(--ink-2)] transition-colors">
+                {T("← Volver al inicio de sesion", "← Back to sign in")}
+              </button>
+            )}
+          </form>
+
+          {!cloudReady && (
+            <p className="text-[10.5px] text-[var(--ink-3)] mt-3 text-center leading-relaxed rounded-lg px-2 py-1.5" style={{ background: "var(--well)" }}>
+              {T("Supabase no configurado — entrara en modo demo local.", "Supabase not configured — will enter local demo mode.")}
             </p>
           )}
 
+          {/* Divider */}
           <div className="flex items-center gap-3 my-4">
             <span className="flex-1 h-px bg-[var(--hairline)]" />
             <span className="text-[10px] uppercase tracking-wider text-[var(--ink-3)]">{T("o", "or")}</span>
             <span className="flex-1 h-px bg-[var(--hairline)]" />
           </div>
 
+          {/* Google OAuth — optional if Supabase Google provider is enabled */}
           <button
-            onClick={() => onSignIn({ name: "Invitado", email: null, color: "linear-gradient(150deg, #7C90A3, #46607A)", provider: "guest", since: new Date().toISOString().slice(0, 10) })}
-            className="text-[12px] text-[var(--ink-2)] hover:text-[var(--ink)] transition-colors"
+            onClick={googleSignIn}
+            disabled={loading || !cloudReady}
+            className="w-full glass-strong rounded-full px-4 py-2.5 flex items-center justify-center gap-3 text-[13px] font-medium text-[var(--ink)] hover:brightness-105 transition-all disabled:opacity-40 mb-3"
           >
-            {T("Explorar en modo demo →", "Explore demo mode →")}
+            <GoogleG size={16} />
+            {T("Continuar con Google", "Continue with Google")}
           </button>
 
-          <p className="text-[10px] text-[var(--ink-3)] mt-6 leading-relaxed">
-            {T("Tus datos se cifran en tránsito y en reposo. Nunca compartimos información de tu acuario.",
-               "Your data is encrypted in transit and at rest. We never share your aquarium data.")}
+          <div className="text-center">
+            <button onClick={demoMode} className="text-[12px] text-[var(--ink-3)] hover:text-[var(--ink-2)] transition-colors">
+              {T("Explorar sin cuenta →", "Explore without account →")}
+            </button>
+          </div>
+
+          <p className="text-[10px] text-[var(--ink-3)] mt-5 text-center leading-relaxed">
+            {T("Datos cifrados en transito y en reposo. Nunca compartimos tu informacion.", "Data encrypted in transit and at rest. We never share your information.")}
           </p>
         </Card>
       </div>
-
-      {chooser && (
-        <div className="fixed inset-0 z-50 grid place-items-center p-4 bg-[var(--scrim)] backdrop-blur" onClick={() => setChooser(false)}>
-          <Card onClick={(e) => e.stopPropagation()} className="w-full max-w-sm overflow-hidden glass-strong">
-            <div className="px-5 py-4 border-b border-[var(--hairline)] flex items-center gap-2.5">
-              <GoogleG size={20} />
-              <div>
-                <div className="text-[13.5px] font-semibold text-[var(--ink)]">{T("Elige una cuenta", "Choose an account")}</div>
-                <div className="text-[11px] text-[var(--ink-2)]">{T("para continuar a AquaMind", "to continue to AquaMind")}</div>
-              </div>
-            </div>
-            <div className="p-2">
-              {GOOGLE_ACCOUNTS.map((acc) => (
-                <button
-                  key={acc.email}
-                  onClick={() => pick(acc)}
-                  disabled={!!loading}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl hover:bg-[var(--hover)] transition-colors text-left disabled:opacity-60"
-                >
-                  <span className="grid place-items-center w-9 h-9 rounded-full text-white text-[13px] font-semibold shrink-0" style={{ background: acc.color }}>
-                    {acc.name[0]}
-                  </span>
-                  <span className="flex-1 min-w-0">
-                    <span className="block text-[13px] font-medium text-[var(--ink)]">{acc.name}</span>
-                    <span className="block text-[11px] text-[var(--ink-2)] truncate">{acc.email}</span>
-                  </span>
-                  {loading === acc.email && <L name="Loader2" size={15} className="animate-spin text-[var(--ink-3)]" />}
-                </button>
-              ))}
-            </div>
-            <div className="px-5 py-3 border-t border-[var(--hairline)] text-[10px] text-[var(--ink-3)] leading-relaxed">
-              {T("Demo de diseño: el inicio de sesión es simulado, no se conecta a Google.",
-                 "Design demo: sign-in is simulated, no real Google connection.")}
-            </div>
-          </Card>
-        </div>
-      )}
     </div>
   );
 }

@@ -121,6 +121,28 @@ window.CLOUD = (() => {
     } catch (_) { /* offline — localStorage already saved it */ }
   }
 
+  async function signInWithEmail(email, password) {
+    if (!client) throw new Error("cloud-not-configured");
+    const { data, error } = await client.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    return data.user;
+  }
+
+  async function signUp(email, password) {
+    if (!client) throw new Error("cloud-not-configured");
+    const { data, error } = await client.auth.signUp({ email, password });
+    if (error) throw error;
+    return data.user;
+  }
+
+  async function resetPassword(email) {
+    if (!client) throw new Error("cloud-not-configured");
+    const { error } = await client.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.href,
+    });
+    if (error) throw error;
+  }
+
   async function signInGoogle() {
     if (!client) throw new Error("cloud-not-configured");
     const { error } = await client.auth.signInWithOAuth({
@@ -128,7 +150,6 @@ window.CLOUD = (() => {
       options: { redirectTo: window.location.href },
     });
     if (error) throw error;
-    // Page will redirect — session is restored on return via getSession()
   }
 
   async function signOut() {
@@ -147,6 +168,9 @@ window.CLOUD = (() => {
     },
     get user() { return user; },
     ready,
+    signInWithEmail,
+    signUp,
+    resetPassword,
     signInGoogle,
     signOut,
     push,
