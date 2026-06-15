@@ -3371,24 +3371,694 @@ function useClock() {
   }, []);
   return now;
 }
+
+// ---- Built-in tank database ----
+const TANK_DB = [
+// Aqueon
+{
+  n: "Aqueon 5.5 Gallon",
+  br: "Aqueon",
+  vol: 5.5,
+  l: 16,
+  w: 8,
+  h: 10,
+  t: "freshwater"
+}, {
+  n: "Aqueon 10 Gallon",
+  br: "Aqueon",
+  vol: 10,
+  l: 20,
+  w: 10,
+  h: 12,
+  t: "freshwater"
+}, {
+  n: "Aqueon 20H",
+  br: "Aqueon",
+  vol: 20,
+  l: 24,
+  w: 12,
+  h: 16,
+  t: "freshwater"
+}, {
+  n: "Aqueon 20L",
+  br: "Aqueon",
+  vol: 20,
+  l: 30,
+  w: 12,
+  h: 12,
+  t: "freshwater"
+}, {
+  n: "Aqueon 29 Gallon",
+  br: "Aqueon",
+  vol: 29,
+  l: 30,
+  w: 12,
+  h: 18,
+  t: "freshwater"
+}, {
+  n: "Aqueon 40 Breeder",
+  br: "Aqueon",
+  vol: 40,
+  l: 36,
+  w: 18,
+  h: 16,
+  t: "freshwater"
+}, {
+  n: "Aqueon 55 Gallon",
+  br: "Aqueon",
+  vol: 55,
+  l: 48,
+  w: 13,
+  h: 21,
+  t: "freshwater"
+}, {
+  n: "Aqueon 75 Gallon",
+  br: "Aqueon",
+  vol: 75,
+  l: 48,
+  w: 18,
+  h: 21,
+  t: "freshwater"
+}, {
+  n: "Aqueon 90 Gallon",
+  br: "Aqueon",
+  vol: 90,
+  l: 48,
+  w: 18,
+  h: 24,
+  t: "freshwater"
+}, {
+  n: "Aqueon 125 Gallon",
+  br: "Aqueon",
+  vol: 125,
+  l: 72,
+  w: 18,
+  h: 22,
+  t: "freshwater"
+},
+// Red Sea Reefer
+{
+  n: "Red Sea Reefer 170",
+  br: "Red Sea",
+  vol: 45,
+  l: 28,
+  w: 23,
+  h: 21,
+  t: "saltwater"
+}, {
+  n: "Red Sea Reefer 250",
+  br: "Red Sea",
+  vol: 65,
+  l: 35,
+  w: 22,
+  h: 22,
+  t: "saltwater"
+}, {
+  n: "Red Sea Reefer 300",
+  br: "Red Sea",
+  vol: 79,
+  l: 43,
+  w: 22,
+  h: 22,
+  t: "saltwater"
+}, {
+  n: "Red Sea Reefer 350",
+  br: "Red Sea",
+  vol: 92,
+  l: 47,
+  w: 24,
+  h: 24,
+  t: "saltwater"
+}, {
+  n: "Red Sea Reefer 425XL",
+  br: "Red Sea",
+  vol: 112,
+  l: 47,
+  w: 29,
+  h: 24,
+  t: "saltwater"
+}, {
+  n: "Red Sea Reefer 500",
+  br: "Red Sea",
+  vol: 132,
+  l: 59,
+  w: 24,
+  h: 24,
+  t: "saltwater"
+}, {
+  n: "Red Sea Reefer 625XL",
+  br: "Red Sea",
+  vol: 165,
+  l: 59,
+  w: 30,
+  h: 26,
+  t: "saltwater"
+}, {
+  n: "Red Sea Reefer 900XL",
+  br: "Red Sea",
+  vol: 238,
+  l: 79,
+  w: 30,
+  h: 26,
+  t: "saltwater"
+}, {
+  n: "Red Sea Peninsula 500",
+  br: "Red Sea",
+  vol: 132,
+  l: 56,
+  w: 29,
+  h: 24,
+  t: "saltwater"
+}, {
+  n: "Red Sea Peninsula 650",
+  br: "Red Sea",
+  vol: 172,
+  l: 59,
+  w: 35,
+  h: 26,
+  t: "saltwater"
+}, {
+  n: "Red Sea Peninsula 900",
+  br: "Red Sea",
+  vol: 238,
+  l: 79,
+  w: 35,
+  h: 26,
+  t: "saltwater"
+}, {
+  n: "Red Sea Max E-170",
+  br: "Red Sea",
+  vol: 45,
+  l: 28,
+  w: 23,
+  h: 21,
+  t: "saltwater"
+}, {
+  n: "Red Sea Max 250",
+  br: "Red Sea",
+  vol: 66,
+  l: 35,
+  w: 22,
+  h: 22,
+  t: "saltwater"
+},
+// Innovative Marine
+{
+  n: "IM NUVO Fusion 10",
+  br: "Innovative Marine",
+  vol: 10,
+  l: 16,
+  w: 16,
+  h: 14,
+  t: "saltwater"
+}, {
+  n: "IM NUVO Fusion 20",
+  br: "Innovative Marine",
+  vol: 20,
+  l: 20,
+  w: 20,
+  h: 18,
+  t: "saltwater"
+}, {
+  n: "IM NUVO Fusion 30L",
+  br: "Innovative Marine",
+  vol: 30,
+  l: 36,
+  w: 12,
+  h: 18,
+  t: "saltwater"
+}, {
+  n: "IM NUVO Fusion 40",
+  br: "Innovative Marine",
+  vol: 40,
+  l: 24,
+  w: 20,
+  h: 22,
+  t: "saltwater"
+}, {
+  n: "IM NUVO Fusion 60",
+  br: "Innovative Marine",
+  vol: 60,
+  l: 36,
+  w: 20,
+  h: 22,
+  t: "saltwater"
+}, {
+  n: "IM Lagoon 25",
+  br: "Innovative Marine",
+  vol: 25,
+  l: 24,
+  w: 24,
+  h: 12,
+  t: "saltwater"
+},
+// Waterbox
+{
+  n: "Waterbox Cube 10",
+  br: "Waterbox",
+  vol: 10,
+  l: 16,
+  w: 16,
+  h: 15,
+  t: "saltwater"
+}, {
+  n: "Waterbox Cube 20",
+  br: "Waterbox",
+  vol: 20,
+  l: 20,
+  w: 20,
+  h: 18,
+  t: "saltwater"
+}, {
+  n: "Waterbox Marine X 30",
+  br: "Waterbox",
+  vol: 30,
+  l: 32,
+  w: 15,
+  h: 18,
+  t: "saltwater"
+}, {
+  n: "Waterbox Reef 75.4",
+  br: "Waterbox",
+  vol: 75,
+  l: 48,
+  w: 20,
+  h: 22,
+  t: "saltwater"
+}, {
+  n: "Waterbox Reef 100.4",
+  br: "Waterbox",
+  vol: 100,
+  l: 54,
+  w: 21,
+  h: 24,
+  t: "saltwater"
+}, {
+  n: "Waterbox Reef 130.4",
+  br: "Waterbox",
+  vol: 130,
+  l: 60,
+  w: 21,
+  h: 24,
+  t: "saltwater"
+}, {
+  n: "Waterbox Reef 170.5",
+  br: "Waterbox",
+  vol: 170,
+  l: 60,
+  w: 27,
+  h: 25,
+  t: "saltwater"
+}, {
+  n: "Waterbox Reef 220.6",
+  br: "Waterbox",
+  vol: 220,
+  l: 72,
+  w: 27,
+  h: 25,
+  t: "saltwater"
+},
+// Fluval
+{
+  n: "Fluval Evo 13.5",
+  br: "Fluval",
+  vol: 13.5,
+  l: 16,
+  w: 13,
+  h: 15,
+  t: "saltwater"
+}, {
+  n: "Fluval Evo 52",
+  br: "Fluval",
+  vol: 52,
+  l: 37,
+  w: 19,
+  h: 21,
+  t: "saltwater"
+}, {
+  n: "Fluval Vista 16",
+  br: "Fluval",
+  vol: 16,
+  l: 25,
+  w: 11,
+  h: 18,
+  t: "freshwater"
+}, {
+  n: "Fluval Vista 32",
+  br: "Fluval",
+  vol: 32,
+  l: 36,
+  w: 14,
+  h: 20,
+  t: "freshwater"
+}, {
+  n: "Fluval Flex 9",
+  br: "Fluval",
+  vol: 9,
+  l: 14,
+  w: 15,
+  h: 16,
+  t: "freshwater"
+}, {
+  n: "Fluval Flex 15",
+  br: "Fluval",
+  vol: 15,
+  l: 17,
+  w: 17,
+  h: 18,
+  t: "freshwater"
+}, {
+  n: "Fluval Flex 32.5",
+  br: "Fluval",
+  vol: 32.5,
+  l: 23,
+  w: 19,
+  h: 23,
+  t: "freshwater"
+},
+// Coralife Biocube
+{
+  n: "Coralife Biocube 16",
+  br: "Coralife",
+  vol: 16,
+  l: 17,
+  w: 17,
+  h: 18,
+  t: "saltwater"
+}, {
+  n: "Coralife Biocube 32",
+  br: "Coralife",
+  vol: 32,
+  l: 22,
+  w: 22,
+  h: 22,
+  t: "saltwater"
+},
+// JBJ
+{
+  n: "JBJ Rimless 10",
+  br: "JBJ",
+  vol: 10,
+  l: 16,
+  w: 11,
+  h: 15,
+  t: "saltwater"
+}, {
+  n: "JBJ Rimless 30",
+  br: "JBJ",
+  vol: 30,
+  l: 30,
+  w: 14,
+  h: 18,
+  t: "saltwater"
+}, {
+  n: "JBJ Rimless 45",
+  br: "JBJ",
+  vol: 45,
+  l: 36,
+  w: 16,
+  h: 21,
+  t: "saltwater"
+},
+// ADA (planted)
+{
+  n: "ADA 60-P",
+  br: "ADA",
+  vol: 17,
+  l: 24,
+  w: 12,
+  h: 14,
+  t: "freshwater"
+}, {
+  n: "ADA 60-F",
+  br: "ADA",
+  vol: 12,
+  l: 24,
+  w: 12,
+  h: 10,
+  t: "freshwater"
+}, {
+  n: "ADA 90-P",
+  br: "ADA",
+  vol: 45,
+  l: 36,
+  w: 18,
+  h: 14,
+  t: "freshwater"
+}, {
+  n: "ADA 120-P",
+  br: "ADA",
+  vol: 79,
+  l: 47,
+  w: 18,
+  h: 18,
+  t: "freshwater"
+}, {
+  n: "ADA 180-P",
+  br: "ADA",
+  vol: 158,
+  l: 71,
+  w: 24,
+  h: 24,
+  t: "freshwater"
+},
+// Landen
+{
+  n: "Landen 30C Cube",
+  br: "Landen",
+  vol: 8,
+  l: 12,
+  w: 12,
+  h: 14,
+  t: "freshwater"
+}, {
+  n: "Landen 60P",
+  br: "Landen",
+  vol: 16,
+  l: 24,
+  w: 12,
+  h: 14,
+  t: "freshwater"
+}, {
+  n: "Landen 90P",
+  br: "Landen",
+  vol: 36,
+  l: 36,
+  w: 18,
+  h: 14,
+  t: "freshwater"
+},
+// SC Aquariums
+{
+  n: "SC Aquariums 120G",
+  br: "SC Aquariums",
+  vol: 120,
+  l: 48,
+  w: 24,
+  h: 24,
+  t: "saltwater"
+}, {
+  n: "SC Aquariums 150G",
+  br: "SC Aquariums",
+  vol: 150,
+  l: 60,
+  w: 24,
+  h: 24,
+  t: "saltwater"
+}, {
+  n: "SC Aquariums 180G",
+  br: "SC Aquariums",
+  vol: 180,
+  l: 72,
+  w: 24,
+  h: 24,
+  t: "saltwater"
+}, {
+  n: "SC Aquariums 210G",
+  br: "SC Aquariums",
+  vol: 210,
+  l: 72,
+  w: 24,
+  h: 29,
+  t: "saltwater"
+},
+// Generic / DIY
+{
+  n: "Nano Reef 5G",
+  br: "Generic",
+  vol: 5,
+  l: 16,
+  w: 8,
+  h: 10,
+  t: "saltwater"
+}, {
+  n: "Nano Reef 10G",
+  br: "Generic",
+  vol: 10,
+  l: 20,
+  w: 10,
+  h: 12,
+  t: "saltwater"
+}, {
+  n: "Reef 20L",
+  br: "Generic",
+  vol: 20,
+  l: 30,
+  w: 12,
+  h: 12,
+  t: "saltwater"
+}, {
+  n: "Reef 40 Breeder",
+  br: "Generic",
+  vol: 40,
+  l: 36,
+  w: 18,
+  h: 16,
+  t: "saltwater"
+}, {
+  n: "Reef 75G",
+  br: "Generic",
+  vol: 75,
+  l: 48,
+  w: 18,
+  h: 21,
+  t: "saltwater"
+}, {
+  n: "Reef 90G",
+  br: "Generic",
+  vol: 90,
+  l: 48,
+  w: 18,
+  h: 24,
+  t: "saltwater"
+}, {
+  n: "Reef 120G",
+  br: "Generic",
+  vol: 120,
+  l: 48,
+  w: 24,
+  h: 24,
+  t: "saltwater"
+}, {
+  n: "Reef 180G",
+  br: "Generic",
+  vol: 180,
+  l: 72,
+  w: 24,
+  h: 24,
+  t: "saltwater"
+}, {
+  n: "Reef 240G",
+  br: "Generic",
+  vol: 240,
+  l: 96,
+  w: 24,
+  h: 24,
+  t: "saltwater"
+}, {
+  n: "Planted 10G",
+  br: "Generic",
+  vol: 10,
+  l: 20,
+  w: 10,
+  h: 12,
+  t: "freshwater"
+}, {
+  n: "Planted 20L",
+  br: "Generic",
+  vol: 20,
+  l: 30,
+  w: 12,
+  h: 12,
+  t: "freshwater"
+}, {
+  n: "Planted 40 Breeder",
+  br: "Generic",
+  vol: 40,
+  l: 36,
+  w: 18,
+  h: 16,
+  t: "freshwater"
+}, {
+  n: "Planted 75G",
+  br: "Generic",
+  vol: 75,
+  l: 48,
+  w: 18,
+  h: 21,
+  t: "freshwater"
+}];
 function AddTankModal({
   onClose,
   onAdded
 }) {
+  const [step, setStep] = React.useState("search"); // "search" | "fill"
+  const [query, setQuery] = React.useState("");
+  const [results, setResults] = React.useState([]);
+  const [searching, setSearching] = React.useState(false);
+
+  // Form fields
   const [name, setName] = React.useState("");
   const [type, setType] = React.useState("saltwater");
-  const [volume, setVolume] = React.useState("");
+  const [displayVol, setDisplayVol] = React.useState("");
+  const [totalVol, setTotalVol] = React.useState("");
   const [brand, setBrand] = React.useState("");
+  const [length, setLength] = React.useState("");
+  const [width, setWidth] = React.useState("");
+  const [height, setHeight] = React.useState("");
+  const searchRef = React.useRef(null);
+  const nameRef = React.useRef(null);
   useEscape(onClose);
+  React.useEffect(() => {
+    if (step === "search") setTimeout(() => searchRef.current?.focus(), 80);
+    if (step === "fill") setTimeout(() => nameRef.current?.focus(), 80);
+  }, [step]);
+
+  // Live search
+  React.useEffect(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) {
+      setResults([]);
+      return;
+    }
+    setSearching(true);
+    const t = setTimeout(() => {
+      const words = q.split(/\s+/);
+      const matches = TANK_DB.filter(row => {
+        const haystack = (row.n + " " + row.br + " " + row.vol).toLowerCase();
+        return words.every(w => haystack.includes(w));
+      }).slice(0, 7);
+      setResults(matches);
+      setSearching(false);
+    }, 220);
+    return () => clearTimeout(t);
+  }, [query]);
+  const fillFrom = row => {
+    setName(row.n);
+    setBrand(row.br);
+    setType(row.t === "freshwater" ? "freshwater" : "saltwater");
+    setDisplayVol(String(row.vol));
+    setTotalVol(String(row.vol));
+    setLength(row.l ? String(row.l) : "");
+    setWidth(row.w ? String(row.w) : "");
+    setHeight(row.h ? String(row.h) : "");
+    setStep("fill");
+  };
   const save = () => {
     const n = name.trim();
-    if (!n) return;
+    if (!n) {
+      nameRef.current?.focus();
+      return;
+    }
     const tank = window.AquaStore.addTank({
       name: n,
       type,
-      displayVolume: volume ? +volume : 0,
-      realVolume: volume ? +volume : 0,
-      brand: brand.trim()
+      displayVolume: displayVol ? +displayVol : 0,
+      realVolume: totalVol ? +totalVol : displayVol ? +displayVol : 0,
+      brand: brand.trim(),
+      length: length ? +length : null,
+      width: width ? +width : null,
+      height: height ? +height : null
     });
     window.toast?.(T(`Tanque "${tank.name}" añadido`, `Tank "${tank.name}" added`), {
       icon: "Waves"
@@ -3396,66 +4066,7 @@ function AddTankModal({
     onAdded?.();
     onClose();
   };
-  return /*#__PURE__*/React.createElement("div", {
-    className: "fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[var(--scrim)] backdrop-blur",
-    onClick: onClose
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "w-full max-w-sm glass-strong rounded-t-3xl sm:rounded-3xl overflow-y-auto max-h-[92dvh]",
-    style: {
-      boxShadow: "var(--glass-shadow)"
-    },
-    onClick: e => e.stopPropagation()
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center justify-between px-5 py-4 border-b border-[var(--hairline)]"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2.5"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "grid place-items-center w-8 h-8 rounded-xl",
-    style: {
-      background: "var(--accent-soft)",
-      border: "1px solid var(--accent-border)"
-    }
-  }, /*#__PURE__*/React.createElement(L, {
-    name: "Waves",
-    size: 14,
-    style: {
-      color: "var(--accent)"
-    }
-  })), /*#__PURE__*/React.createElement("span", {
-    className: "text-[14px] font-semibold text-[var(--ink)]"
-  }, T("Nuevo tanque", "New tank"))), /*#__PURE__*/React.createElement("button", {
-    onClick: onClose,
-    className: "p-1.5 rounded-full hover:bg-[var(--hover)] text-[var(--ink-2)]"
-  }, /*#__PURE__*/React.createElement(L, {
-    name: "X",
-    size: 14
-  }))), /*#__PURE__*/React.createElement("div", {
-    className: "p-5 space-y-3"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-    className: "text-[11px] font-medium text-[var(--ink-2)] mb-1 block"
-  }, T("Nombre *", "Name *")), /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2 rounded-xl px-3 py-2.5",
-    style: {
-      background: "var(--well)",
-      border: "1px solid var(--hairline)"
-    }
-  }, /*#__PURE__*/React.createElement(L, {
-    name: "Droplet",
-    size: 13,
-    className: "text-[var(--ink-3)] shrink-0"
-  }), /*#__PURE__*/React.createElement("input", {
-    autoFocus: true,
-    type: "text",
-    value: name,
-    onChange: e => setName(e.target.value),
-    onKeyDown: e => {
-      if (e.key === "Enter") save();
-    },
-    placeholder: T("ej. Reef 50G", "e.g. 50G Reef"),
-    className: "flex-1 bg-transparent border-0 outline-none text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)]"
-  }))), /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-2"
-  }, [{
+  const typeOpts = [{
     id: "saltwater",
     label: T("Marino", "Saltwater"),
     icon: "Waves"
@@ -3463,61 +4074,268 @@ function AddTankModal({
     id: "freshwater",
     label: T("Dulce", "Freshwater"),
     icon: "Droplet"
-  }].map(opt => /*#__PURE__*/React.createElement("button", {
+  }, {
+    id: "reef",
+    label: T("Reef", "Reef"),
+    icon: "Shell"
+  }, {
+    id: "planted",
+    label: T("Plantado", "Planted"),
+    icon: "Leaf"
+  }];
+  const FieldInput = ({
+    label,
+    value,
+    onChange,
+    placeholder,
+    type: ftype = "text",
+    unit,
+    children
+  }) => /*#__PURE__*/React.createElement("label", {
+    className: "block"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1"
+  }, label), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2 focus-within:ring-1 focus-within:ring-[var(--accent-border)] transition-all"
+  }, children, /*#__PURE__*/React.createElement("input", {
+    type: ftype,
+    inputMode: ftype === "number" ? "decimal" : undefined,
+    value: value,
+    onChange: e => onChange(e.target.value),
+    placeholder: placeholder,
+    className: "flex-1 bg-transparent border-0 outline-none text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)]"
+  }), unit && /*#__PURE__*/React.createElement("span", {
+    className: "text-[10.5px] text-[var(--ink-3)] shrink-0"
+  }, unit)));
+  return /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[var(--scrim)] backdrop-blur",
+    onClick: onClose
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-full sm:max-w-lg glass-strong rounded-t-3xl sm:rounded-3xl overflow-hidden max-h-[96dvh] flex flex-col",
+    style: {
+      boxShadow: "var(--glass-shadow)"
+    },
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between px-5 py-4 border-b border-[var(--hairline)] shrink-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2.5"
+  }, step === "fill" && /*#__PURE__*/React.createElement("button", {
+    onClick: () => setStep("search"),
+    className: "p-1.5 -ml-1 rounded-full hover:bg-[var(--hover)] text-[var(--ink-2)]"
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "ArrowLeft",
+    size: 15
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "grid place-items-center w-8 h-8 rounded-xl",
+    style: {
+      background: "var(--accent-soft)",
+      border: "1px solid var(--accent-border)"
+    }
+  }, /*#__PURE__*/React.createElement(L, {
+    name: step === "search" ? "Search" : "Waves",
+    size: 14,
+    style: {
+      color: "var(--accent)"
+    }
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "text-[14px] font-semibold text-[var(--ink)]"
+  }, step === "search" ? T("Buscar tanque", "Search tank") : T("Detalles del tanque", "Tank details")), /*#__PURE__*/React.createElement("div", {
+    className: "text-[10.5px] text-[var(--ink-3)]"
+  }, step === "search" ? T("Base de datos de acuarios", "Aquarium database") : T("Edita y confirma los datos", "Edit and confirm")))), /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    className: "p-1.5 rounded-full hover:bg-[var(--hover)] text-[var(--ink-2)]"
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "X",
+    size: 14
+  }))), step === "search" && /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-col flex-1 min-h-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "px-5 pt-4 pb-3 shrink-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2.5 focus-within:ring-1 focus-within:ring-[var(--accent-border)] transition-all"
+  }, searching ? /*#__PURE__*/React.createElement(L, {
+    name: "Loader2",
+    size: 15,
+    className: "text-[var(--ink-3)] shrink-0 animate-spin"
+  }) : /*#__PURE__*/React.createElement(L, {
+    name: "Search",
+    size: 15,
+    className: "text-[var(--ink-3)] shrink-0"
+  }), /*#__PURE__*/React.createElement("input", {
+    ref: searchRef,
+    type: "text",
+    value: query,
+    onChange: e => setQuery(e.target.value),
+    placeholder: T("ej. Red Sea Reefer 250, Waterbox 75, ADA 60…", "e.g. Red Sea Reefer 250, Waterbox 75, ADA 60…"),
+    className: "flex-1 bg-transparent border-0 outline-none text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)]"
+  }), query && /*#__PURE__*/React.createElement("button", {
+    onClick: () => setQuery(""),
+    className: "shrink-0 text-[var(--ink-3)] hover:text-[var(--ink-2)]"
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "X",
+    size: 13
+  })))), /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 overflow-y-auto px-5 pb-4 min-h-[160px]"
+  }, query.trim() && results.length === 0 && !searching && /*#__PURE__*/React.createElement("div", {
+    className: "text-center py-6"
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "SearchX",
+    size: 22,
+    className: "text-[var(--ink-3)] mx-auto mb-2"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "text-[12.5px] text-[var(--ink-2)]"
+  }, T("No encontrado en la base de datos", "Not found in database")), /*#__PURE__*/React.createElement("div", {
+    className: "text-[11px] text-[var(--ink-3)] mt-1"
+  }, T("Puedes añadirlo manualmente abajo", "You can add it manually below"))), !query.trim() && /*#__PURE__*/React.createElement("div", {
+    className: "text-[11px] text-[var(--ink-3)] pt-2 pb-1"
+  }, T("Marcas en la base de datos:", "Brands in database:"), " Aqueon \xB7 Red Sea \xB7 Waterbox \xB7 Fluval \xB7 IM \xB7 ADA \xB7 JBJ \xB7 Coralife \xB7 SC Aquariums \xB7 Landen\u2026"), /*#__PURE__*/React.createElement("div", {
+    className: "space-y-1 mt-1"
+  }, results.map((row, i) => /*#__PURE__*/React.createElement("button", {
+    key: i,
+    onClick: () => fillFrom(row),
+    className: "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[var(--hover)] transition-colors text-left group"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "grid place-items-center w-8 h-8 rounded-lg shrink-0",
+    style: {
+      background: row.t === "freshwater" ? "rgba(22,163,74,0.1)" : "rgba(13,148,136,0.1)",
+      border: row.t === "freshwater" ? "1px solid rgba(22,163,74,0.25)" : "1px solid rgba(13,148,136,0.25)"
+    }
+  }, /*#__PURE__*/React.createElement(L, {
+    name: row.t === "freshwater" ? "Droplet" : "Waves",
+    size: 13,
+    style: {
+      color: row.t === "freshwater" ? "#16a34a" : "var(--accent)"
+    }
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 min-w-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-[12.5px] font-medium text-[var(--ink)] truncate"
+  }, row.n), /*#__PURE__*/React.createElement("div", {
+    className: "text-[10.5px] text-[var(--ink-3)]"
+  }, row.br, " \xB7 ", row.vol, "g", row.l ? ` · ${row.l}×${row.w}×${row.h}"` : "")), /*#__PURE__*/React.createElement(L, {
+    name: "ChevronRight",
+    size: 13,
+    className: "text-[var(--ink-3)] group-hover:text-[var(--accent)] transition-colors shrink-0"
+  }))))), /*#__PURE__*/React.createElement("div", {
+    className: "px-5 py-3 border-t border-[var(--hairline)] shrink-0"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setStep("fill"),
+    className: "w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-[12.5px] font-medium text-[var(--ink-2)] hover:text-[var(--ink)] hover:bg-[var(--hover)] transition-colors"
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "PenLine",
+    size: 13
+  }), " ", T("Añadir manualmente", "Add manually")))), step === "fill" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 overflow-y-auto px-5 pt-4 pb-2 space-y-3"
+  }, /*#__PURE__*/React.createElement(FieldInput, {
+    label: T("Nombre *", "Name *"),
+    value: name,
+    onChange: setName,
+    placeholder: T("ej. Reef 50G", "e.g. Reef 50G")
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "Droplet",
+    size: 13,
+    className: "text-[var(--ink-3)] shrink-0"
+  })), /*#__PURE__*/React.createElement("input", {
+    ref: nameRef,
+    style: {
+      position: "absolute",
+      opacity: 0,
+      pointerEvents: "none",
+      height: 0
+    },
+    tabIndex: -1
+  }), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1"
+  }, T("Tipo", "Type")), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-4 gap-1.5"
+  }, typeOpts.map(opt => /*#__PURE__*/React.createElement("button", {
     key: opt.id,
     onClick: () => setType(opt.id),
-    className: "flex-1 flex items-center gap-2 rounded-xl px-3 py-2.5 text-[12px] font-medium transition-all",
+    className: `flex flex-col items-center gap-1 rounded-xl px-2 py-2 text-[11px] font-medium border transition-all ${type === opt.id ? "" : "border-[var(--hairline)] text-[var(--ink-3)] hover:border-[var(--hairline-strong)]"}`,
     style: type === opt.id ? {
       background: "var(--accent-soft)",
       border: "1px solid var(--accent-border)",
       color: "var(--accent)"
-    } : {
-      background: "var(--well)",
-      border: "1px solid var(--hairline)",
-      color: "var(--ink-2)"
-    }
+    } : {}
   }, /*#__PURE__*/React.createElement(L, {
     name: opt.icon,
-    size: 13
-  }), opt.label))), /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-2"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex-1 flex items-center gap-2 rounded-xl px-3 py-2.5",
-    style: {
-      background: "var(--well)",
-      border: "1px solid var(--hairline)"
-    }
-  }, /*#__PURE__*/React.createElement(L, {
-    name: "Container",
-    size: 13,
-    className: "text-[var(--ink-3)] shrink-0"
-  }), /*#__PURE__*/React.createElement("input", {
-    type: "number",
-    inputMode: "decimal",
-    value: volume,
-    onChange: e => setVolume(e.target.value),
-    placeholder: T("Galones", "Gallons"),
-    className: "flex-1 bg-transparent border-0 outline-none text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)]"
-  }), /*#__PURE__*/React.createElement("span", {
-    className: "text-[11px] text-[var(--ink-3)]"
-  }, "gal")), /*#__PURE__*/React.createElement("div", {
-    className: "flex-1 flex items-center gap-2 rounded-xl px-3 py-2.5",
-    style: {
-      background: "var(--well)",
-      border: "1px solid var(--hairline)"
-    }
+    size: 14
+  }), opt.label)))), /*#__PURE__*/React.createElement(FieldInput, {
+    label: T("Marca", "Brand"),
+    value: brand,
+    onChange: setBrand,
+    placeholder: T("ej. Red Sea, Aqueon", "e.g. Red Sea, Aqueon")
   }, /*#__PURE__*/React.createElement(L, {
     name: "Tag",
     size: 13,
     className: "text-[var(--ink-3)] shrink-0"
-  }), /*#__PURE__*/React.createElement("input", {
-    type: "text",
-    value: brand,
-    onChange: e => setBrand(e.target.value),
-    placeholder: T("Marca", "Brand"),
-    className: "flex-1 bg-transparent border-0 outline-none text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)]"
-  })))), /*#__PURE__*/React.createElement("div", {
-    className: "px-5 pb-5 flex gap-2"
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-3"
+  }, /*#__PURE__*/React.createElement(FieldInput, {
+    label: T("Volumen display", "Display volume"),
+    value: displayVol,
+    onChange: setDisplayVol,
+    placeholder: "40",
+    ftype: "number",
+    unit: "gal"
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "Container",
+    size: 13,
+    className: "text-[var(--ink-3)] shrink-0"
+  })), /*#__PURE__*/React.createElement(FieldInput, {
+    label: T("Vol. total (c/sump)", "Total vol. (w/sump)"),
+    value: totalVol,
+    onChange: setTotalVol,
+    placeholder: "55",
+    ftype: "number",
+    unit: "gal"
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "Layers",
+    size: 13,
+    className: "text-[var(--ink-3)] shrink-0"
+  }))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1"
+  }, T("Dimensiones (pulgadas)", "Dimensions (inches)")), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-3 gap-2"
+  }, [{
+    label: T("Largo", "Length"),
+    val: length,
+    set: setLength,
+    ph: "48"
+  }, {
+    label: T("Ancho", "Width"),
+    val: width,
+    set: setWidth,
+    ph: "18"
+  }, {
+    label: T("Alto", "Height"),
+    val: height,
+    set: setHeight,
+    ph: "21"
+  }].map(({
+    label,
+    val,
+    set,
+    ph
+  }) => /*#__PURE__*/React.createElement("label", {
+    key: label,
+    className: "block"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-[9.5px] text-[var(--ink-3)] uppercase tracking-wider mb-0.5"
+  }, label), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-1 bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-2 py-2 focus-within:ring-1 focus-within:ring-[var(--accent-border)] transition-all"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    inputMode: "decimal",
+    value: val,
+    onChange: e => set(e.target.value),
+    placeholder: ph,
+    className: "flex-1 bg-transparent border-0 outline-none text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)] w-0 min-w-0"
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "text-[9.5px] text-[var(--ink-3)] shrink-0"
+  }, "\""))))))), /*#__PURE__*/React.createElement("div", {
+    className: "px-5 py-4 border-t border-[var(--hairline)] shrink-0 flex gap-2"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: onClose,
     className: "flex-1 rounded-full py-2.5 text-[13px] font-medium text-[var(--ink-2)] hover:text-[var(--ink)] transition-colors",
@@ -3528,11 +4346,11 @@ function AddTankModal({
   }, T("Cancelar", "Cancel")), /*#__PURE__*/React.createElement("button", {
     onClick: save,
     disabled: !name.trim(),
-    className: "flex-1 rounded-full py-2.5 text-[13px] font-semibold text-white disabled:opacity-50 transition-all active:scale-[0.99]",
+    className: "flex-1 rounded-full py-2.5 text-[13px] font-semibold text-white disabled:opacity-40 transition-all active:scale-[0.99]",
     style: {
       background: "linear-gradient(135deg, var(--accent), var(--accent-strong))"
     }
-  }, T("Agregar", "Add")))));
+  }, T("Agregar tanque", "Add tank"))))));
 }
 function TankSelector() {
   const {
@@ -6578,20 +7396,526 @@ function InhabitantsPage() {
 }
 
 // ---------------------------- LIGHTING PAGE ----------------------------
+// Fixture database — popular reef & planted lights
+const FIXTURE_DB = [
+// Aqua Illumination (AI)
+{
+  n: "AI Prime 16 HD",
+  br: "Aqua Illumination",
+  w: 55,
+  type: "led",
+  spectrum: "reef",
+  desc: "Reef nano puck · up to 20 gal"
+}, {
+  n: "AI Hydra 26 HD",
+  br: "Aqua Illumination",
+  w: 100,
+  type: "led",
+  spectrum: "reef",
+  desc: "Reef puck · up to 50 gal"
+}, {
+  n: "AI Hydra 32 HD",
+  br: "Aqua Illumination",
+  w: 130,
+  type: "led",
+  spectrum: "reef",
+  desc: "Reef puck · up to 65 gal"
+}, {
+  n: "AI Hydra 52 HD",
+  br: "Aqua Illumination",
+  w: 185,
+  type: "led",
+  spectrum: "reef",
+  desc: "Reef puck · up to 100 gal"
+}, {
+  n: "AI Hydra 64 HD",
+  br: "Aqua Illumination",
+  w: 215,
+  type: "led",
+  spectrum: "reef",
+  desc: "Reef puck · up to 130 gal"
+}, {
+  n: "AI Blade Grow 24\"",
+  br: "Aqua Illumination",
+  w: 55,
+  type: "led",
+  spectrum: "planted",
+  desc: "Freshwater bar"
+}, {
+  n: "AI Blade Grow 36\"",
+  br: "Aqua Illumination",
+  w: 80,
+  type: "led",
+  spectrum: "planted",
+  desc: "Freshwater bar"
+}, {
+  n: "AI Blade Grow 48\"",
+  br: "Aqua Illumination",
+  w: 100,
+  type: "led",
+  spectrum: "planted",
+  desc: "Freshwater bar"
+},
+// Kessil
+{
+  n: "Kessil A80 Tuna Blue",
+  br: "Kessil",
+  w: 15,
+  type: "led",
+  spectrum: "reef",
+  desc: "Nano reef · up to 10 gal"
+}, {
+  n: "Kessil A160WE Tuna Blue",
+  br: "Kessil",
+  w: 40,
+  type: "led",
+  spectrum: "reef",
+  desc: "Compact reef · up to 40 gal"
+}, {
+  n: "Kessil A360X Tuna Blue",
+  br: "Kessil",
+  w: 90,
+  type: "led",
+  spectrum: "reef",
+  desc: "Full-reef puck · up to 100 gal"
+}, {
+  n: "Kessil AP700",
+  br: "Kessil",
+  w: 185,
+  type: "led",
+  spectrum: "reef",
+  desc: "Bar LED · 36–60\" tanks"
+}, {
+  n: "Kessil AP9X",
+  br: "Kessil",
+  w: 250,
+  type: "led",
+  spectrum: "reef",
+  desc: "Top-end bar · 48–72\" tanks"
+}, {
+  n: "Kessil H80 Tuna Sun",
+  br: "Kessil",
+  w: 15,
+  type: "led",
+  spectrum: "planted",
+  desc: "Freshwater nano"
+}, {
+  n: "Kessil H160 Tuna Sun",
+  br: "Kessil",
+  w: 40,
+  type: "led",
+  spectrum: "planted",
+  desc: "Freshwater compact"
+}, {
+  n: "Kessil H380 Tuna Sun",
+  br: "Kessil",
+  w: 90,
+  type: "led",
+  spectrum: "planted",
+  desc: "Freshwater full-size"
+},
+// EcoTech Radion
+{
+  n: "Radion XR15 G5 Blue",
+  br: "EcoTech Marine",
+  w: 110,
+  type: "led",
+  spectrum: "reef",
+  desc: "Reef puck · up to 50 gal"
+}, {
+  n: "Radion XR15 G5 Pro",
+  br: "EcoTech Marine",
+  w: 130,
+  type: "led",
+  spectrum: "reef",
+  desc: "Reef puck · full spectrum"
+}, {
+  n: "Radion XR30 G5 Blue",
+  br: "EcoTech Marine",
+  w: 185,
+  type: "led",
+  spectrum: "reef",
+  desc: "Reef puck · up to 100 gal"
+}, {
+  n: "Radion XR30 G5 Pro",
+  br: "EcoTech Marine",
+  w: 210,
+  type: "led",
+  spectrum: "reef",
+  desc: "Reef puck · premium spectrum"
+},
+// Orphek
+{
+  n: "Orphek OR3 75W Blue Plus",
+  br: "Orphek",
+  w: 75,
+  type: "led",
+  spectrum: "reef",
+  desc: "Reef bar · 36\""
+}, {
+  n: "Orphek OR3 100W Sky Blue",
+  br: "Orphek",
+  w: 100,
+  type: "led",
+  spectrum: "reef",
+  desc: "Reef bar · 48\""
+}, {
+  n: "Orphek Atlantik V4",
+  br: "Orphek",
+  w: 200,
+  type: "led",
+  spectrum: "reef",
+  desc: "Reef puck · up to 150 gal"
+}, {
+  n: "Orphek Atlantik Compact",
+  br: "Orphek",
+  w: 115,
+  type: "led",
+  spectrum: "reef",
+  desc: "Reef puck · 50–90 gal"
+},
+// Smatfarm
+{
+  n: "Smatfarm G5 95W",
+  br: "Smatfarm",
+  w: 95,
+  type: "led",
+  spectrum: "reef",
+  desc: "Reef LED · 6-channel"
+}, {
+  n: "Smatfarm G3 Pro 165W",
+  br: "Smatfarm",
+  w: 165,
+  type: "led",
+  spectrum: "reef",
+  desc: "Reef LED · full spectrum"
+},
+// Maxspect
+{
+  n: "Maxspect Ethereal 130W",
+  br: "Maxspect",
+  w: 130,
+  type: "led",
+  spectrum: "reef",
+  desc: "Reef bar · 36\""
+}, {
+  n: "Maxspect Ethereal 260W",
+  br: "Maxspect",
+  w: 260,
+  type: "led",
+  spectrum: "reef",
+  desc: "Reef bar · 72\""
+}, {
+  n: "Maxspect Razor X 130W",
+  br: "Maxspect",
+  w: 130,
+  type: "led",
+  spectrum: "reef",
+  desc: "Thin reef LED"
+},
+// Reef Breeders
+{
+  n: "Reef Breeders Photon 16",
+  br: "Reef Breeders",
+  w: 70,
+  type: "led",
+  spectrum: "reef",
+  desc: "DIY reef · 16\""
+}, {
+  n: "Reef Breeders Photon 32",
+  br: "Reef Breeders",
+  w: 130,
+  type: "led",
+  spectrum: "reef",
+  desc: "DIY reef · 32\""
+}, {
+  n: "Reef Breeders Photon 48",
+  br: "Reef Breeders",
+  w: 185,
+  type: "led",
+  spectrum: "reef",
+  desc: "DIY reef · 48\""
+},
+// ATI
+{
+  n: "ATI Powermodule 4×24W",
+  br: "ATI",
+  w: 96,
+  type: "hybrid",
+  spectrum: "reef",
+  desc: "T5+LED hybrid · 24\""
+}, {
+  n: "ATI Powermodule 6×39W",
+  br: "ATI",
+  w: 234,
+  type: "hybrid",
+  spectrum: "reef",
+  desc: "T5+LED hybrid · 36\""
+}, {
+  n: "ATI Powermodule 8×54W",
+  br: "ATI",
+  w: 432,
+  type: "hybrid",
+  spectrum: "reef",
+  desc: "T5+LED hybrid · 48\""
+},
+// Fluval
+{
+  n: "Fluval Marine 3.0 (32\")",
+  br: "Fluval",
+  w: 32,
+  type: "led",
+  spectrum: "reef",
+  desc: "Marine LED · 24–32\""
+}, {
+  n: "Fluval Marine 3.0 (48\")",
+  br: "Fluval",
+  w: 59,
+  type: "led",
+  spectrum: "reef",
+  desc: "Marine LED · 36–48\""
+}, {
+  n: "Fluval Plant 3.0 (24\")",
+  br: "Fluval",
+  w: 27,
+  type: "led",
+  spectrum: "planted",
+  desc: "Planted LED · 17–24\""
+}, {
+  n: "Fluval Plant 3.0 (36\")",
+  br: "Fluval",
+  w: 46,
+  type: "led",
+  spectrum: "planted",
+  desc: "Planted LED · 25–36\""
+}, {
+  n: "Fluval Plant 3.0 (48\")",
+  br: "Fluval",
+  w: 59,
+  type: "led",
+  spectrum: "planted",
+  desc: "Planted LED · 37–48\""
+},
+// Finnex
+{
+  n: "Finnex Planted+ 24/7 ALC 24\"",
+  br: "Finnex",
+  w: 24,
+  type: "led",
+  spectrum: "planted",
+  desc: "Auto day/night cycle"
+}, {
+  n: "Finnex Planted+ 24/7 ALC 36\"",
+  br: "Finnex",
+  w: 36,
+  type: "led",
+  spectrum: "planted",
+  desc: "Auto day/night cycle"
+}, {
+  n: "Finnex Planted+ 24/7 ALC 48\"",
+  br: "Finnex",
+  w: 48,
+  type: "led",
+  spectrum: "planted",
+  desc: "Auto day/night cycle"
+}, {
+  n: "Finnex Ray2 30\"",
+  br: "Finnex",
+  w: 30,
+  type: "led",
+  spectrum: "planted",
+  desc: "High-output planted"
+}, {
+  n: "Finnex Ray2 48\"",
+  br: "Finnex",
+  w: 48,
+  type: "led",
+  spectrum: "planted",
+  desc: "High-output planted"
+},
+// Current USA
+{
+  n: "Current USA Orbit Marine Pro 24\"",
+  br: "Current USA",
+  w: 32,
+  type: "led",
+  spectrum: "reef",
+  desc: "Reef · 18–24\""
+}, {
+  n: "Current USA Orbit Marine Pro 48\"",
+  br: "Current USA",
+  w: 64,
+  type: "led",
+  spectrum: "reef",
+  desc: "Reef · 36–48\""
+},
+// ADA
+{
+  n: "ADA Solar RGB",
+  br: "ADA",
+  w: 52,
+  type: "led",
+  spectrum: "planted",
+  desc: "High CRI planted"
+}, {
+  n: "ADA Aquasky G 30",
+  br: "ADA",
+  w: 11,
+  type: "led",
+  spectrum: "planted",
+  desc: "Nano planted"
+}, {
+  n: "ADA Aquasky G 60",
+  br: "ADA",
+  w: 22,
+  type: "led",
+  spectrum: "planted",
+  desc: "60cm planted"
+},
+// Twinstar
+{
+  n: "Twinstar 450EA",
+  br: "Twinstar",
+  w: 27,
+  type: "led",
+  spectrum: "planted",
+  desc: "Planted · 45cm"
+}, {
+  n: "Twinstar 600EA",
+  br: "Twinstar",
+  w: 38,
+  type: "led",
+  spectrum: "planted",
+  desc: "Planted · 60cm"
+}, {
+  n: "Twinstar 900EA",
+  br: "Twinstar",
+  w: 54,
+  type: "led",
+  spectrum: "planted",
+  desc: "Planted · 90cm"
+}, {
+  n: "Twinstar 1200EA",
+  br: "Twinstar",
+  w: 72,
+  type: "led",
+  spectrum: "planted",
+  desc: "Planted · 120cm"
+},
+// ONF
+{
+  n: "ONF Flat Nano",
+  br: "ONF",
+  w: 15,
+  type: "led",
+  spectrum: "planted",
+  desc: "Nano planted · up to 30cm"
+}, {
+  n: "ONF Flat One",
+  br: "ONF",
+  w: 30,
+  type: "led",
+  spectrum: "planted",
+  desc: "Planted · 45–60cm"
+}, {
+  n: "ONF Flat One Plus",
+  br: "ONF",
+  w: 40,
+  type: "led",
+  spectrum: "planted",
+  desc: "Planted · 60–90cm"
+},
+// Nanobox
+{
+  n: "Nanobox Duo",
+  br: "Nanobox",
+  w: 45,
+  type: "led",
+  spectrum: "reef",
+  desc: "Reef puck · up to 30 gal"
+}, {
+  n: "Nanobox Duo XL",
+  br: "Nanobox",
+  w: 90,
+  type: "led",
+  spectrum: "reef",
+  desc: "Reef puck · up to 60 gal"
+},
+// Generic T5
+{
+  n: "Tek T5 4×24W HO",
+  br: "Sunlight Supply",
+  w: 96,
+  type: "t5",
+  spectrum: "reef",
+  desc: "T5 HO fixture · 24\""
+}, {
+  n: "Tek T5 6×39W HO",
+  br: "Sunlight Supply",
+  w: 234,
+  type: "t5",
+  spectrum: "reef",
+  desc: "T5 HO fixture · 36\""
+}, {
+  n: "Tek T5 8×54W HO",
+  br: "Sunlight Supply",
+  w: 432,
+  type: "t5",
+  spectrum: "reef",
+  desc: "T5 HO fixture · 48\""
+}];
 function LightFixtureModal({
   onClose
 }) {
   const S = window.AquaStore;
   const existing = S.lightFixture || {};
+  const [step, setStep] = useState(existing.name ? "fill" : "search");
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  // Form fields
   const [name, setName] = useState(existing.name || "");
   const [brand, setBrand] = useState(existing.brand || "");
   const [wattage, setWattage] = useState(existing.wattage ? String(existing.wattage) : "");
   const [type, setType] = useState(existing.type || "led");
+  const [spectrum, setSpectrum] = useState(existing.spectrum || "reef");
+  const [desc, setDesc] = useState(existing.desc || "");
+  const searchRef = useRef(null);
   const nameRef = useRef(null);
   useEscape(onClose);
   useEffect(() => {
-    nameRef.current?.focus();
-  }, []);
+    if (step === "search") setTimeout(() => searchRef.current?.focus(), 80);
+    if (step === "fill") setTimeout(() => nameRef.current?.focus(), 80);
+  }, [step]);
+
+  // Live search
+  useEffect(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) {
+      setResults([]);
+      return;
+    }
+    setSearching(true);
+    const t = setTimeout(() => {
+      const words = q.split(/\s+/);
+      const matches = FIXTURE_DB.filter(row => {
+        const hay = (row.n + " " + row.br + " " + row.w + " " + row.spectrum + " " + row.type).toLowerCase();
+        return words.every(w => hay.includes(w));
+      }).slice(0, 8);
+      setResults(matches);
+      setSearching(false);
+    }, 200);
+    return () => clearTimeout(t);
+  }, [query]);
+  const fillFrom = row => {
+    setName(row.n);
+    setBrand(row.br);
+    setWattage(String(row.w));
+    setType(row.type);
+    setSpectrum(row.spectrum);
+    setDesc(row.desc || "");
+    setStep("fill");
+  };
   const save = () => {
     const n = name.trim();
     if (!n) {
@@ -6602,7 +7926,9 @@ function LightFixtureModal({
       name: n,
       brand: brand.trim(),
       wattage: wattage ? +wattage : null,
-      type
+      type,
+      spectrum,
+      desc: desc.trim()
     });
     window.toast?.(T("Lámpara guardada", "Fixture saved"), {
       icon: "Lamp"
@@ -6610,7 +7936,7 @@ function LightFixtureModal({
     window.dispatchEvent(new Event("aqua:data"));
     onClose();
   };
-  const types = [{
+  const typeOpts = [{
     id: "led",
     label: "LED"
   }, {
@@ -6618,66 +7944,151 @@ function LightFixtureModal({
     label: "T5"
   }, {
     id: "mh",
-    label: T("Metal Halide", "Metal Halide")
+    label: "MH"
   }, {
     id: "hybrid",
     label: T("Híbrido", "Hybrid")
   }];
+  const specOpts = [{
+    id: "reef",
+    label: T("Reef", "Reef"),
+    icon: "Waves"
+  }, {
+    id: "planted",
+    label: T("Plantado", "Planted"),
+    icon: "Leaf"
+  }, {
+    id: "both",
+    label: T("Mixto", "Mixed"),
+    icon: "Layers"
+  }];
+  const spectrumColor = {
+    reef: "var(--accent)",
+    planted: "#16a34a",
+    both: "#7C3AED"
+  };
   return /*#__PURE__*/React.createElement("div", {
     className: "fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[var(--scrim)] backdrop-blur",
     onClick: onClose
-  }, /*#__PURE__*/React.createElement(Card, {
-    onClick: e => e.stopPropagation(),
-    role: "dialog",
-    "aria-modal": "true",
-    className: "w-full max-w-md glass-strong rounded-t-3xl sm:rounded-3xl overflow-y-auto max-h-[92dvh]"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center justify-between p-4 border-b border-[var(--hairline)]"
+    className: "w-full sm:max-w-lg glass-strong rounded-t-3xl sm:rounded-3xl overflow-hidden max-h-[96dvh] flex flex-col",
+    style: {
+      boxShadow: "var(--glass-shadow)"
+    },
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between px-5 py-4 border-b border-[var(--hairline)] shrink-0"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-2.5"
-  }, /*#__PURE__*/React.createElement("div", {
+  }, step === "fill" && /*#__PURE__*/React.createElement("button", {
+    onClick: () => setStep("search"),
+    className: "p-1.5 -ml-1 rounded-full hover:bg-[var(--hover)] text-[var(--ink-2)]"
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "ArrowLeft",
+    size: 15
+  })), /*#__PURE__*/React.createElement("div", {
     className: "grid place-items-center w-8 h-8 rounded-xl",
     style: {
       background: "var(--accent-soft)",
       border: "1px solid var(--accent-border)"
     }
   }, /*#__PURE__*/React.createElement(L, {
-    name: "Lamp",
+    name: step === "search" ? "Search" : "Lamp",
     size: 14,
     style: {
       color: "var(--accent)"
     }
   })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    className: "text-[13.5px] font-semibold text-[var(--ink)]"
-  }, T("Configurar lámpara", "Configure fixture")), /*#__PURE__*/React.createElement("div", {
-    className: "text-[10.5px] text-[var(--ink-2)]"
-  }, T("Nombre, tipo y potencia de tu luminaria", "Name, type and wattage of your light")))), /*#__PURE__*/React.createElement("button", {
+    className: "text-[14px] font-semibold text-[var(--ink)]"
+  }, step === "search" ? T("Buscar lámpara", "Search fixture") : T("Detalles de la lámpara", "Fixture details")), /*#__PURE__*/React.createElement("div", {
+    className: "text-[10.5px] text-[var(--ink-3)]"
+  }, step === "search" ? T("Base de datos de luminarias", "Lighting fixture database") : T("Edita y confirma", "Edit and confirm")))), /*#__PURE__*/React.createElement("button", {
     onClick: onClose,
-    "aria-label": T("Cerrar", "Close"),
     className: "p-1.5 rounded-full hover:bg-[var(--hover)] text-[var(--ink-2)]"
   }, /*#__PURE__*/React.createElement(L, {
     name: "X",
     size: 14
-  }))), /*#__PURE__*/React.createElement("div", {
-    className: "p-4 space-y-3"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    className: "text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1.5"
-  }, T("Tipo de luz", "Light type")), /*#__PURE__*/React.createElement("div", {
-    className: "grid grid-cols-4 gap-1.5"
-  }, types.map(t => /*#__PURE__*/React.createElement("button", {
-    key: t.id,
-    type: "button",
-    onClick: () => setType(t.id),
-    className: `rounded-xl px-2 py-2 text-[12px] font-medium border transition-all ${type === t.id ? "" : "border-[var(--hairline)] text-[var(--ink-3)] hover:border-[var(--hairline-strong)]"}`,
-    style: type === t.id ? {
-      background: "var(--accent-soft)",
-      border: "1px solid var(--accent-border)",
-      color: "var(--accent)"
-    } : {}
-  }, t.label)))), /*#__PURE__*/React.createElement("label", {
+  }))), step === "search" && /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-col flex-1 min-h-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "px-5 pt-4 pb-3 shrink-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2.5 focus-within:ring-1 focus-within:ring-[var(--accent-border)] transition-all"
+  }, searching ? /*#__PURE__*/React.createElement(L, {
+    name: "Loader2",
+    size: 15,
+    className: "text-[var(--ink-3)] shrink-0 animate-spin"
+  }) : /*#__PURE__*/React.createElement(L, {
+    name: "Search",
+    size: 15,
+    className: "text-[var(--ink-3)] shrink-0"
+  }), /*#__PURE__*/React.createElement("input", {
+    ref: searchRef,
+    type: "text",
+    value: query,
+    onChange: e => setQuery(e.target.value),
+    placeholder: T("ej. Kessil A360, Radion XR30, Fluval Plant 3.0…", "e.g. Kessil A360, Radion XR30, Fluval Plant 3.0…"),
+    className: "flex-1 bg-transparent border-0 outline-none text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)]"
+  }), query && /*#__PURE__*/React.createElement("button", {
+    onClick: () => setQuery(""),
+    className: "shrink-0 text-[var(--ink-3)] hover:text-[var(--ink-2)]"
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "X",
+    size: 13
+  })))), /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 overflow-y-auto px-5 pb-3 min-h-[160px]"
+  }, query.trim() && results.length === 0 && !searching && /*#__PURE__*/React.createElement("div", {
+    className: "text-center py-6"
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "SearchX",
+    size: 22,
+    className: "text-[var(--ink-3)] mx-auto mb-2"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "text-[12.5px] text-[var(--ink-2)]"
+  }, T("No encontrado — añádela manualmente", "Not found — add it manually"))), !query.trim() && /*#__PURE__*/React.createElement("div", {
+    className: "text-[11px] text-[var(--ink-3)] pt-1 pb-2"
+  }, T("Marcas:", "Brands:"), " AI \xB7 Kessil \xB7 Radion \xB7 Orphek \xB7 Smatfarm \xB7 Maxspect \xB7 ATI \xB7 Fluval \xB7 Finnex \xB7 ADA \xB7 Twinstar \xB7 ONF\u2026"), /*#__PURE__*/React.createElement("div", {
+    className: "space-y-1"
+  }, results.map((row, i) => /*#__PURE__*/React.createElement("button", {
+    key: i,
+    onClick: () => fillFrom(row),
+    className: "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[var(--hover)] transition-colors text-left group"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "grid place-items-center w-8 h-8 rounded-lg shrink-0",
+    style: {
+      background: `${spectrumColor[row.spectrum]}18`,
+      border: `1px solid ${spectrumColor[row.spectrum]}35`
+    }
+  }, /*#__PURE__*/React.createElement(L, {
+    name: row.spectrum === "planted" ? "Leaf" : "Lamp",
+    size: 13,
+    style: {
+      color: spectrumColor[row.spectrum]
+    }
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 min-w-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-[12.5px] font-medium text-[var(--ink)] truncate"
+  }, row.n), /*#__PURE__*/React.createElement("div", {
+    className: "text-[10.5px] text-[var(--ink-3)]"
+  }, row.br, " \xB7 ", row.w, "W \xB7 ", row.type.toUpperCase(), " \xB7 ", row.desc)), /*#__PURE__*/React.createElement(L, {
+    name: "ChevronRight",
+    size: 13,
+    className: "text-[var(--ink-3)] group-hover:text-[var(--accent)] transition-colors shrink-0"
+  }))))), /*#__PURE__*/React.createElement("div", {
+    className: "px-5 py-3 border-t border-[var(--hairline)] shrink-0"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setStep("fill"),
+    className: "w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-[12.5px] font-medium text-[var(--ink-2)] hover:text-[var(--ink)] hover:bg-[var(--hover)] transition-colors"
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "PenLine",
+    size: 13
+  }), " ", T("Añadir manualmente", "Add manually")))), step === "fill" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 overflow-y-auto px-5 pt-4 pb-2 space-y-3"
+  }, /*#__PURE__*/React.createElement("label", {
     className: "block"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1.5"
+    className: "text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1"
   }, T("Nombre / modelo *", "Name / model *")), /*#__PURE__*/React.createElement("input", {
     ref: nameRef,
     type: "text",
@@ -6686,47 +8097,93 @@ function LightFixtureModal({
     onKeyDown: e => {
       if (e.key === "Enter") save();
     },
-    placeholder: T("ej. Smatfarm G5, AI Hydra 26, Kessil A360", "e.g. Smatfarm G5, AI Hydra 26, Kessil A360"),
+    placeholder: T("ej. AI Hydra 26, Kessil A360", "e.g. AI Hydra 26, Kessil A360"),
     className: "w-full bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2 text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-border)] transition-colors"
-  })), /*#__PURE__*/React.createElement("div", {
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1"
+  }, T("Tecnología", "Technology")), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-4 gap-1.5"
+  }, typeOpts.map(o => /*#__PURE__*/React.createElement("button", {
+    key: o.id,
+    onClick: () => setType(o.id),
+    className: `rounded-xl py-2 text-[12px] font-medium border transition-all ${type === o.id ? "" : "border-[var(--hairline)] text-[var(--ink-3)]"}`,
+    style: type === o.id ? {
+      background: "var(--accent-soft)",
+      border: "1px solid var(--accent-border)",
+      color: "var(--accent)"
+    } : {}
+  }, o.label)))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1"
+  }, T("Espectro objetivo", "Target spectrum")), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-3 gap-1.5"
+  }, specOpts.map(o => /*#__PURE__*/React.createElement("button", {
+    key: o.id,
+    onClick: () => setSpectrum(o.id),
+    className: `flex items-center justify-center gap-1.5 rounded-xl py-2 text-[11.5px] font-medium border transition-all ${spectrum === o.id ? "" : "border-[var(--hairline)] text-[var(--ink-3)]"}`,
+    style: spectrum === o.id ? {
+      background: `${spectrumColor[o.id]}14`,
+      border: `1.5px solid ${spectrumColor[o.id]}50`,
+      color: spectrumColor[o.id]
+    } : {}
+  }, /*#__PURE__*/React.createElement(L, {
+    name: o.icon,
+    size: 12
+  }), " ", o.label)))), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-3"
   }, /*#__PURE__*/React.createElement("label", {
     className: "block"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1.5"
-  }, T("Marca", "Brand"), " ", /*#__PURE__*/React.createElement("span", {
-    className: "normal-case text-[10px]"
-  }, "(", T("opcional", "optional"), ")")), /*#__PURE__*/React.createElement("input", {
+    className: "text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1"
+  }, T("Marca", "Brand")), /*#__PURE__*/React.createElement("input", {
     type: "text",
     value: brand,
     onChange: e => setBrand(e.target.value),
-    placeholder: T("ej. Aquaillumination", "e.g. Aquaillumination"),
+    placeholder: "Kessil, AI, Orphek\u2026",
     className: "w-full bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2 text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-border)] transition-colors"
   })), /*#__PURE__*/React.createElement("label", {
     className: "block"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1.5"
-  }, T("Potencia (W)", "Wattage (W)"), " ", /*#__PURE__*/React.createElement("span", {
-    className: "normal-case text-[10px]"
-  }, "(", T("opcional", "optional"), ")")), /*#__PURE__*/React.createElement("input", {
+    className: "text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1"
+  }, T("Potencia", "Wattage")), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-1 bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2 focus-within:ring-1 focus-within:ring-[var(--accent-border)] transition-all"
+  }, /*#__PURE__*/React.createElement("input", {
     type: "number",
-    min: "0",
-    inputMode: "numeric",
+    inputMode: "decimal",
     value: wattage,
     onChange: e => setWattage(e.target.value),
     placeholder: "95",
+    className: "flex-1 bg-transparent border-0 outline-none text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)]"
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "text-[10.5px] text-[var(--ink-3)] shrink-0"
+  }, "W")))), /*#__PURE__*/React.createElement("label", {
+    className: "block"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1"
+  }, T("Notas", "Notes"), " ", /*#__PURE__*/React.createElement("span", {
+    className: "normal-case text-[10px]"
+  }, "(", T("opcional", "optional"), ")")), /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    value: desc,
+    onChange: e => setDesc(e.target.value),
+    placeholder: T("ej. Cobertura hasta 100 gal, 6 canales", "e.g. Up to 100 gal coverage, 6 channels"),
     className: "w-full bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2 text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-border)] transition-colors"
-  })))), /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center justify-end gap-2 p-4 border-t border-[var(--hairline)]"
-  }, /*#__PURE__*/React.createElement(Button, {
-    variant: "ghost",
-    onClick: onClose
-  }, T("Cancelar", "Cancel")), /*#__PURE__*/React.createElement(Button, {
-    variant: "primary",
-    icon: "Check",
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "px-5 py-4 border-t border-[var(--hairline)] shrink-0 flex gap-2"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    className: "flex-1 rounded-full py-2.5 text-[13px] font-medium text-[var(--ink-2)] hover:text-[var(--ink)] transition-colors",
+    style: {
+      background: "var(--well)",
+      border: "1px solid var(--hairline)"
+    }
+  }, T("Cancelar", "Cancel")), /*#__PURE__*/React.createElement("button", {
+    onClick: save,
     disabled: !name.trim(),
-    onClick: save
-  }, T("Guardar", "Save")))));
+    className: "flex-1 rounded-full py-2.5 text-[13px] font-semibold text-white disabled:opacity-40 transition-all active:scale-[0.99]",
+    style: {
+      background: "linear-gradient(135deg, var(--accent), var(--accent-strong))"
+    }
+  }, T("Guardar lámpara", "Save fixture"))))));
 }
 function LightingPage() {
   const {

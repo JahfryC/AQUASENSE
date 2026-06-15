@@ -723,120 +723,350 @@ function InhabitantsPage() {
 }
 
 // ---------------------------- LIGHTING PAGE ----------------------------
+// Fixture database — popular reef & planted lights
+const FIXTURE_DB = [
+  // Aqua Illumination (AI)
+  { n:"AI Prime 16 HD",          br:"Aqua Illumination", w:55,  type:"led", spectrum:"reef",    desc:"Reef nano puck · up to 20 gal" },
+  { n:"AI Hydra 26 HD",          br:"Aqua Illumination", w:100, type:"led", spectrum:"reef",    desc:"Reef puck · up to 50 gal" },
+  { n:"AI Hydra 32 HD",          br:"Aqua Illumination", w:130, type:"led", spectrum:"reef",    desc:"Reef puck · up to 65 gal" },
+  { n:"AI Hydra 52 HD",          br:"Aqua Illumination", w:185, type:"led", spectrum:"reef",    desc:"Reef puck · up to 100 gal" },
+  { n:"AI Hydra 64 HD",          br:"Aqua Illumination", w:215, type:"led", spectrum:"reef",    desc:"Reef puck · up to 130 gal" },
+  { n:"AI Blade Grow 24\"",      br:"Aqua Illumination", w:55,  type:"led", spectrum:"planted", desc:"Freshwater bar" },
+  { n:"AI Blade Grow 36\"",      br:"Aqua Illumination", w:80,  type:"led", spectrum:"planted", desc:"Freshwater bar" },
+  { n:"AI Blade Grow 48\"",      br:"Aqua Illumination", w:100, type:"led", spectrum:"planted", desc:"Freshwater bar" },
+  // Kessil
+  { n:"Kessil A80 Tuna Blue",    br:"Kessil",            w:15,  type:"led", spectrum:"reef",    desc:"Nano reef · up to 10 gal" },
+  { n:"Kessil A160WE Tuna Blue", br:"Kessil",            w:40,  type:"led", spectrum:"reef",    desc:"Compact reef · up to 40 gal" },
+  { n:"Kessil A360X Tuna Blue",  br:"Kessil",            w:90,  type:"led", spectrum:"reef",    desc:"Full-reef puck · up to 100 gal" },
+  { n:"Kessil AP700",            br:"Kessil",            w:185, type:"led", spectrum:"reef",    desc:"Bar LED · 36–60\" tanks" },
+  { n:"Kessil AP9X",             br:"Kessil",            w:250, type:"led", spectrum:"reef",    desc:"Top-end bar · 48–72\" tanks" },
+  { n:"Kessil H80 Tuna Sun",     br:"Kessil",            w:15,  type:"led", spectrum:"planted", desc:"Freshwater nano" },
+  { n:"Kessil H160 Tuna Sun",    br:"Kessil",            w:40,  type:"led", spectrum:"planted", desc:"Freshwater compact" },
+  { n:"Kessil H380 Tuna Sun",    br:"Kessil",            w:90,  type:"led", spectrum:"planted", desc:"Freshwater full-size" },
+  // EcoTech Radion
+  { n:"Radion XR15 G5 Blue",     br:"EcoTech Marine",    w:110, type:"led", spectrum:"reef",    desc:"Reef puck · up to 50 gal" },
+  { n:"Radion XR15 G5 Pro",      br:"EcoTech Marine",    w:130, type:"led", spectrum:"reef",    desc:"Reef puck · full spectrum" },
+  { n:"Radion XR30 G5 Blue",     br:"EcoTech Marine",    w:185, type:"led", spectrum:"reef",    desc:"Reef puck · up to 100 gal" },
+  { n:"Radion XR30 G5 Pro",      br:"EcoTech Marine",    w:210, type:"led", spectrum:"reef",    desc:"Reef puck · premium spectrum" },
+  // Orphek
+  { n:"Orphek OR3 75W Blue Plus",br:"Orphek",            w:75,  type:"led", spectrum:"reef",    desc:"Reef bar · 36\"" },
+  { n:"Orphek OR3 100W Sky Blue",br:"Orphek",            w:100, type:"led", spectrum:"reef",    desc:"Reef bar · 48\"" },
+  { n:"Orphek Atlantik V4",      br:"Orphek",            w:200, type:"led", spectrum:"reef",    desc:"Reef puck · up to 150 gal" },
+  { n:"Orphek Atlantik Compact", br:"Orphek",            w:115, type:"led", spectrum:"reef",    desc:"Reef puck · 50–90 gal" },
+  // Smatfarm
+  { n:"Smatfarm G5 95W",         br:"Smatfarm",          w:95,  type:"led", spectrum:"reef",    desc:"Reef LED · 6-channel" },
+  { n:"Smatfarm G3 Pro 165W",    br:"Smatfarm",          w:165, type:"led", spectrum:"reef",    desc:"Reef LED · full spectrum" },
+  // Maxspect
+  { n:"Maxspect Ethereal 130W",  br:"Maxspect",          w:130, type:"led", spectrum:"reef",    desc:"Reef bar · 36\"" },
+  { n:"Maxspect Ethereal 260W",  br:"Maxspect",          w:260, type:"led", spectrum:"reef",    desc:"Reef bar · 72\"" },
+  { n:"Maxspect Razor X 130W",   br:"Maxspect",          w:130, type:"led", spectrum:"reef",    desc:"Thin reef LED" },
+  // Reef Breeders
+  { n:"Reef Breeders Photon 16", br:"Reef Breeders",     w:70,  type:"led", spectrum:"reef",    desc:"DIY reef · 16\"" },
+  { n:"Reef Breeders Photon 32", br:"Reef Breeders",     w:130, type:"led", spectrum:"reef",    desc:"DIY reef · 32\"" },
+  { n:"Reef Breeders Photon 48", br:"Reef Breeders",     w:185, type:"led", spectrum:"reef",    desc:"DIY reef · 48\"" },
+  // ATI
+  { n:"ATI Powermodule 4×24W",   br:"ATI",               w:96,  type:"hybrid", spectrum:"reef", desc:"T5+LED hybrid · 24\"" },
+  { n:"ATI Powermodule 6×39W",   br:"ATI",               w:234, type:"hybrid", spectrum:"reef", desc:"T5+LED hybrid · 36\"" },
+  { n:"ATI Powermodule 8×54W",   br:"ATI",               w:432, type:"hybrid", spectrum:"reef", desc:"T5+LED hybrid · 48\"" },
+  // Fluval
+  { n:"Fluval Marine 3.0 (32\")",br:"Fluval",            w:32,  type:"led", spectrum:"reef",    desc:"Marine LED · 24–32\"" },
+  { n:"Fluval Marine 3.0 (48\")",br:"Fluval",            w:59,  type:"led", spectrum:"reef",    desc:"Marine LED · 36–48\"" },
+  { n:"Fluval Plant 3.0 (24\")", br:"Fluval",            w:27,  type:"led", spectrum:"planted", desc:"Planted LED · 17–24\"" },
+  { n:"Fluval Plant 3.0 (36\")", br:"Fluval",            w:46,  type:"led", spectrum:"planted", desc:"Planted LED · 25–36\"" },
+  { n:"Fluval Plant 3.0 (48\")", br:"Fluval",            w:59,  type:"led", spectrum:"planted", desc:"Planted LED · 37–48\"" },
+  // Finnex
+  { n:"Finnex Planted+ 24/7 ALC 24\"", br:"Finnex",     w:24,  type:"led", spectrum:"planted", desc:"Auto day/night cycle" },
+  { n:"Finnex Planted+ 24/7 ALC 36\"", br:"Finnex",     w:36,  type:"led", spectrum:"planted", desc:"Auto day/night cycle" },
+  { n:"Finnex Planted+ 24/7 ALC 48\"", br:"Finnex",     w:48,  type:"led", spectrum:"planted", desc:"Auto day/night cycle" },
+  { n:"Finnex Ray2 30\"",        br:"Finnex",            w:30,  type:"led", spectrum:"planted", desc:"High-output planted" },
+  { n:"Finnex Ray2 48\"",        br:"Finnex",            w:48,  type:"led", spectrum:"planted", desc:"High-output planted" },
+  // Current USA
+  { n:"Current USA Orbit Marine Pro 24\"",br:"Current USA",w:32, type:"led",spectrum:"reef",   desc:"Reef · 18–24\"" },
+  { n:"Current USA Orbit Marine Pro 48\"",br:"Current USA",w:64, type:"led",spectrum:"reef",   desc:"Reef · 36–48\"" },
+  // ADA
+  { n:"ADA Solar RGB",           br:"ADA",               w:52,  type:"led", spectrum:"planted", desc:"High CRI planted" },
+  { n:"ADA Aquasky G 30",        br:"ADA",               w:11,  type:"led", spectrum:"planted", desc:"Nano planted" },
+  { n:"ADA Aquasky G 60",        br:"ADA",               w:22,  type:"led", spectrum:"planted", desc:"60cm planted" },
+  // Twinstar
+  { n:"Twinstar 450EA",          br:"Twinstar",          w:27,  type:"led", spectrum:"planted", desc:"Planted · 45cm" },
+  { n:"Twinstar 600EA",          br:"Twinstar",          w:38,  type:"led", spectrum:"planted", desc:"Planted · 60cm" },
+  { n:"Twinstar 900EA",          br:"Twinstar",          w:54,  type:"led", spectrum:"planted", desc:"Planted · 90cm" },
+  { n:"Twinstar 1200EA",         br:"Twinstar",          w:72,  type:"led", spectrum:"planted", desc:"Planted · 120cm" },
+  // ONF
+  { n:"ONF Flat Nano",           br:"ONF",               w:15,  type:"led", spectrum:"planted", desc:"Nano planted · up to 30cm" },
+  { n:"ONF Flat One",            br:"ONF",               w:30,  type:"led", spectrum:"planted", desc:"Planted · 45–60cm" },
+  { n:"ONF Flat One Plus",       br:"ONF",               w:40,  type:"led", spectrum:"planted", desc:"Planted · 60–90cm" },
+  // Nanobox
+  { n:"Nanobox Duo",             br:"Nanobox",           w:45,  type:"led", spectrum:"reef",    desc:"Reef puck · up to 30 gal" },
+  { n:"Nanobox Duo XL",          br:"Nanobox",           w:90,  type:"led", spectrum:"reef",    desc:"Reef puck · up to 60 gal" },
+  // Generic T5
+  { n:"Tek T5 4×24W HO",        br:"Sunlight Supply",   w:96,  type:"t5",  spectrum:"reef",    desc:"T5 HO fixture · 24\"" },
+  { n:"Tek T5 6×39W HO",        br:"Sunlight Supply",   w:234, type:"t5",  spectrum:"reef",    desc:"T5 HO fixture · 36\"" },
+  { n:"Tek T5 8×54W HO",        br:"Sunlight Supply",   w:432, type:"t5",  spectrum:"reef",    desc:"T5 HO fixture · 48\"" },
+];
+
 function LightFixtureModal({ onClose }) {
   const S = window.AquaStore;
   const existing = S.lightFixture || {};
-  const [name, setName] = useState(existing.name || "");
-  const [brand, setBrand] = useState(existing.brand || "");
+  const [step, setStep] = useState(existing.name ? "fill" : "search");
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  // Form fields
+  const [name, setName]       = useState(existing.name || "");
+  const [brand, setBrand]     = useState(existing.brand || "");
   const [wattage, setWattage] = useState(existing.wattage ? String(existing.wattage) : "");
-  const [type, setType] = useState(existing.type || "led");
-  const nameRef = useRef(null);
+  const [type, setType]       = useState(existing.type || "led");
+  const [spectrum, setSpectrum] = useState(existing.spectrum || "reef");
+  const [desc, setDesc]       = useState(existing.desc || "");
+  const searchRef = useRef(null);
+  const nameRef   = useRef(null);
   useEscape(onClose);
-  useEffect(() => { nameRef.current?.focus(); }, []);
+  useEffect(() => {
+    if (step === "search") setTimeout(() => searchRef.current?.focus(), 80);
+    if (step === "fill")   setTimeout(() => nameRef.current?.focus(), 80);
+  }, [step]);
+
+  // Live search
+  useEffect(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) { setResults([]); return; }
+    setSearching(true);
+    const t = setTimeout(() => {
+      const words = q.split(/\s+/);
+      const matches = FIXTURE_DB.filter((row) => {
+        const hay = (row.n + " " + row.br + " " + row.w + " " + row.spectrum + " " + row.type).toLowerCase();
+        return words.every((w) => hay.includes(w));
+      }).slice(0, 8);
+      setResults(matches);
+      setSearching(false);
+    }, 200);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  const fillFrom = (row) => {
+    setName(row.n);
+    setBrand(row.br);
+    setWattage(String(row.w));
+    setType(row.type);
+    setSpectrum(row.spectrum);
+    setDesc(row.desc || "");
+    setStep("fill");
+  };
 
   const save = () => {
     const n = name.trim();
     if (!n) { nameRef.current?.focus(); return; }
-    S.setLightFixture({ name: n, brand: brand.trim(), wattage: wattage ? +wattage : null, type });
+    S.setLightFixture({ name: n, brand: brand.trim(), wattage: wattage ? +wattage : null, type, spectrum, desc: desc.trim() });
     window.toast?.(T("Lámpara guardada", "Fixture saved"), { icon: "Lamp" });
     window.dispatchEvent(new Event("aqua:data"));
     onClose();
   };
 
-  const types = [
-    { id: "led",      label: "LED" },
-    { id: "t5",       label: "T5" },
-    { id: "mh",       label: T("Metal Halide", "Metal Halide") },
-    { id: "hybrid",   label: T("Híbrido", "Hybrid") },
+  const typeOpts = [
+    { id: "led",    label: "LED" },
+    { id: "t5",     label: "T5" },
+    { id: "mh",     label: "MH" },
+    { id: "hybrid", label: T("Híbrido","Hybrid") },
   ];
+  const specOpts = [
+    { id: "reef",    label: T("Reef","Reef"),          icon: "Waves" },
+    { id: "planted", label: T("Plantado","Planted"),   icon: "Leaf" },
+    { id: "both",    label: T("Mixto","Mixed"),        icon: "Layers" },
+  ];
+
+  const spectrumColor = { reef: "var(--accent)", planted: "#16a34a", both: "#7C3AED" };
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[var(--scrim)] backdrop-blur" onClick={onClose}>
-      <Card
+      <div
+        className="w-full sm:max-w-lg glass-strong rounded-t-3xl sm:rounded-3xl overflow-hidden max-h-[96dvh] flex flex-col"
+        style={{ boxShadow: "var(--glass-shadow)" }}
         onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        className="w-full max-w-md glass-strong rounded-t-3xl sm:rounded-3xl overflow-y-auto max-h-[92dvh]"
       >
-        <div className="flex items-center justify-between p-4 border-b border-[var(--hairline)]">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--hairline)] shrink-0">
           <div className="flex items-center gap-2.5">
+            {step === "fill" && (
+              <button onClick={() => setStep("search")} className="p-1.5 -ml-1 rounded-full hover:bg-[var(--hover)] text-[var(--ink-2)]">
+                <L name="ArrowLeft" size={15} />
+              </button>
+            )}
             <div className="grid place-items-center w-8 h-8 rounded-xl" style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)" }}>
-              <L name="Lamp" size={14} style={{ color: "var(--accent)" }} />
+              <L name={step === "search" ? "Search" : "Lamp"} size={14} style={{ color: "var(--accent)" }} />
             </div>
             <div>
-              <div className="text-[13.5px] font-semibold text-[var(--ink)]">{T("Configurar lámpara", "Configure fixture")}</div>
-              <div className="text-[10.5px] text-[var(--ink-2)]">{T("Nombre, tipo y potencia de tu luminaria", "Name, type and wattage of your light")}</div>
+              <div className="text-[14px] font-semibold text-[var(--ink)]">
+                {step === "search" ? T("Buscar lámpara", "Search fixture") : T("Detalles de la lámpara", "Fixture details")}
+              </div>
+              <div className="text-[10.5px] text-[var(--ink-3)]">
+                {step === "search" ? T("Base de datos de luminarias", "Lighting fixture database") : T("Edita y confirma", "Edit and confirm")}
+              </div>
             </div>
           </div>
-          <button onClick={onClose} aria-label={T("Cerrar", "Close")} className="p-1.5 rounded-full hover:bg-[var(--hover)] text-[var(--ink-2)]"><L name="X" size={14} /></button>
+          <button onClick={onClose} className="p-1.5 rounded-full hover:bg-[var(--hover)] text-[var(--ink-2)]"><L name="X" size={14} /></button>
         </div>
 
-        <div className="p-4 space-y-3">
-          {/* Type selector */}
-          <div>
-            <div className="text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1.5">{T("Tipo de luz", "Light type")}</div>
-            <div className="grid grid-cols-4 gap-1.5">
-              {types.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => setType(t.id)}
-                  className={`rounded-xl px-2 py-2 text-[12px] font-medium border transition-all ${type === t.id ? "" : "border-[var(--hairline)] text-[var(--ink-3)] hover:border-[var(--hairline-strong)]"}`}
-                  style={type === t.id ? { background: "var(--accent-soft)", border: "1px solid var(--accent-border)", color: "var(--accent)" } : {}}
-                >
-                  {t.label}
-                </button>
-              ))}
+        {/* STEP 1 — Search */}
+        {step === "search" && (
+          <div className="flex flex-col flex-1 min-h-0">
+            <div className="px-5 pt-4 pb-3 shrink-0">
+              <div className="flex items-center gap-2 bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2.5 focus-within:ring-1 focus-within:ring-[var(--accent-border)] transition-all">
+                {searching
+                  ? <L name="Loader2" size={15} className="text-[var(--ink-3)] shrink-0 animate-spin" />
+                  : <L name="Search" size={15} className="text-[var(--ink-3)] shrink-0" />}
+                <input
+                  ref={searchRef}
+                  type="text"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder={T("ej. Kessil A360, Radion XR30, Fluval Plant 3.0…", "e.g. Kessil A360, Radion XR30, Fluval Plant 3.0…")}
+                  className="flex-1 bg-transparent border-0 outline-none text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)]"
+                />
+                {query && (
+                  <button onClick={() => setQuery("")} className="shrink-0 text-[var(--ink-3)] hover:text-[var(--ink-2)]"><L name="X" size={13} /></button>
+                )}
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-5 pb-3 min-h-[160px]">
+              {query.trim() && results.length === 0 && !searching && (
+                <div className="text-center py-6">
+                  <L name="SearchX" size={22} className="text-[var(--ink-3)] mx-auto mb-2" />
+                  <div className="text-[12.5px] text-[var(--ink-2)]">{T("No encontrado — añádela manualmente", "Not found — add it manually")}</div>
+                </div>
+              )}
+              {!query.trim() && (
+                <div className="text-[11px] text-[var(--ink-3)] pt-1 pb-2">
+                  {T("Marcas:", "Brands:")} AI · Kessil · Radion · Orphek · Smatfarm · Maxspect · ATI · Fluval · Finnex · ADA · Twinstar · ONF…
+                </div>
+              )}
+              <div className="space-y-1">
+                {results.map((row, i) => (
+                  <button
+                    key={i}
+                    onClick={() => fillFrom(row)}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[var(--hover)] transition-colors text-left group"
+                  >
+                    <div className="grid place-items-center w-8 h-8 rounded-lg shrink-0" style={{
+                      background: `${spectrumColor[row.spectrum]}18`,
+                      border: `1px solid ${spectrumColor[row.spectrum]}35`,
+                    }}>
+                      <L name={row.spectrum === "planted" ? "Leaf" : "Lamp"} size={13} style={{ color: spectrumColor[row.spectrum] }} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[12.5px] font-medium text-[var(--ink)] truncate">{row.n}</div>
+                      <div className="text-[10.5px] text-[var(--ink-3)]">
+                        {row.br} · {row.w}W · {row.type.toUpperCase()} · {row.desc}
+                      </div>
+                    </div>
+                    <L name="ChevronRight" size={13} className="text-[var(--ink-3)] group-hover:text-[var(--accent)] transition-colors shrink-0" />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="px-5 py-3 border-t border-[var(--hairline)] shrink-0">
+              <button
+                onClick={() => setStep("fill")}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-[12.5px] font-medium text-[var(--ink-2)] hover:text-[var(--ink)] hover:bg-[var(--hover)] transition-colors"
+              >
+                <L name="PenLine" size={13} /> {T("Añadir manualmente", "Add manually")}
+              </button>
             </div>
           </div>
+        )}
 
-          {/* Name */}
-          <label className="block">
-            <div className="text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1.5">{T("Nombre / modelo *", "Name / model *")}</div>
-            <input
-              ref={nameRef}
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") save(); }}
-              placeholder={T("ej. Smatfarm G5, AI Hydra 26, Kessil A360", "e.g. Smatfarm G5, AI Hydra 26, Kessil A360")}
-              className="w-full bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2 text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-border)] transition-colors"
-            />
-          </label>
+        {/* STEP 2 — Fill form */}
+        {step === "fill" && (
+          <>
+            <div className="flex-1 overflow-y-auto px-5 pt-4 pb-2 space-y-3">
+              {/* Name */}
+              <label className="block">
+                <div className="text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1">{T("Nombre / modelo *","Name / model *")}</div>
+                <input
+                  ref={nameRef}
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") save(); }}
+                  placeholder={T("ej. AI Hydra 26, Kessil A360","e.g. AI Hydra 26, Kessil A360")}
+                  className="w-full bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2 text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-border)] transition-colors"
+                />
+              </label>
 
-          <div className="grid grid-cols-2 gap-3">
-            {/* Brand */}
-            <label className="block">
-              <div className="text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1.5">{T("Marca", "Brand")} <span className="normal-case text-[10px]">({T("opcional","optional")})</span></div>
-              <input
-                type="text"
-                value={brand}
-                onChange={(e) => setBrand(e.target.value)}
-                placeholder={T("ej. Aquaillumination", "e.g. Aquaillumination")}
-                className="w-full bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2 text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-border)] transition-colors"
-              />
-            </label>
-            {/* Wattage */}
-            <label className="block">
-              <div className="text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1.5">{T("Potencia (W)", "Wattage (W)")} <span className="normal-case text-[10px]">({T("opcional","optional")})</span></div>
-              <input
-                type="number"
-                min="0"
-                inputMode="numeric"
-                value={wattage}
-                onChange={(e) => setWattage(e.target.value)}
-                placeholder="95"
-                className="w-full bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2 text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-border)] transition-colors"
-              />
-            </label>
-          </div>
-        </div>
+              {/* Type */}
+              <div>
+                <div className="text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1">{T("Tecnología","Technology")}</div>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {typeOpts.map((o) => (
+                    <button key={o.id} onClick={() => setType(o.id)}
+                      className={`rounded-xl py-2 text-[12px] font-medium border transition-all ${type === o.id ? "" : "border-[var(--hairline)] text-[var(--ink-3)]"}`}
+                      style={type === o.id ? { background:"var(--accent-soft)", border:"1px solid var(--accent-border)", color:"var(--accent)" } : {}}>
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-        <div className="flex items-center justify-end gap-2 p-4 border-t border-[var(--hairline)]">
-          <Button variant="ghost" onClick={onClose}>{T("Cancelar", "Cancel")}</Button>
-          <Button variant="primary" icon="Check" disabled={!name.trim()} onClick={save}>{T("Guardar", "Save")}</Button>
-        </div>
-      </Card>
+              {/* Spectrum */}
+              <div>
+                <div className="text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1">{T("Espectro objetivo","Target spectrum")}</div>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {specOpts.map((o) => (
+                    <button key={o.id} onClick={() => setSpectrum(o.id)}
+                      className={`flex items-center justify-center gap-1.5 rounded-xl py-2 text-[11.5px] font-medium border transition-all ${spectrum === o.id ? "" : "border-[var(--hairline)] text-[var(--ink-3)]"}`}
+                      style={spectrum === o.id ? { background:`${spectrumColor[o.id]}14`, border:`1.5px solid ${spectrumColor[o.id]}50`, color:spectrumColor[o.id] } : {}}>
+                      <L name={o.icon} size={12} /> {o.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Brand + Wattage */}
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block">
+                  <div className="text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1">{T("Marca","Brand")}</div>
+                  <input type="text" value={brand} onChange={(e) => setBrand(e.target.value)}
+                    placeholder="Kessil, AI, Orphek…"
+                    className="w-full bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2 text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-border)] transition-colors"
+                  />
+                </label>
+                <label className="block">
+                  <div className="text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1">{T("Potencia","Wattage")}</div>
+                  <div className="flex items-center gap-1 bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2 focus-within:ring-1 focus-within:ring-[var(--accent-border)] transition-all">
+                    <input type="number" inputMode="decimal" value={wattage} onChange={(e) => setWattage(e.target.value)} placeholder="95"
+                      className="flex-1 bg-transparent border-0 outline-none text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)]" />
+                    <span className="text-[10.5px] text-[var(--ink-3)] shrink-0">W</span>
+                  </div>
+                </label>
+              </div>
+
+              {/* Description */}
+              <label className="block">
+                <div className="text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1">{T("Notas","Notes")} <span className="normal-case text-[10px]">({T("opcional","optional")})</span></div>
+                <input type="text" value={desc} onChange={(e) => setDesc(e.target.value)}
+                  placeholder={T("ej. Cobertura hasta 100 gal, 6 canales","e.g. Up to 100 gal coverage, 6 channels")}
+                  className="w-full bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2 text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-border)] transition-colors"
+                />
+              </label>
+            </div>
+
+            <div className="px-5 py-4 border-t border-[var(--hairline)] shrink-0 flex gap-2">
+              <button onClick={onClose}
+                className="flex-1 rounded-full py-2.5 text-[13px] font-medium text-[var(--ink-2)] hover:text-[var(--ink)] transition-colors"
+                style={{ background:"var(--well)", border:"1px solid var(--hairline)" }}>
+                {T("Cancelar","Cancel")}
+              </button>
+              <button onClick={save} disabled={!name.trim()}
+                className="flex-1 rounded-full py-2.5 text-[13px] font-semibold text-white disabled:opacity-40 transition-all active:scale-[0.99]"
+                style={{ background:"linear-gradient(135deg, var(--accent), var(--accent-strong))" }}>
+                {T("Guardar lámpara","Save fixture")}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

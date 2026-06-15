@@ -105,85 +105,385 @@ function useClock() {
   return now;
 }
 
+// ---- Built-in tank database ----
+const TANK_DB = [
+  // Aqueon
+  { n:"Aqueon 5.5 Gallon",       br:"Aqueon",            vol:5.5,  l:16, w:8,  h:10, t:"freshwater" },
+  { n:"Aqueon 10 Gallon",        br:"Aqueon",            vol:10,   l:20, w:10, h:12, t:"freshwater" },
+  { n:"Aqueon 20H",              br:"Aqueon",            vol:20,   l:24, w:12, h:16, t:"freshwater" },
+  { n:"Aqueon 20L",              br:"Aqueon",            vol:20,   l:30, w:12, h:12, t:"freshwater" },
+  { n:"Aqueon 29 Gallon",        br:"Aqueon",            vol:29,   l:30, w:12, h:18, t:"freshwater" },
+  { n:"Aqueon 40 Breeder",       br:"Aqueon",            vol:40,   l:36, w:18, h:16, t:"freshwater" },
+  { n:"Aqueon 55 Gallon",        br:"Aqueon",            vol:55,   l:48, w:13, h:21, t:"freshwater" },
+  { n:"Aqueon 75 Gallon",        br:"Aqueon",            vol:75,   l:48, w:18, h:21, t:"freshwater" },
+  { n:"Aqueon 90 Gallon",        br:"Aqueon",            vol:90,   l:48, w:18, h:24, t:"freshwater" },
+  { n:"Aqueon 125 Gallon",       br:"Aqueon",            vol:125,  l:72, w:18, h:22, t:"freshwater" },
+  // Red Sea Reefer
+  { n:"Red Sea Reefer 170",      br:"Red Sea",           vol:45,   l:28, w:23, h:21, t:"saltwater" },
+  { n:"Red Sea Reefer 250",      br:"Red Sea",           vol:65,   l:35, w:22, h:22, t:"saltwater" },
+  { n:"Red Sea Reefer 300",      br:"Red Sea",           vol:79,   l:43, w:22, h:22, t:"saltwater" },
+  { n:"Red Sea Reefer 350",      br:"Red Sea",           vol:92,   l:47, w:24, h:24, t:"saltwater" },
+  { n:"Red Sea Reefer 425XL",    br:"Red Sea",           vol:112,  l:47, w:29, h:24, t:"saltwater" },
+  { n:"Red Sea Reefer 500",      br:"Red Sea",           vol:132,  l:59, w:24, h:24, t:"saltwater" },
+  { n:"Red Sea Reefer 625XL",    br:"Red Sea",           vol:165,  l:59, w:30, h:26, t:"saltwater" },
+  { n:"Red Sea Reefer 900XL",    br:"Red Sea",           vol:238,  l:79, w:30, h:26, t:"saltwater" },
+  { n:"Red Sea Peninsula 500",   br:"Red Sea",           vol:132,  l:56, w:29, h:24, t:"saltwater" },
+  { n:"Red Sea Peninsula 650",   br:"Red Sea",           vol:172,  l:59, w:35, h:26, t:"saltwater" },
+  { n:"Red Sea Peninsula 900",   br:"Red Sea",           vol:238,  l:79, w:35, h:26, t:"saltwater" },
+  { n:"Red Sea Max E-170",       br:"Red Sea",           vol:45,   l:28, w:23, h:21, t:"saltwater" },
+  { n:"Red Sea Max 250",         br:"Red Sea",           vol:66,   l:35, w:22, h:22, t:"saltwater" },
+  // Innovative Marine
+  { n:"IM NUVO Fusion 10",       br:"Innovative Marine", vol:10,   l:16, w:16, h:14, t:"saltwater" },
+  { n:"IM NUVO Fusion 20",       br:"Innovative Marine", vol:20,   l:20, w:20, h:18, t:"saltwater" },
+  { n:"IM NUVO Fusion 30L",      br:"Innovative Marine", vol:30,   l:36, w:12, h:18, t:"saltwater" },
+  { n:"IM NUVO Fusion 40",       br:"Innovative Marine", vol:40,   l:24, w:20, h:22, t:"saltwater" },
+  { n:"IM NUVO Fusion 60",       br:"Innovative Marine", vol:60,   l:36, w:20, h:22, t:"saltwater" },
+  { n:"IM Lagoon 25",            br:"Innovative Marine", vol:25,   l:24, w:24, h:12, t:"saltwater" },
+  // Waterbox
+  { n:"Waterbox Cube 10",        br:"Waterbox",          vol:10,   l:16, w:16, h:15, t:"saltwater" },
+  { n:"Waterbox Cube 20",        br:"Waterbox",          vol:20,   l:20, w:20, h:18, t:"saltwater" },
+  { n:"Waterbox Marine X 30",    br:"Waterbox",          vol:30,   l:32, w:15, h:18, t:"saltwater" },
+  { n:"Waterbox Reef 75.4",      br:"Waterbox",          vol:75,   l:48, w:20, h:22, t:"saltwater" },
+  { n:"Waterbox Reef 100.4",     br:"Waterbox",          vol:100,  l:54, w:21, h:24, t:"saltwater" },
+  { n:"Waterbox Reef 130.4",     br:"Waterbox",          vol:130,  l:60, w:21, h:24, t:"saltwater" },
+  { n:"Waterbox Reef 170.5",     br:"Waterbox",          vol:170,  l:60, w:27, h:25, t:"saltwater" },
+  { n:"Waterbox Reef 220.6",     br:"Waterbox",          vol:220,  l:72, w:27, h:25, t:"saltwater" },
+  // Fluval
+  { n:"Fluval Evo 13.5",         br:"Fluval",            vol:13.5, l:16, w:13, h:15, t:"saltwater" },
+  { n:"Fluval Evo 52",           br:"Fluval",            vol:52,   l:37, w:19, h:21, t:"saltwater" },
+  { n:"Fluval Vista 16",         br:"Fluval",            vol:16,   l:25, w:11, h:18, t:"freshwater" },
+  { n:"Fluval Vista 32",         br:"Fluval",            vol:32,   l:36, w:14, h:20, t:"freshwater" },
+  { n:"Fluval Flex 9",           br:"Fluval",            vol:9,    l:14, w:15, h:16, t:"freshwater" },
+  { n:"Fluval Flex 15",          br:"Fluval",            vol:15,   l:17, w:17, h:18, t:"freshwater" },
+  { n:"Fluval Flex 32.5",        br:"Fluval",            vol:32.5, l:23, w:19, h:23, t:"freshwater" },
+  // Coralife Biocube
+  { n:"Coralife Biocube 16",     br:"Coralife",          vol:16,   l:17, w:17, h:18, t:"saltwater" },
+  { n:"Coralife Biocube 32",     br:"Coralife",          vol:32,   l:22, w:22, h:22, t:"saltwater" },
+  // JBJ
+  { n:"JBJ Rimless 10",          br:"JBJ",               vol:10,   l:16, w:11, h:15, t:"saltwater" },
+  { n:"JBJ Rimless 30",          br:"JBJ",               vol:30,   l:30, w:14, h:18, t:"saltwater" },
+  { n:"JBJ Rimless 45",          br:"JBJ",               vol:45,   l:36, w:16, h:21, t:"saltwater" },
+  // ADA (planted)
+  { n:"ADA 60-P",                br:"ADA",               vol:17,   l:24, w:12, h:14, t:"freshwater" },
+  { n:"ADA 60-F",                br:"ADA",               vol:12,   l:24, w:12, h:10, t:"freshwater" },
+  { n:"ADA 90-P",                br:"ADA",               vol:45,   l:36, w:18, h:14, t:"freshwater" },
+  { n:"ADA 120-P",               br:"ADA",               vol:79,   l:47, w:18, h:18, t:"freshwater" },
+  { n:"ADA 180-P",               br:"ADA",               vol:158,  l:71, w:24, h:24, t:"freshwater" },
+  // Landen
+  { n:"Landen 30C Cube",         br:"Landen",            vol:8,    l:12, w:12, h:14, t:"freshwater" },
+  { n:"Landen 60P",              br:"Landen",            vol:16,   l:24, w:12, h:14, t:"freshwater" },
+  { n:"Landen 90P",              br:"Landen",            vol:36,   l:36, w:18, h:14, t:"freshwater" },
+  // SC Aquariums
+  { n:"SC Aquariums 120G",       br:"SC Aquariums",      vol:120,  l:48, w:24, h:24, t:"saltwater" },
+  { n:"SC Aquariums 150G",       br:"SC Aquariums",      vol:150,  l:60, w:24, h:24, t:"saltwater" },
+  { n:"SC Aquariums 180G",       br:"SC Aquariums",      vol:180,  l:72, w:24, h:24, t:"saltwater" },
+  { n:"SC Aquariums 210G",       br:"SC Aquariums",      vol:210,  l:72, w:24, h:29, t:"saltwater" },
+  // Generic / DIY
+  { n:"Nano Reef 5G",            br:"Generic",           vol:5,    l:16, w:8,  h:10, t:"saltwater" },
+  { n:"Nano Reef 10G",           br:"Generic",           vol:10,   l:20, w:10, h:12, t:"saltwater" },
+  { n:"Reef 20L",                br:"Generic",           vol:20,   l:30, w:12, h:12, t:"saltwater" },
+  { n:"Reef 40 Breeder",         br:"Generic",           vol:40,   l:36, w:18, h:16, t:"saltwater" },
+  { n:"Reef 75G",                br:"Generic",           vol:75,   l:48, w:18, h:21, t:"saltwater" },
+  { n:"Reef 90G",                br:"Generic",           vol:90,   l:48, w:18, h:24, t:"saltwater" },
+  { n:"Reef 120G",               br:"Generic",           vol:120,  l:48, w:24, h:24, t:"saltwater" },
+  { n:"Reef 180G",               br:"Generic",           vol:180,  l:72, w:24, h:24, t:"saltwater" },
+  { n:"Reef 240G",               br:"Generic",           vol:240,  l:96, w:24, h:24, t:"saltwater" },
+  { n:"Planted 10G",             br:"Generic",           vol:10,   l:20, w:10, h:12, t:"freshwater" },
+  { n:"Planted 20L",             br:"Generic",           vol:20,   l:30, w:12, h:12, t:"freshwater" },
+  { n:"Planted 40 Breeder",      br:"Generic",           vol:40,   l:36, w:18, h:16, t:"freshwater" },
+  { n:"Planted 75G",             br:"Generic",           vol:75,   l:48, w:18, h:21, t:"freshwater" },
+];
+
 function AddTankModal({ onClose, onAdded }) {
-  const [name, setName] = React.useState("");
-  const [type, setType] = React.useState("saltwater");
-  const [volume, setVolume] = React.useState("");
-  const [brand, setBrand] = React.useState("");
+  const [step, setStep] = React.useState("search"); // "search" | "fill"
+  const [query, setQuery] = React.useState("");
+  const [results, setResults] = React.useState([]);
+  const [searching, setSearching] = React.useState(false);
+
+  // Form fields
+  const [name, setName]         = React.useState("");
+  const [type, setType]         = React.useState("saltwater");
+  const [displayVol, setDisplayVol] = React.useState("");
+  const [totalVol, setTotalVol] = React.useState("");
+  const [brand, setBrand]       = React.useState("");
+  const [length, setLength]     = React.useState("");
+  const [width, setWidth]       = React.useState("");
+  const [height, setHeight]     = React.useState("");
+  const searchRef = React.useRef(null);
+  const nameRef   = React.useRef(null);
   useEscape(onClose);
+
+  React.useEffect(() => {
+    if (step === "search") setTimeout(() => searchRef.current?.focus(), 80);
+    if (step === "fill")   setTimeout(() => nameRef.current?.focus(), 80);
+  }, [step]);
+
+  // Live search
+  React.useEffect(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) { setResults([]); return; }
+    setSearching(true);
+    const t = setTimeout(() => {
+      const words = q.split(/\s+/);
+      const matches = TANK_DB.filter((row) => {
+        const haystack = (row.n + " " + row.br + " " + row.vol).toLowerCase();
+        return words.every((w) => haystack.includes(w));
+      }).slice(0, 7);
+      setResults(matches);
+      setSearching(false);
+    }, 220);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  const fillFrom = (row) => {
+    setName(row.n);
+    setBrand(row.br);
+    setType(row.t === "freshwater" ? "freshwater" : "saltwater");
+    setDisplayVol(String(row.vol));
+    setTotalVol(String(row.vol));
+    setLength(row.l ? String(row.l) : "");
+    setWidth(row.w ? String(row.w) : "");
+    setHeight(row.h ? String(row.h) : "");
+    setStep("fill");
+  };
 
   const save = () => {
     const n = name.trim();
-    if (!n) return;
+    if (!n) { nameRef.current?.focus(); return; }
     const tank = window.AquaStore.addTank({
       name: n,
       type,
-      displayVolume: volume ? +volume : 0,
-      realVolume: volume ? +volume : 0,
+      displayVolume: displayVol ? +displayVol : 0,
+      realVolume: totalVol ? +totalVol : displayVol ? +displayVol : 0,
       brand: brand.trim(),
+      length: length ? +length : null,
+      width: width ? +width : null,
+      height: height ? +height : null,
     });
     window.toast?.(T(`Tanque "${tank.name}" añadido`, `Tank "${tank.name}" added`), { icon: "Waves" });
     onAdded?.();
     onClose();
   };
 
+  const typeOpts = [
+    { id: "saltwater",  label: T("Marino","Saltwater"),   icon: "Waves" },
+    { id: "freshwater", label: T("Dulce","Freshwater"),   icon: "Droplet" },
+    { id: "reef",       label: T("Reef","Reef"),          icon: "Shell" },
+    { id: "planted",    label: T("Plantado","Planted"),   icon: "Leaf" },
+  ];
+
+  const FieldInput = ({ label, value, onChange, placeholder, type: ftype = "text", unit, children }) => (
+    <label className="block">
+      <div className="text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1">{label}</div>
+      <div className="flex items-center gap-2 bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2 focus-within:ring-1 focus-within:ring-[var(--accent-border)] transition-all">
+        {children}
+        <input
+          type={ftype}
+          inputMode={ftype === "number" ? "decimal" : undefined}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className="flex-1 bg-transparent border-0 outline-none text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)]"
+        />
+        {unit && <span className="text-[10.5px] text-[var(--ink-3)] shrink-0">{unit}</span>}
+      </div>
+    </label>
+  );
+
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[var(--scrim)] backdrop-blur" onClick={onClose}>
-      <div className="w-full max-w-sm glass-strong rounded-t-3xl sm:rounded-3xl overflow-y-auto max-h-[92dvh]" style={{ boxShadow: "var(--glass-shadow)" }} onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--hairline)]">
+      <div
+        className="w-full sm:max-w-lg glass-strong rounded-t-3xl sm:rounded-3xl overflow-hidden max-h-[96dvh] flex flex-col"
+        style={{ boxShadow: "var(--glass-shadow)" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--hairline)] shrink-0">
           <div className="flex items-center gap-2.5">
+            {step === "fill" && (
+              <button onClick={() => setStep("search")} className="p-1.5 -ml-1 rounded-full hover:bg-[var(--hover)] text-[var(--ink-2)]">
+                <L name="ArrowLeft" size={15} />
+              </button>
+            )}
             <div className="grid place-items-center w-8 h-8 rounded-xl" style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)" }}>
-              <L name="Waves" size={14} style={{ color: "var(--accent)" }} />
+              <L name={step === "search" ? "Search" : "Waves"} size={14} style={{ color: "var(--accent)" }} />
             </div>
-            <span className="text-[14px] font-semibold text-[var(--ink)]">{T("Nuevo tanque", "New tank")}</span>
+            <div>
+              <div className="text-[14px] font-semibold text-[var(--ink)]">
+                {step === "search" ? T("Buscar tanque", "Search tank") : T("Detalles del tanque", "Tank details")}
+              </div>
+              <div className="text-[10.5px] text-[var(--ink-3)]">
+                {step === "search" ? T("Base de datos de acuarios", "Aquarium database") : T("Edita y confirma los datos", "Edit and confirm")}
+              </div>
+            </div>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-full hover:bg-[var(--hover)] text-[var(--ink-2)]"><L name="X" size={14} /></button>
         </div>
-        <div className="p-5 space-y-3">
-          <div>
-            <label className="text-[11px] font-medium text-[var(--ink-2)] mb-1 block">{T("Nombre *", "Name *")}</label>
-            <div className="flex items-center gap-2 rounded-xl px-3 py-2.5" style={{ background: "var(--well)", border: "1px solid var(--hairline)" }}>
-              <L name="Droplet" size={13} className="text-[var(--ink-3)] shrink-0" />
-              <input autoFocus type="text" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") save(); }}
-                placeholder={T("ej. Reef 50G", "e.g. 50G Reef")}
-                className="flex-1 bg-transparent border-0 outline-none text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)]" />
+
+        {/* STEP 1 — Search */}
+        {step === "search" && (
+          <div className="flex flex-col flex-1 min-h-0">
+            <div className="px-5 pt-4 pb-3 shrink-0">
+              <div className="flex items-center gap-2 bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2.5 focus-within:ring-1 focus-within:ring-[var(--accent-border)] transition-all">
+                {searching
+                  ? <L name="Loader2" size={15} className="text-[var(--ink-3)] shrink-0 animate-spin" />
+                  : <L name="Search" size={15} className="text-[var(--ink-3)] shrink-0" />}
+                <input
+                  ref={searchRef}
+                  type="text"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder={T("ej. Red Sea Reefer 250, Waterbox 75, ADA 60…", "e.g. Red Sea Reefer 250, Waterbox 75, ADA 60…")}
+                  className="flex-1 bg-transparent border-0 outline-none text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)]"
+                />
+                {query && (
+                  <button onClick={() => setQuery("")} className="shrink-0 text-[var(--ink-3)] hover:text-[var(--ink-2)]">
+                    <L name="X" size={13} />
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
-          <div className="flex gap-2">
-            {[{ id: "saltwater", label: T("Marino", "Saltwater"), icon: "Waves" }, { id: "freshwater", label: T("Dulce", "Freshwater"), icon: "Droplet" }].map((opt) => (
-              <button key={opt.id} onClick={() => setType(opt.id)}
-                className="flex-1 flex items-center gap-2 rounded-xl px-3 py-2.5 text-[12px] font-medium transition-all"
-                style={type === opt.id
-                  ? { background: "var(--accent-soft)", border: "1px solid var(--accent-border)", color: "var(--accent)" }
-                  : { background: "var(--well)", border: "1px solid var(--hairline)", color: "var(--ink-2)" }}>
-                <L name={opt.icon} size={13} />{opt.label}
+
+            {/* Results */}
+            <div className="flex-1 overflow-y-auto px-5 pb-4 min-h-[160px]">
+              {query.trim() && results.length === 0 && !searching && (
+                <div className="text-center py-6">
+                  <L name="SearchX" size={22} className="text-[var(--ink-3)] mx-auto mb-2" />
+                  <div className="text-[12.5px] text-[var(--ink-2)]">{T("No encontrado en la base de datos", "Not found in database")}</div>
+                  <div className="text-[11px] text-[var(--ink-3)] mt-1">{T("Puedes añadirlo manualmente abajo", "You can add it manually below")}</div>
+                </div>
+              )}
+              {!query.trim() && (
+                <div className="text-[11px] text-[var(--ink-3)] pt-2 pb-1">
+                  {T("Marcas en la base de datos:", "Brands in database:")} Aqueon · Red Sea · Waterbox · Fluval · IM · ADA · JBJ · Coralife · SC Aquariums · Landen…
+                </div>
+              )}
+              <div className="space-y-1 mt-1">
+                {results.map((row, i) => (
+                  <button
+                    key={i}
+                    onClick={() => fillFrom(row)}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[var(--hover)] transition-colors text-left group"
+                  >
+                    <div className="grid place-items-center w-8 h-8 rounded-lg shrink-0" style={{
+                      background: row.t === "freshwater" ? "rgba(22,163,74,0.1)" : "rgba(13,148,136,0.1)",
+                      border: row.t === "freshwater" ? "1px solid rgba(22,163,74,0.25)" : "1px solid rgba(13,148,136,0.25)",
+                    }}>
+                      <L name={row.t === "freshwater" ? "Droplet" : "Waves"} size={13} style={{ color: row.t === "freshwater" ? "#16a34a" : "var(--accent)" }} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[12.5px] font-medium text-[var(--ink)] truncate">{row.n}</div>
+                      <div className="text-[10.5px] text-[var(--ink-3)]">
+                        {row.br} · {row.vol}g{row.l ? ` · ${row.l}×${row.w}×${row.h}"` : ""}
+                      </div>
+                    </div>
+                    <L name="ChevronRight" size={13} className="text-[var(--ink-3)] group-hover:text-[var(--accent)] transition-colors shrink-0" />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="px-5 py-3 border-t border-[var(--hairline)] shrink-0">
+              <button
+                onClick={() => setStep("fill")}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-[12.5px] font-medium text-[var(--ink-2)] hover:text-[var(--ink)] hover:bg-[var(--hover)] transition-colors"
+              >
+                <L name="PenLine" size={13} /> {T("Añadir manualmente", "Add manually")}
               </button>
-            ))}
-          </div>
-          <div className="flex gap-2">
-            <div className="flex-1 flex items-center gap-2 rounded-xl px-3 py-2.5" style={{ background: "var(--well)", border: "1px solid var(--hairline)" }}>
-              <L name="Container" size={13} className="text-[var(--ink-3)] shrink-0" />
-              <input type="number" inputMode="decimal" value={volume} onChange={(e) => setVolume(e.target.value)} placeholder={T("Galones", "Gallons")}
-                className="flex-1 bg-transparent border-0 outline-none text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)]" />
-              <span className="text-[11px] text-[var(--ink-3)]">gal</span>
-            </div>
-            <div className="flex-1 flex items-center gap-2 rounded-xl px-3 py-2.5" style={{ background: "var(--well)", border: "1px solid var(--hairline)" }}>
-              <L name="Tag" size={13} className="text-[var(--ink-3)] shrink-0" />
-              <input type="text" value={brand} onChange={(e) => setBrand(e.target.value)} placeholder={T("Marca", "Brand")}
-                className="flex-1 bg-transparent border-0 outline-none text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)]" />
             </div>
           </div>
-        </div>
-        <div className="px-5 pb-5 flex gap-2">
-          <button onClick={onClose} className="flex-1 rounded-full py-2.5 text-[13px] font-medium text-[var(--ink-2)] hover:text-[var(--ink)] transition-colors" style={{ background: "var(--well)", border: "1px solid var(--hairline)" }}>
-            {T("Cancelar", "Cancel")}
-          </button>
-          <button onClick={save} disabled={!name.trim()}
-            className="flex-1 rounded-full py-2.5 text-[13px] font-semibold text-white disabled:opacity-50 transition-all active:scale-[0.99]"
-            style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-strong))" }}>
-            {T("Agregar", "Add")}
-          </button>
-        </div>
+        )}
+
+        {/* STEP 2 — Fill form */}
+        {step === "fill" && (
+          <>
+            <div className="flex-1 overflow-y-auto px-5 pt-4 pb-2 space-y-3">
+              {/* Name */}
+              <FieldInput label={T("Nombre *","Name *")} value={name} onChange={setName} placeholder={T("ej. Reef 50G","e.g. Reef 50G")}>
+                <L name="Droplet" size={13} className="text-[var(--ink-3)] shrink-0" />
+              </FieldInput>
+              <input ref={nameRef} style={{ position:"absolute", opacity:0, pointerEvents:"none", height:0 }} tabIndex={-1} />
+
+              {/* Type */}
+              <div>
+                <div className="text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1">{T("Tipo","Type")}</div>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {typeOpts.map((opt) => (
+                    <button
+                      key={opt.id}
+                      onClick={() => setType(opt.id)}
+                      className={`flex flex-col items-center gap-1 rounded-xl px-2 py-2 text-[11px] font-medium border transition-all ${type === opt.id ? "" : "border-[var(--hairline)] text-[var(--ink-3)] hover:border-[var(--hairline-strong)]"}`}
+                      style={type === opt.id ? { background:"var(--accent-soft)", border:"1px solid var(--accent-border)", color:"var(--accent)" } : {}}
+                    >
+                      <L name={opt.icon} size={14} />
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Brand */}
+              <FieldInput label={T("Marca","Brand")} value={brand} onChange={setBrand} placeholder={T("ej. Red Sea, Aqueon","e.g. Red Sea, Aqueon")}>
+                <L name="Tag" size={13} className="text-[var(--ink-3)] shrink-0" />
+              </FieldInput>
+
+              {/* Volumes */}
+              <div className="grid grid-cols-2 gap-3">
+                <FieldInput label={T("Volumen display","Display volume")} value={displayVol} onChange={setDisplayVol} placeholder="40" ftype="number" unit="gal">
+                  <L name="Container" size={13} className="text-[var(--ink-3)] shrink-0" />
+                </FieldInput>
+                <FieldInput label={T("Vol. total (c/sump)","Total vol. (w/sump)")} value={totalVol} onChange={setTotalVol} placeholder="55" ftype="number" unit="gal">
+                  <L name="Layers" size={13} className="text-[var(--ink-3)] shrink-0" />
+                </FieldInput>
+              </div>
+
+              {/* Dimensions */}
+              <div>
+                <div className="text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1">{T("Dimensiones (pulgadas)","Dimensions (inches)")}</div>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { label: T("Largo","Length"), val: length, set: setLength, ph: "48" },
+                    { label: T("Ancho","Width"),  val: width,  set: setWidth,  ph: "18" },
+                    { label: T("Alto","Height"),  val: height, set: setHeight, ph: "21" },
+                  ].map(({ label, val, set, ph }) => (
+                    <label key={label} className="block">
+                      <div className="text-[9.5px] text-[var(--ink-3)] uppercase tracking-wider mb-0.5">{label}</div>
+                      <div className="flex items-center gap-1 bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-2 py-2 focus-within:ring-1 focus-within:ring-[var(--accent-border)] transition-all">
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          value={val}
+                          onChange={(e) => set(e.target.value)}
+                          placeholder={ph}
+                          className="flex-1 bg-transparent border-0 outline-none text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)] w-0 min-w-0"
+                        />
+                        <span className="text-[9.5px] text-[var(--ink-3)] shrink-0">"</span>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="px-5 py-4 border-t border-[var(--hairline)] shrink-0 flex gap-2">
+              <button
+                onClick={onClose}
+                className="flex-1 rounded-full py-2.5 text-[13px] font-medium text-[var(--ink-2)] hover:text-[var(--ink)] transition-colors"
+                style={{ background:"var(--well)", border:"1px solid var(--hairline)" }}
+              >
+                {T("Cancelar","Cancel")}
+              </button>
+              <button
+                onClick={save}
+                disabled={!name.trim()}
+                className="flex-1 rounded-full py-2.5 text-[13px] font-semibold text-white disabled:opacity-40 transition-all active:scale-[0.99]"
+                style={{ background:"linear-gradient(135deg, var(--accent), var(--accent-strong))" }}
+              >
+                {T("Agregar tanque","Add tank")}
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
