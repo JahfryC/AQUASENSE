@@ -146,7 +146,8 @@ function applyAquaCommand(raw) {
   return null; // no es una orden → responde como chat
 }
 
-// ---- AI plumbing — Google Gemini 2.0 Flash (free) + tool use ----
+// ---- AI plumbing — Claude (Anthropic) primary + Gemini fallback + local ----
+// Set your API key in Settings → Cuenta → Aqua Buddy — saved to localStorage.
 // Fallback local knowledge when no API key is configured.
 function localAquaBuddy(q) {
   const m = q.toLowerCase();
@@ -361,7 +362,42 @@ function executeAquaTool(name, args) {
   }
 }
 
-// Call Google Gemini 2.0 Flash via OpenAI-compatible endpoint (free tier)
+// Call Claude (Anthropic) — works with AQ.xxx keys
+async function callClaude(messages, system, tools = null) {
+  const apiKey = window.AQUAMIND_AI_KEY || localStorage.getItem("aqua:ai_key");
+  if (!apiKey) return null;
+  try {
+    const body = {
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 500,
+      system,
+      messages,
+    };
+    if (tools) {
+      body.tools = tools.map((t) => ({
+        name: t.function.name,
+        description: t.function.description,
+        input_schema: t.function.parameters,
+      }));
+    }
+    const resp = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true",
+      },
+      body: JSON.stringify(body),
+    });
+    if (!resp.ok) return null;
+    return await resp.json();
+  } catch {
+    return null;
+  }
+}
+
+// Call Google Gemini 2.0 Flash via OpenAI-compatible endpoint
 async function callGemini(messages, system, tools = null) {
   const apiKey = window.AQUAMIND_AI_KEY || localStorage.getItem("aqua:ai_key");
   if (!apiKey) return null;
@@ -389,7 +425,7 @@ async function callGemini(messages, system, tools = null) {
 }
 
 async function callAquaBuddy(userMessage, mode = "personalized", history = []) {
-  // First: rule-based command parser (fast, works offline, no API key needed)
+  // Rule-based command parser — fast, works offline, no key needed
   const command = applyAquaCommand(userMessage);
   if (command) {
     await new Promise((r) => setTimeout(r, 450));
@@ -402,35 +438,51 @@ async function callAquaBuddy(userMessage, mode = "personalized", history = []) {
     { role: "user", content: userMessage },
   ];
 
-  // Call Gemini with tool use
-  const data = await callGemini(messages, system, AQUA_TOOLS);
-  if (data) {
-    const choice = data.choices?.[0];
+  // --- Claude (Anthropic) — primary provider ---
+  const claudeData = await callClaude(messages, system, AQUA_TOOLS);
+  if (claudeData) {
+    const toolUseBlocks = (claudeData.content || []).filter((b) => b.type === "tool_use");
+    if (toolUseBlocks.length > 0) {
+      const toolResults = toolUseBlocks.map((b) => ({
+        type: "tool_result",
+        tool_use_id: b.id,
+        content: executeAquaTool(b.name, b.input || {}),
+      }));
+      const followMsgs = [
+        ...messages,
+        { role: "assistant", content: claudeData.content },
+        { role: "user", content: toolResults },
+      ];
+      const follow = await callClaude(followMsgs, system);
+      const followText = (follow?.content || []).find((b) => b.type === "text")?.text?.trim();
+      if (followText) return followText;
+      return toolResults.map((r) => r.content).join("\n");
+    }
+    const text = (claudeData.content || []).find((b) => b.type === "text")?.text?.trim();
+    if (text) return text;
+  }
 
-    // Execute any tool calls the model requested
+  // --- Gemini fallback ---
+  const geminiData = await callGemini(messages, system, AQUA_TOOLS);
+  if (geminiData) {
+    const choice = geminiData.choices?.[0];
     if (choice?.message?.tool_calls?.length > 0) {
       const toolResults = [];
       for (const tc of choice.message.tool_calls) {
         let args = {};
         try { args = JSON.parse(tc.function.arguments); } catch (_) {}
-        const result = executeAquaTool(tc.function.name, args);
-        toolResults.push({ role: "tool", tool_call_id: tc.id, content: result });
+        toolResults.push({ role: "tool", tool_call_id: tc.id, content: executeAquaTool(tc.function.name, args) });
       }
-
-      // Ask Gemini for a final response now that tools are done
-      const followMsgs = [...messages, choice.message, ...toolResults];
-      const follow = await callGemini(followMsgs, system);
+      const follow = await callGemini([...messages, choice.message, ...toolResults], system);
       const followText = follow?.choices?.[0]?.message?.content?.trim();
       if (followText) return followText;
       return toolResults.map((r) => r.content).join("\n");
     }
-
-    // Plain text response
     const text = choice?.message?.content?.trim();
     if (text) return text;
   }
 
-  // Fallback: local knowledge base (works without API key)
+  // --- Local knowledge base ---
   await new Promise((r) => setTimeout(r, 800));
   return localAquaBuddy(userMessage);
 }
