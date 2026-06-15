@@ -128,8 +128,8 @@ function AddTankModal({ onClose, onAdded }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center p-4 bg-[var(--scrim)] backdrop-blur" onClick={onClose}>
-      <div className="w-full max-w-sm glass-strong rounded-3xl overflow-hidden" style={{ boxShadow: "var(--glass-shadow)" }} onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[var(--scrim)] backdrop-blur" onClick={onClose}>
+      <div className="w-full max-w-sm glass-strong rounded-t-3xl sm:rounded-3xl overflow-y-auto max-h-[92dvh]" style={{ boxShadow: "var(--glass-shadow)" }} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--hairline)]">
           <div className="flex items-center gap-2.5">
             <div className="grid place-items-center w-8 h-8 rounded-xl" style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)" }}>

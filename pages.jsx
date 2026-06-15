@@ -430,6 +430,27 @@ function DiagnoseModal({ inhabitant, onClose }) {
   );
 }
 
+// iNaturalist photo search — returns [{url, name, scientific}]
+async function searchSpeciesPhoto(query) {
+  try {
+    const url = `https://api.inaturalist.org/v1/taxa?q=${encodeURIComponent(query)}&per_page=6&order=desc&order_by=observations_count`;
+    const r = await fetch(url, { signal: AbortSignal.timeout(6000) });
+    if (!r.ok) return [];
+    const d = await r.json();
+    return (d.results || [])
+      .filter((x) => x.default_photo?.medium_url)
+      .slice(0, 4)
+      .map((x) => ({
+        url: x.default_photo.medium_url.replace("medium", "square"),
+        preview: x.default_photo.medium_url,
+        name: x.preferred_common_name || x.name,
+        scientific: x.name,
+      }));
+  } catch {
+    return [];
+  }
+}
+
 // ---------------------------- ADD INHABITANT MODAL ----------------------------
 function AddInhabitantModal({ onClose }) {
   const [kind, setKind] = useState("fish");
@@ -437,9 +458,23 @@ function AddInhabitantModal({ onClose }) {
   const [scientific, setScientific] = useState("");
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
+  const [photoResults, setPhotoResults] = useState([]);
+  const [photoLoading, setPhotoLoading] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState(null);
   const nameRef = useRef(null);
   useEscape(onClose);
   useEffect(() => { nameRef.current?.focus(); }, []);
+
+  const searchPhoto = async () => {
+    const q = scientific.trim() || name.trim();
+    if (!q) return;
+    setPhotoLoading(true);
+    setPhotoResults([]);
+    const results = await searchSpeciesPhoto(q);
+    setPhotoResults(results);
+    if (results.length === 0) window.toast?.(T("No se encontraron fotos — intenta con el nombre científico", "No photos found — try the scientific name"), { tone: "warn", icon: "Image" });
+    setPhotoLoading(false);
+  };
 
   const save = () => {
     const n = name.trim();
@@ -454,6 +489,7 @@ function AddInhabitantModal({ onClose }) {
       note: note.trim() || T("Recién añadido — en observación", "Newly added — under observation"),
     };
     window.AquaStore.addInhabitant(kind, item);
+    if (selectedPhoto) window.AquaStore.setPhoto(item.id, selectedPhoto);
     window.toast?.(T(`${item.name} añadido`, `${item.name} added`), { icon: "Fish" });
     onClose();
   };
@@ -465,13 +501,13 @@ function AddInhabitantModal({ onClose }) {
   ];
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center p-4 bg-[var(--scrim)] backdrop-blur" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[var(--scrim)] backdrop-blur" onClick={onClose}>
       <Card
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-label={T("Agregar habitante", "Add inhabitant")}
-        className="w-full max-w-md overflow-hidden glass-strong"
+        className="w-full max-w-md glass-strong rounded-t-3xl sm:rounded-3xl overflow-y-auto max-h-[92dvh]"
       >
         <div className="flex items-center justify-between p-4 border-b border-[var(--hairline)]">
           <div className="flex items-center gap-2.5">
@@ -520,17 +556,68 @@ function AddInhabitantModal({ onClose }) {
             />
           </label>
 
-          {/* Scientific name */}
-          <label className="block">
+          {/* Scientific name + photo search trigger */}
+          <div>
             <div className="text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1.5">{T("Nombre científico", "Scientific name")} <span className="normal-case text-[10px]">({T("opcional", "optional")})</span></div>
-            <input
-              type="text"
-              value={scientific}
-              onChange={(e) => setScientific(e.target.value)}
-              placeholder={T("ej. Seriatopora hystrix", "e.g. Amphiprion ocellaris")}
-              className="w-full bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2 text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-border)] transition-colors italic"
-            />
-          </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={scientific}
+                onChange={(e) => setScientific(e.target.value)}
+                placeholder={T("ej. Seriatopora hystrix", "e.g. Amphiprion ocellaris")}
+                className="flex-1 bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2 text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-border)] transition-colors italic"
+              />
+              <button
+                type="button"
+                onClick={searchPhoto}
+                disabled={!name.trim() || photoLoading}
+                className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-medium transition-all disabled:opacity-40"
+                style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)", color: "var(--accent)" }}
+                title={T("Buscar foto de la especie", "Search species photo")}
+              >
+                {photoLoading ? <L name="Loader2" size={13} className="animate-spin" /> : <L name="Search" size={13} />}
+                {T("Foto", "Photo")}
+              </button>
+            </div>
+          </div>
+
+          {/* Photo results grid */}
+          {photoResults.length > 0 && (
+            <div>
+              <div className="text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1.5">
+                {T("Selecciona una foto (iNaturalist)", "Select a photo (iNaturalist)")}
+                <span className="ml-2 normal-case text-[9.5px]">· {T("toca para elegir", "tap to select")}</span>
+              </div>
+              <div className="grid grid-cols-4 gap-1.5">
+                {photoResults.map((p, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setSelectedPhoto(selectedPhoto === p.preview ? null : p.preview)}
+                    className="relative aspect-square rounded-xl overflow-hidden transition-all"
+                    style={{
+                      outline: selectedPhoto === p.preview ? "2.5px solid var(--accent)" : "2px solid transparent",
+                      outlineOffset: 1,
+                    }}
+                    title={p.name}
+                  >
+                    <img src={p.url} alt={p.name} className="w-full h-full object-cover" loading="lazy" />
+                    {selectedPhoto === p.preview && (
+                      <div className="absolute inset-0 flex items-center justify-center" style={{ background: "rgba(13,148,136,0.35)" }}>
+                        <L name="Check" size={18} style={{ color: "white" }} />
+                      </div>
+                    )}
+                    <div className="absolute bottom-0 inset-x-0 px-1 py-0.5 text-[8.5px] text-white truncate" style={{ background: "rgba(0,0,0,0.55)" }}>{p.name}</div>
+                  </button>
+                ))}
+              </div>
+              {selectedPhoto && (
+                <p className="text-[10px] text-[var(--accent)] mt-1 flex items-center gap-1">
+                  <L name="CheckCircle2" size={10} />{T("Foto seleccionada — se guardará con el habitante", "Photo selected — will be saved with inhabitant")}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Notes */}
           <label className="block">

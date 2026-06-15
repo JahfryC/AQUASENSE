@@ -35,7 +35,8 @@ function App() {
   });
   const signIn = (user) => {
     const remember = localStorage.getItem("aqua:remember") !== "false";
-    if (remember || user.remember !== false) {
+    // user.remember = false forces sessionStorage (used by demo/guest mode)
+    if (user.remember !== false && remember) {
       localStorage.setItem("aqua:session", JSON.stringify(user));
       sessionStorage.removeItem("aqua:session");
     } else {

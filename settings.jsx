@@ -96,12 +96,18 @@ function LoginScreen({ onSignIn, isNew = false }) {
     }
   };
 
-  const demoMode = () => onSignIn({
-    name: "Demo", email: null,
-    color: "linear-gradient(150deg, #7C90A3, #46607A)",
-    provider: "guest",
-    since: new Date().toISOString().slice(0, 10),
-  });
+  const demoMode = () => {
+    // Clear all aqua:* keys so demo always starts truly fresh (onboarding included)
+    Object.keys(localStorage).filter((k) => k.startsWith("aqua:")).forEach((k) => localStorage.removeItem(k));
+    sessionStorage.clear();
+    onSignIn({
+      name: "Demo", email: null,
+      color: "linear-gradient(150deg, #7C90A3, #46607A)",
+      provider: "guest",
+      remember: false,  // session lives in sessionStorage only; doesn't persist across tabs/reload
+      since: new Date().toISOString().slice(0, 10),
+    });
+  };
 
   const titles = {
     signin: T("Iniciar sesion", "Sign in"),

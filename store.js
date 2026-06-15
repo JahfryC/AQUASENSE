@@ -6,19 +6,6 @@
 window.AquaStore = (() => {
   const KEY = "aqua:userdata:v1";
   const A = window.AQUA;
-  const isNewUser = !localStorage.getItem(KEY);
-
-  // Brand-new users start with an empty tank instead of the mock dataset
-  if (isNewUser) {
-    A.INHABITANTS.fish = [];
-    A.INHABITANTS.corals = [];
-    A.INHABITANTS.cuc = [];
-    A.ALERTS = [];
-    A.ALL_TANKS = [{ ...A.ALL_TANKS[0], name: "Mi Acuario", owner: "" }];
-    Object.assign(A.TANK_CONFIG, A.ALL_TANKS[0]);
-    // Reset parameters to typical safe values with no owner-specific notes
-    Object.values(A.CURRENT_PARAMETERS).forEach((p) => { p.status = "ok"; p.trend = "flat"; p.note = ""; });
-  }
 
   let ud = {
     activeTankId: "tank-001",  // selected tank
