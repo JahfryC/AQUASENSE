@@ -1,25 +1,9 @@
 // cloud.js — Supabase integration (auth + cloud sync)
-// Free tier: 500 MB DB, 50k monthly active users, unlimited auth
-//
-// ════════════ SETUP (5 minutes, gratis) ════════════
-// 1. Ve a https://supabase.com → New project (elige región cerca tuya)
-// 2. En el SQL Editor pega y ejecuta el schema de abajo.
-// 3. Authentication → Providers → Google → habilita y añade
-//    Client ID/Secret desde console.cloud.google.com (OAuth 2.0).
-// 4. Settings → API → copia "Project URL" y "anon public key".
-// 5. En AquaMind → Ajustes → Integraciones pega esos valores.
-//
-// SCHEMA SQL (ejecutar en Supabase SQL Editor):
-//   create extension if not exists "uuid-ossp";
-//   create table if not exists aquamind_data (
-//     id uuid default uuid_generate_v4() primary key,
-//     user_id uuid references auth.users(id) on delete cascade not null unique,
-//     data jsonb not null default '{}',
-//     updated_at timestamptz default now() not null
-//   );
-//   alter table aquamind_data enable row level security;
-//   create policy "own data" on aquamind_data for all using (auth.uid() = user_id);
-// ═════════════════════════════════════════════════
+// Project: zsvqyhzzavmlqxxoaezc
+
+// Default credentials — override in Settings → Account if needed
+const SUPABASE_DEFAULT_URL = "https://zsvqyhzzavmlqxxoaezc.supabase.co";
+const SUPABASE_DEFAULT_KEY = "sb_publishable_3mJ5rNElrWZXcfAIBWZyYA_cparoje8";
 
 window.CLOUD = (() => {
   const CDN = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js";
@@ -27,8 +11,8 @@ window.CLOUD = (() => {
 
   function getConfig() {
     return {
-      url: localStorage.getItem("aqua:supabase_url") || "",
-      key: localStorage.getItem("aqua:supabase_key") || "",
+      url: localStorage.getItem("aqua:supabase_url") || SUPABASE_DEFAULT_URL,
+      key: localStorage.getItem("aqua:supabase_key") || SUPABASE_DEFAULT_KEY,
     };
   }
 
@@ -162,10 +146,7 @@ window.CLOUD = (() => {
   const ready = init();
 
   return {
-    get isConfigured() {
-      const { url, key } = getConfig();
-      return !!(url && key);
-    },
+    get isConfigured() { return true; },
     get user() { return user; },
     ready,
     signInWithEmail,
