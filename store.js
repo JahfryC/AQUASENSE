@@ -19,6 +19,7 @@ window.AquaStore = (() => {
     inhabitantUpdates: {},     // { id: { status, note } }
     customTanks: [],           // tanks added by the user
     lightingWeek: null,
+    lightFixture: null,        // { name, brand, wattage, type }
     photos: {},                // { slotId: dataURL }
     updatedAt: 0,
   };
@@ -40,14 +41,10 @@ window.AquaStore = (() => {
     }
   });
 
-  // Load AI key immediately (before return) so callGemini can use it on first message
+  // Load user's own AI key — no shared/fallback key to avoid rate-limit confusion
   (function () {
     const storedKey = localStorage.getItem("aqua:ai_key");
-    if (storedKey) {
-      window.AQUAMIND_AI_KEY = storedKey;
-    } else {
-      try { window.AQUAMIND_AI_KEY = atob("QVEuQWI4Uk42THloSDdHQ0NoOENTeTVzTTNCd0lZWVE2UDR2OGRWLUtCQ1lLN0Mtb01wQVE="); } catch (_) {}
-    }
+    window.AQUAMIND_AI_KEY = storedKey || null;
   })();
 
   let saveTimer = null;
@@ -138,8 +135,10 @@ window.AquaStore = (() => {
     logReading(k, v) { A.logReading(k, v); touch(); },
 
     // ---- iluminación ----
-    get lightingWeek() { return ud.lightingWeek || 2; },
+    get lightingWeek() { return ud.lightingWeek || 1; },
     setLightingWeek(w) { ud.lightingWeek = w; touch(); },
+    get lightFixture() { return ud.lightFixture || null; },
+    setLightFixture(data) { ud.lightFixture = data; touch(); },
 
     // ---- fotos ----
     getPhoto(id) { return ud.photos[id] || null; },

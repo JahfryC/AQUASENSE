@@ -723,9 +723,135 @@ function InhabitantsPage() {
 }
 
 // ---------------------------- LIGHTING PAGE ----------------------------
+function LightFixtureModal({ onClose }) {
+  const S = window.AquaStore;
+  const existing = S.lightFixture || {};
+  const [name, setName] = useState(existing.name || "");
+  const [brand, setBrand] = useState(existing.brand || "");
+  const [wattage, setWattage] = useState(existing.wattage ? String(existing.wattage) : "");
+  const [type, setType] = useState(existing.type || "led");
+  const nameRef = useRef(null);
+  useEscape(onClose);
+  useEffect(() => { nameRef.current?.focus(); }, []);
+
+  const save = () => {
+    const n = name.trim();
+    if (!n) { nameRef.current?.focus(); return; }
+    S.setLightFixture({ name: n, brand: brand.trim(), wattage: wattage ? +wattage : null, type });
+    window.toast?.(T("Lámpara guardada", "Fixture saved"), { icon: "Lamp" });
+    window.dispatchEvent(new Event("aqua:data"));
+    onClose();
+  };
+
+  const types = [
+    { id: "led",      label: "LED" },
+    { id: "t5",       label: "T5" },
+    { id: "mh",       label: T("Metal Halide", "Metal Halide") },
+    { id: "hybrid",   label: T("Híbrido", "Hybrid") },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[var(--scrim)] backdrop-blur" onClick={onClose}>
+      <Card
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        className="w-full max-w-md glass-strong rounded-t-3xl sm:rounded-3xl overflow-y-auto max-h-[92dvh]"
+      >
+        <div className="flex items-center justify-between p-4 border-b border-[var(--hairline)]">
+          <div className="flex items-center gap-2.5">
+            <div className="grid place-items-center w-8 h-8 rounded-xl" style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)" }}>
+              <L name="Lamp" size={14} style={{ color: "var(--accent)" }} />
+            </div>
+            <div>
+              <div className="text-[13.5px] font-semibold text-[var(--ink)]">{T("Configurar lámpara", "Configure fixture")}</div>
+              <div className="text-[10.5px] text-[var(--ink-2)]">{T("Nombre, tipo y potencia de tu luminaria", "Name, type and wattage of your light")}</div>
+            </div>
+          </div>
+          <button onClick={onClose} aria-label={T("Cerrar", "Close")} className="p-1.5 rounded-full hover:bg-[var(--hover)] text-[var(--ink-2)]"><L name="X" size={14} /></button>
+        </div>
+
+        <div className="p-4 space-y-3">
+          {/* Type selector */}
+          <div>
+            <div className="text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1.5">{T("Tipo de luz", "Light type")}</div>
+            <div className="grid grid-cols-4 gap-1.5">
+              {types.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setType(t.id)}
+                  className={`rounded-xl px-2 py-2 text-[12px] font-medium border transition-all ${type === t.id ? "" : "border-[var(--hairline)] text-[var(--ink-3)] hover:border-[var(--hairline-strong)]"}`}
+                  style={type === t.id ? { background: "var(--accent-soft)", border: "1px solid var(--accent-border)", color: "var(--accent)" } : {}}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Name */}
+          <label className="block">
+            <div className="text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1.5">{T("Nombre / modelo *", "Name / model *")}</div>
+            <input
+              ref={nameRef}
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") save(); }}
+              placeholder={T("ej. Smatfarm G5, AI Hydra 26, Kessil A360", "e.g. Smatfarm G5, AI Hydra 26, Kessil A360")}
+              className="w-full bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2 text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-border)] transition-colors"
+            />
+          </label>
+
+          <div className="grid grid-cols-2 gap-3">
+            {/* Brand */}
+            <label className="block">
+              <div className="text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1.5">{T("Marca", "Brand")} <span className="normal-case text-[10px]">({T("opcional","optional")})</span></div>
+              <input
+                type="text"
+                value={brand}
+                onChange={(e) => setBrand(e.target.value)}
+                placeholder={T("ej. Aquaillumination", "e.g. Aquaillumination")}
+                className="w-full bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2 text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-border)] transition-colors"
+              />
+            </label>
+            {/* Wattage */}
+            <label className="block">
+              <div className="text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1.5">{T("Potencia (W)", "Wattage (W)")} <span className="normal-case text-[10px]">({T("opcional","optional")})</span></div>
+              <input
+                type="number"
+                min="0"
+                inputMode="numeric"
+                value={wattage}
+                onChange={(e) => setWattage(e.target.value)}
+                placeholder="95"
+                className="w-full bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2 text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-border)] transition-colors"
+              />
+            </label>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-2 p-4 border-t border-[var(--hairline)]">
+          <Button variant="ghost" onClick={onClose}>{T("Cancelar", "Cancel")}</Button>
+          <Button variant="primary" icon="Check" disabled={!name.trim()} onClick={save}>{T("Guardar", "Save")}</Button>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 function LightingPage() {
   const { LIGHTING_SCHEDULE, LIGHT_CHANNELS } = window.AQUA;
-  const currentWeek = window.AquaStore?.lightingWeek || 2;
+  const currentWeek = window.AquaStore?.lightingWeek || 1;
+  const [fixture, setFixture] = useState(window.AquaStore?.lightFixture || null);
+  const [fixtureOpen, setFixtureOpen] = useState(false);
+
+  // Re-read fixture after modal closes
+  const closeFixtureModal = () => {
+    setFixtureOpen(false);
+    setFixture(window.AquaStore?.lightFixture || null);
+  };
 
   return (
     <div className="px-4 lg:px-6 py-5 lg:py-6 space-y-4">
@@ -736,10 +862,42 @@ function LightingPage() {
           <p className="text-[12.5px] text-[var(--ink-2)] mt-1">{T("Aumentos graduales por canal para evitar estrés lumínico en corales nuevos","Gradual per-channel ramps to avoid light stress on new corals")}</p>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="secondary" icon="Lamp" onClick={() => setFixtureOpen(true)}>{T("Mi lámpara","My fixture")}</Button>
           <Button variant="secondary" icon="Power" onClick={() => window.toast?.(T("Modo noche activado — intensidad reducida al 5%", "Night mode active — intensity reduced to 5%"), { icon: "Moon", tone: "info" })}>{T("Modo noche","Night mode")}</Button>
           <Button variant="primary" icon="Sliders" onClick={() => window.toast?.(T("Ajustes finos de iluminación — próximamente", "Fine lighting controls — coming soon"), { icon: "Sliders", tone: "info" })}>{T("Ajustes finos","Fine tuning")}</Button>
         </div>
       </div>
+      {fixtureOpen && <LightFixtureModal onClose={closeFixtureModal} />}
+
+      {/* Fixture info card — shown when configured */}
+      {fixture && (
+        <Card className="p-4 flex items-center gap-3">
+          <div className="grid place-items-center w-10 h-10 rounded-xl shrink-0" style={{ background: "rgba(13,148,136,0.13)", border: "1px solid rgba(13,148,136,0.3)" }}>
+            <L name="Lamp" size={16} style={{ color: "#0E9F6E" }} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-[13.5px] font-semibold text-[var(--ink)]">{fixture.name}</div>
+            <div className="text-[11px] text-[var(--ink-2)]">
+              {[fixture.brand, fixture.type?.toUpperCase(), fixture.wattage ? `${fixture.wattage}W` : null].filter(Boolean).join(" · ")}
+            </div>
+          </div>
+          <Button size="sm" variant="ghost" icon="Edit3" onClick={() => setFixtureOpen(true)}>{T("Editar","Edit")}</Button>
+        </Card>
+      )}
+
+      {/* No fixture yet — prompt to configure */}
+      {!fixture && (
+        <Card className="p-4 flex items-center gap-3" style={{ border: "1px dashed var(--hairline-strong)" }}>
+          <div className="grid place-items-center w-10 h-10 rounded-xl shrink-0" style={{ background: "var(--well)", border: "1px solid var(--hairline)" }}>
+            <L name="Lamp" size={16} className="text-[var(--ink-3)]" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-[13px] font-medium text-[var(--ink)]">{T("Sin lámpara configurada", "No fixture configured")}</div>
+            <div className="text-[11px] text-[var(--ink-2)]">{T("Agrega tu luminaria para ver su nombre en el dashboard", "Add your light to show its name on the dashboard")}</div>
+          </div>
+          <Button size="sm" variant="primary" icon="Plus" onClick={() => setFixtureOpen(true)}>{T("Agregar","Add")}</Button>
+        </Card>
+      )}
 
       {/* week selector */}
       <Card className="p-4">

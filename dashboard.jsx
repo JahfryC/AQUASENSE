@@ -716,14 +716,14 @@ function WaterParamsCard({ onNavigate }) {
 
 // ---- Lighting Schedule card ----
 function LightingScheduleCard({ onNavigate }) {
-  const { LIGHTING_SCHEDULE, LIGHT_CHANNELS, EQUIPMENT } = window.AQUA;
+  const { LIGHTING_SCHEDULE, LIGHT_CHANNELS } = window.AQUA;
   const currentWeekNum = window.AquaStore?.lightingWeek || 1;
   const wk = LIGHTING_SCHEDULE[Math.min(currentWeekNum - 1, LIGHTING_SCHEDULE.length - 1)];
   const nextWeekNum = currentWeekNum + 1;
   const hasNextWeek = nextWeekNum <= LIGHTING_SCHEDULE.length;
   const nextWk = hasNextWeek ? LIGHTING_SCHEDULE[nextWeekNum - 1] : null;
   const deltaB = hasNextWeek ? (nextWk.channels.B - wk.channels.B) : 0;
-  const lightFixture = EQUIPMENT.find((e) => e.type === "lighting");
+  const lightFixture = window.AquaStore?.lightFixture;
   // 24h cycle gradient: night → ramp 7-11 → peak → ramp down 15-21 → night
   const cycleGradient = "linear-gradient(90deg, #283A66 0%, #283A66 27%, #7FB4D9 38%, #FDF3C9 47%, #FDF6D8 58%, #F4C77E 72%, #4A5A92 88%, #283A66 100%)";
 
@@ -759,10 +759,12 @@ function LightingScheduleCard({ onNavigate }) {
         </div>
         <div className="flex-1 min-w-0">
           <div className="text-[13.5px] font-semibold text-[var(--ink)]">
-            {lightFixture ? lightFixture.name : T("Lámpara LED", "LED Light")}
+            {lightFixture
+              ? [lightFixture.name, lightFixture.wattage ? `${lightFixture.wattage}W` : null].filter(Boolean).join(" ")
+              : T("Lámpara LED", "LED Light")}
           </div>
           <div className="text-[11px] text-[var(--ink-2)] mt-0.5">
-            {T("Tipo: LED · Fase: Aclimatación semana", "Type: LED · Phase: Acclimation week")} {wk.week}
+            {T("Tipo:", "Type:")} {lightFixture?.type?.toUpperCase() || "LED"} · {T("Fase: Aclimatación semana", "Phase: Acclimation week")} {wk.week}
           </div>
           <div className="text-[11px] text-[var(--ink-2)]">
             {T("Horario: 07:00 – 21:00 (rampa azul+blanco)", "Schedule: 7a – 9p (blue+white ramp)")}
