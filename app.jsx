@@ -94,7 +94,17 @@ function App() {
   // ---- onboarding check ----
   const [onboarded, setOnboarded] = React.useState(() => !!localStorage.getItem("aqua:onboarded"));
 
-  // Show onboarding if not done yet (even before login)
+  if (!session) {
+    return (
+      <div key={t.lang}>
+        <LoginScreen onSignIn={signIn} isNew={!onboarded} />
+        <ToastHost />
+        {tweaksPanel}
+      </div>
+    );
+  }
+
+  // Post-login onboarding for new users
   if (!onboarded) {
     return (
       <div key={t.lang}>
@@ -147,16 +157,6 @@ function App() {
       />
     </TweaksPanel>
   );
-
-  if (!session) {
-    return (
-      <div key={t.lang}>
-        <LoginScreen onSignIn={signIn} />
-        <ToastHost />
-        {tweaksPanel}
-      </div>
-    );
-  }
 
   return (
     <div key={t.lang} className="min-h-screen relative text-[var(--ink)]">

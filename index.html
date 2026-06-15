@@ -6846,7 +6846,8 @@ function GoogleG({
 
 // ---------- Login screen — Supabase email/password ----------
 function LoginScreen({
-  onSignIn
+  onSignIn,
+  isNew = false
 }) {
   const [mode, setMode] = React.useState("signin"); // "signin" | "signup" | "reset"
   const [email, setEmail] = React.useState("");
@@ -6962,7 +6963,44 @@ function LoginScreen({
     className: "text-[22px] font-semibold tracking-tight text-[var(--ink)]"
   }, "AquaMind"), /*#__PURE__*/React.createElement("p", {
     className: "text-[12px] text-[var(--ink-2)] mt-1"
-  }, T("Tu acuario, monitoreado con inteligencia.", "Your aquarium, intelligently monitored."))), mode !== "reset" && /*#__PURE__*/React.createElement("div", {
+  }, T("Tu acuario, monitoreado con inteligencia.", "Your aquarium, intelligently monitored."))), isNew && mode === "signin" && /*#__PURE__*/React.createElement("div", {
+    className: "mb-5 rounded-2xl overflow-hidden",
+    style: {
+      background: "var(--accent-soft)",
+      border: "1px solid var(--accent-border)"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "px-4 py-3 flex items-center gap-2 border-b border-[var(--accent-border)]"
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "Sparkles",
+    size: 14,
+    style: {
+      color: "var(--accent)"
+    }
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "text-[12.5px] font-semibold",
+    style: {
+      color: "var(--accent)"
+    }
+  }, T("¡Bienvenido a AquaMind! Ten esto a mano:", "Welcome to AquaMind! Have these ready:"))), /*#__PURE__*/React.createElement("ul", {
+    className: "px-4 py-3 space-y-2"
+  }, [[T("Kit de pruebas de agua", "Water test kit"), T("pH, KH, calcio, magnesio, nitrito, nitrato, amoniaco", "pH, KH, calcium, magnesium, nitrite, nitrate, ammonia"), "Droplets"], [T("Datos de tu acuario", "Aquarium specs"), T("Dimensiones, volumen, marca y modelo", "Dimensions, volume, brand and model"), "Box"], [T("Lista de habitantes", "Inhabitant list"), T("Peces, corales, equinodermos y limpiadores", "Fish, corals, echinoderms and cleanup crew"), "Fish"], [T("Productos que usas", "Products you use"), T("Alimentos, aditivos y marcas de equipo", "Foods, additives and equipment brands"), "Package"]].map(([title, desc, icon]) => /*#__PURE__*/React.createElement("li", {
+    key: title,
+    className: "flex items-start gap-2.5"
+  }, /*#__PURE__*/React.createElement(L, {
+    name: icon,
+    size: 13,
+    className: "mt-0.5 shrink-0",
+    style: {
+      color: "var(--accent)"
+    }
+  }), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
+    className: "text-[12px] font-medium text-[var(--ink)]"
+  }, title), /*#__PURE__*/React.createElement("span", {
+    className: "text-[10.5px] text-[var(--ink-3)] block"
+  }, desc))))), /*#__PURE__*/React.createElement("p", {
+    className: "px-4 pb-3 text-[10px] text-[var(--ink-3)] leading-relaxed"
+  }, T("No te preocupes si no tienes todo — puedes completar los datos más tarde.", "Don't worry if you don't have everything — you can fill in the details later."))), mode !== "reset" && /*#__PURE__*/React.createElement("div", {
     className: "flex p-0.5 rounded-xl mb-5",
     style: {
       background: "var(--well)",
@@ -8381,8 +8419,7 @@ function App() {
     setActivePage("dashboard");
   };
 
-  // Login REAL con Google (Firebase): cloud.js emite aqua:auth al conectar
-  // o cerrar sesión; aquí lo reflejamos en la sesión de la app.
+  // Supabase auth: cloud.js emite aqua:auth al conectar o cerrar sesion.
   React.useEffect(() => {
     const fn = e => {
       if (e.detail) {
@@ -8390,12 +8427,13 @@ function App() {
           ...e.detail,
           color: "linear-gradient(150deg, var(--accent), var(--indigo))"
         });
-        window.toast?.(T(`Sesión iniciada: ${e.detail.email} — datos sincronizando con la nube`, `Signed in: ${e.detail.email} — data syncing to the cloud`), {
+        window.toast?.(T(`Sesion iniciada: ${e.detail.email} — datos sincronizando con la nube`, `Signed in: ${e.detail.email} — data syncing to the cloud`), {
           icon: "CloudUpload"
         });
       } else {
+        // Sign-out from Supabase: clear any cloud-backed session
         setSession(s => {
-          if (s?.provider === "google-cloud") {
+          if (s?.provider?.startsWith("supabase")) {
             localStorage.removeItem("aqua:session");
             return null;
           }
@@ -8425,6 +8463,26 @@ function App() {
     const nowDone = window.AquaStore.toggleRoutine(id);
     if (nowDone) window.toast?.(T("Rutina completada", "Routine completed"));
   };
+
+  // ---- onboarding check ----
+  const [onboarded, setOnboarded] = React.useState(() => !!localStorage.getItem("aqua:onboarded"));
+  if (!session) {
+    return /*#__PURE__*/React.createElement("div", {
+      key: t.lang
+    }, /*#__PURE__*/React.createElement(LoginScreen, {
+      onSignIn: signIn,
+      isNew: !onboarded
+    }), /*#__PURE__*/React.createElement(ToastHost, null), tweaksPanel);
+  }
+
+  // Post-login onboarding for new users
+  if (!onboarded) {
+    return /*#__PURE__*/React.createElement("div", {
+      key: t.lang
+    }, /*#__PURE__*/React.createElement(OnboardingFlow, {
+      onDone: () => setOnboarded(true)
+    }), /*#__PURE__*/React.createElement(ToastHost, null));
+  }
   const navigate = id => {
     setActivePage(id);
     window.scrollTo({
@@ -8499,13 +8557,6 @@ function App() {
     options: ["es", "en"],
     onChange: v => setTweak("lang", v)
   }));
-  if (!session) {
-    return /*#__PURE__*/React.createElement("div", {
-      key: t.lang
-    }, /*#__PURE__*/React.createElement(LoginScreen, {
-      onSignIn: signIn
-    }), /*#__PURE__*/React.createElement(ToastHost, null), tweaksPanel);
-  }
   return /*#__PURE__*/React.createElement("div", {
     key: t.lang,
     className: "min-h-screen relative text-[var(--ink)]"

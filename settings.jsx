@@ -19,7 +19,7 @@ function GoogleG({ size = 18 }) {
 }
 
 // ---------- Login screen — Supabase email/password ----------
-function LoginScreen({ onSignIn }) {
+function LoginScreen({ onSignIn, isNew = false }) {
   const [mode, setMode] = React.useState("signin"); // "signin" | "signup" | "reset"
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
@@ -122,6 +122,37 @@ function LoginScreen({ onSignIn }) {
               {T("Tu acuario, monitoreado con inteligencia.", "Your aquarium, intelligently monitored.")}
             </p>
           </div>
+
+          {/* New-user recap — visible only on first visit */}
+          {isNew && mode === "signin" && (
+            <div className="mb-5 rounded-2xl overflow-hidden" style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)" }}>
+              <div className="px-4 py-3 flex items-center gap-2 border-b border-[var(--accent-border)]">
+                <L name="Sparkles" size={14} style={{ color: "var(--accent)" }} />
+                <span className="text-[12.5px] font-semibold" style={{ color: "var(--accent)" }}>
+                  {T("¡Bienvenido a AquaMind! Ten esto a mano:", "Welcome to AquaMind! Have these ready:")}
+                </span>
+              </div>
+              <ul className="px-4 py-3 space-y-2">
+                {[
+                  [T("Kit de pruebas de agua", "Water test kit"), T("pH, KH, calcio, magnesio, nitrito, nitrato, amoniaco", "pH, KH, calcium, magnesium, nitrite, nitrate, ammonia"), "Droplets"],
+                  [T("Datos de tu acuario", "Aquarium specs"), T("Dimensiones, volumen, marca y modelo", "Dimensions, volume, brand and model"), "Box"],
+                  [T("Lista de habitantes", "Inhabitant list"), T("Peces, corales, equinodermos y limpiadores", "Fish, corals, echinoderms and cleanup crew"), "Fish"],
+                  [T("Productos que usas", "Products you use"), T("Alimentos, aditivos y marcas de equipo", "Foods, additives and equipment brands"), "Package"],
+                ].map(([title, desc, icon]) => (
+                  <li key={title} className="flex items-start gap-2.5">
+                    <L name={icon} size={13} className="mt-0.5 shrink-0" style={{ color: "var(--accent)" }} />
+                    <div>
+                      <span className="text-[12px] font-medium text-[var(--ink)]">{title}</span>
+                      <span className="text-[10.5px] text-[var(--ink-3)] block">{desc}</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              <p className="px-4 pb-3 text-[10px] text-[var(--ink-3)] leading-relaxed">
+                {T("No te preocupes si no tienes todo — puedes completar los datos más tarde.", "Don't worry if you don't have everything — you can fill in the details later.")}
+              </p>
+            </div>
+          )}
 
           {/* Mode tabs */}
           {mode !== "reset" && (
