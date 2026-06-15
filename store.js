@@ -38,6 +38,16 @@ window.AquaStore = (() => {
     }
   });
 
+  // Load AI key immediately (before return) so callGemini can use it on first message
+  (function () {
+    const storedKey = localStorage.getItem("aqua:ai_key");
+    if (storedKey) {
+      window.AQUAMIND_AI_KEY = storedKey;
+    } else {
+      try { window.AQUAMIND_AI_KEY = atob("QVEuQWI4Uk42THloSDdHQ0NoOENTeTVzTTNCd0lZWVE2UDR2OGRWLUtCQ1lLN0Mtb01wQVE="); } catch (_) {}
+    }
+  })();
+
   let saveTimer = null;
   function persist() {
     ud.updatedAt = Date.now();
@@ -166,12 +176,4 @@ window.AquaStore = (() => {
 
     reset() { localStorage.removeItem(KEY); location.reload(); },
   };
-
-  // Load AI key: user-saved key takes priority, otherwise use embedded default
-  const storedKey = localStorage.getItem("aqua:ai_key");
-  if (storedKey) {
-    window.AQUAMIND_AI_KEY = storedKey;
-  } else {
-    try { window.AQUAMIND_AI_KEY = atob("QVEuQWI4Uk42THloSDdHQ0NoOENTeTVzTTNCd0lZWVE2UDR2OGRWLUtCQ1lLN0Mtb01wQVE="); } catch(_) {}
-  }
 })();
