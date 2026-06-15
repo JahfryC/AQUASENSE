@@ -2,10 +2,10 @@
 const PARAM_ICON = {
   ph: "Beaker", kh: "TestTube", phosphate: "FlaskConical", calcium: "Atom",
   nitrate: "Droplets", nitrite: "Droplets", ammonia: "Droplets",
-  temperature: "Thermometer", salinity: "Sailboat",
+  temperature: "Thermometer", salinity: "Sailboat", magnesium: "Atom",
 };
 
-// ---- AquaBot command engine ----
+// ---- Aqua Buddy command engine ----
 // Entiende órdenes en lenguaje natural (ES/EN) y las aplica a la app:
 // lecturas, rutinas, alertas/recordatorios, habitantes e iluminación.
 // Todo lo que toca pasa por AquaStore → persiste en local y se sincroniza
@@ -50,11 +50,11 @@ function applyAquaCommand(raw) {
     let freq = T("según necesidad", "as needed");
     const f = text.match(/\s+(diari[oa](?:mente)?|semanal(?:mente)?|quincenal|mensual|cada\s+[\wáéíóú\s]+|daily|weekly|biweekly|monthly)$/i);
     if (f) { freq = f[1]; text = text.slice(0, f.index).trim(); }
-    const r = { id: "ru" + Date.now(), task: cap1(text), detail: T("Añadida vía AquaBot", "Added via AquaBot"), frequency: freq, nextDue: "today", time: "12:00", icon: "CalendarCheck" };
+    const r = { id: "ru" + Date.now(), task: cap1(text), detail: T("Añadida vía Aqua Buddy", "Added via Aqua Buddy"), frequency: freq, nextDue: "today", time: "12:00", icon: "CalendarCheck" };
     S.addRoutine(r);
     return T(
       `✓ Rutina creada: «${r.task}» (${freq}). Ya aparece en Rutinas y en el timeline del dashboard.`,
-      `✓ Routine created: “${r.task}” (${freq}). It's now in Routines and on the dashboard timeline.`
+      `✓ Routine created: "${r.task}" (${freq}). It's now in Routines and on the dashboard timeline.`
     );
   }
 
@@ -64,13 +64,13 @@ function applyAquaCommand(raw) {
     const a = {
       id: "ua" + Date.now(), severity: "info", badge: T("RECORDATORIO", "REMINDER"),
       title: cap1(m[1].trim().replace(/[.!]$/, "")),
-      body: T("Creado por ti vía AquaBot.", "Created by you via AquaBot."),
-      cta: T("Marcar hecho", "Mark done"), tag: "AquaBot",
+      body: T("Creado por ti vía Aqua Buddy.", "Created by you via Aqua Buddy."),
+      cta: T("Marcar hecho", "Mark done"), tag: "Aqua Buddy",
     };
     S.addAlert(a);
     return T(
       `✓ Anotado: «${a.title}». Lo dejé en el centro de alertas — el badge ya lo cuenta.`,
-      `✓ Noted: “${a.title}”. It's in the alert center — the badge counts it now.`
+      `✓ Noted: "${a.title}". It's in the alert center — the badge counts it now.`
     );
   }
 
@@ -82,7 +82,7 @@ function applyAquaCommand(raw) {
     const item = {
       id: "ui" + Date.now(), name: cap1(m[2].trim().replace(/[.!]$/, "")), scientific: "",
       added: window.AQUA.MOCK_TODAY, status: "ok",
-      note: T("Añadido vía AquaBot — en observación", "Added via AquaBot — under observation"),
+      note: T("Añadido vía Aqua Buddy — en observación", "Added via Aqua Buddy — under observation"),
     };
     S.addInhabitant(kind, item);
     const kindLabel = { fish: T("Peces", "Fish"), corals: T("Corales", "Corals"), cuc: "CUC" }[kind];
@@ -127,7 +127,7 @@ function applyAquaCommand(raw) {
     });
     if (r) {
       if (!S.ud.routinesDone[r.id]) S.toggleRoutine(r.id);
-      return T(`✓ «${r.task}» marcada como completada. Bien ahí.`, `✓ “${r.task}” marked complete. Nice.`);
+      return T(`✓ «${r.task}» marcada como completada. Bien ahí.`, `✓ "${r.task}" marked complete. Nice.`);
     }
   }
 
@@ -150,7 +150,7 @@ function applyAquaCommand(raw) {
 // Rule-based fallback so the chat stays useful when the in-page Claude helper
 // isn't available (standalone HTML, plain browser). Answers are computed from
 // the same tank context the real prompt carries.
-function localAquaBot(q) {
+function localAquaBuddy(q) {
   const m = q.toLowerCase();
   if (/\bkh\b|buffer|alcalin|alkalin|dkh/.test(m)) return T(
     "Con KH en 7.0 dKH, dosifica 7 ml de Reef Buffer hoy (calculado para los 23 gal reales). Eso sube ~0.3 dKH/día — nunca más de 1 dKH/día. Re-mide en 24 h y repite hasta estabilizar en 8–8.5.",
@@ -172,44 +172,107 @@ function localAquaBot(q) {
     "El pH 7.9 es consecuencia de la KH baja — corrige primero la alcalinidad y el pH subirá solo. Más aireación y agitación de superficie ayudan; no persigas el pH con químicos.",
     "pH 7.9 follows from the low KH — fix alkalinity first and pH will rise on its own. More aeration and surface agitation help; don't chase pH with chemicals."
   );
+  if (/magnesio|magnesium|mg\b/.test(m)) return T(
+    "El magnesio en 1320 mg/L está en rango óptimo (1250–1350). No requiere suplementación adicional — solo mantén los cambios de agua regulares con agua bien mezclada.",
+    "Magnesium at 1320 mg/L is in the optimal range (1250–1350). No extra supplementation needed — just keep up regular water changes with well-mixed saltwater."
+  );
   return T(
-    "Estoy en modo demo sin conexión: pregúntame por el KH y la dosis de buffer, el Birdsnest, los fosfatos o los cambios de agua. Con la app conectada respondo cualquier consulta con IA real.",
-    "I'm in offline demo mode: ask me about KH and buffer dosing, the Birdsnest, phosphates or water changes. When the app is connected I answer anything with real AI."
+    "Estoy en modo demo sin conexión: pregúntame por KH, fosfatos, el Birdsnest, magnesio o cambios de agua. Con OpenAI configurado respondo cualquier consulta con IA real.",
+    "I'm in offline demo mode: ask me about KH, phosphates, the Birdsnest, magnesium or water changes. With OpenAI configured I answer anything with real AI."
   );
 }
 
-async function callAquaBot(userMessage) {
-  // Primero: ¿es una orden? (registrar, agregar, recordar…) — se ejecuta
-  // en la app directamente, online u offline.
+// Build a rich system prompt from live tank data for Aqua Buddy
+function buildAquaBuddyPrompt(mode = "personalized") {
+  const { TANK_CONFIG, CURRENT_PARAMETERS, INHABITANTS, EQUIPMENT, ALERTS } = window.AQUA;
+  const lang = window.__lang === "en" ? "English" : "Spanish";
+
+  const params = Object.entries(CURRENT_PARAMETERS)
+    .map(([k, p]) => `${p.label}: ${p.value}${p.unit ? " " + p.unit : ""} (${p.status === "ok" ? "ok" : p.status === "warn" ? "warn" : "critical"})`)
+    .join(", ");
+
+  const fish = INHABITANTS.fish.map((f) => `${f.name} (${f.status})`).join(", ");
+  const corals = INHABITANTS.corals.map((c) => `${c.name} (${c.status})`).join(", ");
+  const equipment = EQUIPMENT.map((e) => e.name).join(", ");
+  const alerts = ALERTS.map((a) => a.title).join("; ");
+
+  const tankContext = mode === "personalized" ? `
+TANK: ${TANK_CONFIG.name} — ${TANK_CONFIG.displayVolume} gal display / ${TANK_CONFIG.realVolume} gal real, ${TANK_CONFIG.type}, ${TANK_CONFIG.location}.
+PARAMETERS (live): ${params}.
+FISH: ${fish}.
+CORALS: ${corals}.
+EQUIPMENT: ${equipment}.
+ACTIVE ALERTS: ${alerts || "none"}.
+OWNER: ${TANK_CONFIG.owner} — experienced in freshwater, newer to saltwater.` : "";
+
+  return `You are Aqua Buddy, the AI assistant for AquaMind — an aquarium intelligence app.
+You are an expert marine and freshwater aquarist with deep knowledge of reef chemistry, coral husbandry, fish health, and planted tank techniques. You also draw on community knowledge from Reef2Reef and other leading reef forums.
+${tankContext}
+RULES:
+- Reply in ${lang}. Keep responses concise (3–5 sentences for the widget, longer for the AI chat page).
+- When the tank context is available, reference the owner's specific parameters, livestock, and equipment — give personalized advice with exact quantities (ml, g) based on the real tank volume.
+- When answering general questions, cite best practices from the reef community (Reef2Reef, BRS, etc.).
+- Be friendly, expert, and direct — like a veteran reefer helping a friend.
+- Mode: ${mode === "personalized" ? "personalized to this tank" : "general aquarium expert"}.`;
+}
+
+// Call OpenAI API directly via fetch (browser-side)
+async function callOpenAI(messages, system) {
+  const apiKey = window.AQUAMIND_OPENAI_KEY || localStorage.getItem("aqua:openai_key");
+  if (!apiKey) return null;
+  try {
+    const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        max_tokens: 400,
+        messages: [{ role: "system", content: system }, ...messages],
+      }),
+    });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    return data.choices?.[0]?.message?.content?.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+async function callAquaBuddy(userMessage, mode = "personalized", history = []) {
+  // First: command? (log reading, add routine, etc.) — executes locally, online or offline
   const command = applyAquaCommand(userMessage);
   if (command) {
     await new Promise((r) => setTimeout(r, 450));
     return command;
   }
-  if (!window.claude?.complete) {
-    await new Promise((r) => setTimeout(r, 800));
-    return localAquaBot(userMessage);
+
+  const system = buildAquaBuddyPrompt(mode);
+  const messages = [
+    ...history.map((m) => ({ role: m.from === "user" ? "user" : "assistant", content: m.text })),
+    { role: "user", content: userMessage },
+  ];
+
+  // Try OpenAI first
+  const openaiReply = await callOpenAI(messages, system);
+  if (openaiReply) return openaiReply;
+
+  // Fallback to Claude if available
+  if (window.claude?.complete) {
+    try {
+      const text = await window.claude.complete({
+        messages: [{ role: "user", content: `[System]\n${system}\n\n[Question]\n${userMessage}` }],
+      });
+      if (text?.trim()) return text.trim();
+    } catch { /* fall through */ }
   }
-  const lang = window.__lang === "en" ? "inglés" : "español";
-  const system = `Eres AquaBot, asistente IA de AquaSense para acuarios marinos.
-CONTEXTO: Tanque marino 20G High, 23 gal reales con sump, Columbus Ohio.
-Parámetros: pH 7.9 (bajo), KH 7.0 dKH (bajo), Fosfatos 0.25 ppm (alto), Calcio 400 mg/L (ok), Nitratos 5 ppm.
-Alertas: Birdsnest blanqueando por KH bajo, ATO al 15%, fosfatos en ascenso.
-Equipo: Smatfarm G5 95W, Fluval Sea Nano, ATO, PhosGuard hace 2 días, Reef Buffer Seachem.
-Usuario: Jeffrey, nuevo en salado, experimentado en dulce.
-REGLAS:
-- Responde en ${lang}, máximo 3-4 oraciones (es un widget).
-- Siempre menciona cantidades específicas (ml/g) usando 23 gal reales.
-- Tono experto pero accesible, como reefer veterano.`;
-  try {
-    const text = await window.claude.complete({
-      messages: [{ role: "user", content: `[Sistema]\n${system}\n\n[Pregunta]\n${userMessage}` }],
-    });
-    return (text || "").trim() || T("No pude procesar tu pregunta. Intenta de nuevo.", "I couldn't process that. Try again.");
-  } catch (e) {
-    return localAquaBot(userMessage);
-  }
+
+  await new Promise((r) => setTimeout(r, 800));
+  return localAquaBuddy(userMessage);
 }
+
+// Backward-compat alias used by other call sites
+const callAquaBot = (msg, hist) => callAquaBuddy(msg, "personalized", hist);
+const localAquaBot = localAquaBuddy;
 
 // ---- Reef Status & AI Update hero ----
 function ReefStatusHero({ onNavigate }) {
@@ -281,7 +344,7 @@ function ReefStatusHero({ onNavigate }) {
               <L name="Sparkles" size={11} style={{ color: "var(--accent)" }} />
             </div>
             <p className="text-[11px] text-[var(--ink-2)] leading-snug truncate">
-              {T("AquaBot: el KH bajó otra vez — ¿te paso el plan de dosificación?", "AquaBot: KH dropped again — want today's dosing plan?")}
+              {T("Aqua Buddy: el KH bajó otra vez — ¿te paso el plan de dosificación?", "Aqua Buddy: KH dropped again — want today's dosing plan?")}
             </p>
           </div>
         </div>
@@ -320,7 +383,7 @@ function ReefStatusHero({ onNavigate }) {
         {(loading || reply) && (
           <div className="mt-3 rounded-2xl px-3.5 py-2.5 text-[12.5px] leading-relaxed text-[var(--ink)]" style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)" }}>
             <span className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-semibold mb-1" style={{ color: "var(--accent)" }}>
-              <L name="Sparkles" size={11} /> AquaBot
+              <L name="Sparkles" size={11} /> Aqua Buddy
             </span>
             <div>{loading ? T("Analizando tu tanque…", "Analyzing your tank…") : reply}</div>
           </div>
@@ -706,10 +769,14 @@ function RoutinesTimeline({ items = 6, done: doneProp, onToggle: onToggleProp })
   );
 }
 
-// ---- AquaBot widget ----
+// ---- Aqua Buddy widget ----
 const QUICK_PROMPTS = () => window.__lang === "en"
   ? ["How much Reef Buffer today?", "Log KH 7.5", "Remind me to buy salt", "Add routine clean glass weekly", "Why is my Birdsnest bleaching?"]
   : ["¿Cuánto Reef Buffer dosifico hoy?", "Registra KH 7.5", "Recuérdame comprar sal", "Agrega rutina limpiar cristales semanal", "¿Por qué blanquea mi Birdsnest?"];
+
+const GENERAL_PROMPTS = () => window.__lang === "en"
+  ? ["Best corals for beginners?", "How to cycle a new tank?", "SPS vs LPS: what's easier?", "Reef2Reef: most common mistakes?"]
+  : ["¿Mejores corales para principiantes?", "¿Cómo ciclar un tanque nuevo?", "¿SPS vs LPS: cuál es más fácil?", "¿Errores más comunes en reef?"];
 
 function TypingDots() {
   return (
@@ -721,17 +788,22 @@ function TypingDots() {
   );
 }
 
-function AquaBotWidget() {
+function AquaBotWidget({ fullPage = false }) {
+  const { TANK_CONFIG } = window.AQUA;
+  const owner = TANK_CONFIG.owner;
+  const [mode, setMode] = React.useState("personalized"); // "personalized" | "general"
   const [messages, setMessages] = React.useState([
     { from: "bot", text: T(
-      "Hola Jeffrey. El KH bajó otra vez — ¿te paso el plan de dosificación? También puedo registrar lecturas, crear rutinas o recordatorios: prueba «Registra KH 7.5» o «Recuérdame comprar sal».",
-      "Hi Jeffrey. KH dropped again — want the dosing plan? I can also log readings, create routines or reminders: try “Log KH 7.5” or “Remind me to buy salt”."
+      `Hola ${owner}. El KH bajó otra vez — ¿te paso el plan de dosificación? También puedo registrar lecturas, crear rutinas o recordatorios: prueba «Registra KH 7.5» o «Recuérdame comprar sal».`,
+      `Hi ${owner}. KH dropped again — want the dosing plan? I can also log readings, create routines or reminders: try "Log KH 7.5" or "Remind me to buy salt".`
     ) },
   ]);
   const [input, setInput] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const loadingRef = React.useRef(false);
   const scroller = React.useRef(null);
+  const historyRef = React.useRef(messages);
+  historyRef.current = messages;
 
   React.useEffect(() => {
     if (scroller.current) scroller.current.scrollTop = scroller.current.scrollHeight;
@@ -740,17 +812,19 @@ function AquaBotWidget() {
   const send = async (text) => {
     const msg = (text ?? input).trim();
     if (!msg || loadingRef.current) return;
-    setMessages((m) => [...m, { from: "user", text: msg }]);
+    const newMsg = { from: "user", text: msg };
+    setMessages((m) => [...m, newMsg]);
     setInput("");
     loadingRef.current = true;
     setLoading(true);
-    const reply = await callAquaBot(msg);
+    const context = historyRef.current.slice(-8); // last 8 messages for context
+    const reply = await callAquaBuddy(msg, mode, context);
     setMessages((m) => [...m, { from: "bot", text: reply }]);
     loadingRef.current = false;
     setLoading(false);
   };
 
-  // Other surfaces (AquaBot page suggestions) can hand the widget a question.
+  // Other surfaces (AI page suggestions) can hand the widget a question.
   const sendRef = React.useRef(send);
   sendRef.current = send;
   React.useEffect(() => {
@@ -758,6 +832,8 @@ function AquaBotWidget() {
     window.addEventListener("aquabot:ask", fn);
     return () => window.removeEventListener("aquabot:ask", fn);
   }, []);
+
+  const prompts = mode === "personalized" ? QUICK_PROMPTS() : GENERAL_PROMPTS();
 
   return (
     <Card className="flex flex-col overflow-hidden h-full">
@@ -767,14 +843,39 @@ function AquaBotWidget() {
         </div>
         <div className="flex-1">
           <div className="flex items-center gap-1.5">
-            <span className="text-[13px] font-semibold text-[var(--ink)]">AquaBot</span>
-            <span className="text-[9px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded-md" style={{ background: "var(--accent-soft)", color: "var(--accent)", border: "1px solid var(--accent-border)" }}>Pro</span>
+            <span className="text-[13px] font-semibold text-[var(--ink)]">Aqua Buddy</span>
+            <span className="text-[9px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded-md" style={{ background: "var(--accent-soft)", color: "var(--accent)", border: "1px solid var(--accent-border)" }}>AI</span>
           </div>
           <div className="flex items-center gap-1.5 text-[10px] text-[var(--ink-2)]">
-            <PulsingDot color="#0E9F6E" size={5} /> {T("En línea · contexto cargado", "Online · context loaded")}
+            <PulsingDot color="#0E9F6E" size={5} /> {T("En línea · Reef2Reef + tu tanque", "Online · Reef2Reef + your tank")}
           </div>
         </div>
+        {/* Mode toggle */}
+        <div className="flex items-center gap-1 p-0.5 rounded-lg" style={{ background: "var(--well)", border: "1px solid var(--hairline)" }}>
+          {[
+            { id: "personalized", label: T("Mi tanque", "My tank"), icon: "Fish" },
+            { id: "general", label: T("General", "General"), icon: "Globe" },
+          ].map((m) => (
+            <button
+              key={m.id}
+              onClick={() => setMode(m.id)}
+              className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10.5px] font-medium transition-all ${mode === m.id ? "glass-strong text-[var(--ink)]" : "text-[var(--ink-3)] hover:text-[var(--ink-2)]"}`}
+            >
+              <L name={m.icon} size={10} />
+              {m.label}
+            </button>
+          ))}
+        </div>
       </div>
+
+      {mode === "general" && (
+        <div className="px-4 py-2 border-b border-[var(--hairline)]" style={{ background: "rgba(99,102,241,0.06)" }}>
+          <div className="text-[10.5px] text-[var(--ink-2)] flex items-center gap-1.5">
+            <L name="Globe" size={11} style={{ color: "var(--indigo)" }} />
+            {T("Modo general — basado en Reef2Reef y mejores prácticas de la comunidad", "General mode — based on Reef2Reef and community best practices")}
+          </div>
+        </div>
+      )}
 
       <div ref={scroller} className="flex-1 px-4 py-3 overflow-y-auto space-y-2.5 min-h-[260px] max-h-[420px]">
         {messages.map((m, i) => (
@@ -808,7 +909,7 @@ function AquaBotWidget() {
 
       <div className="px-3 pt-2 pb-3 border-t border-[var(--hairline)] min-w-0 max-w-full">
         <div className="flex gap-1.5 mb-2 overflow-x-auto pb-1 scroller min-w-0">
-          {QUICK_PROMPTS().map((q) => (
+          {prompts.map((q) => (
             <button
               key={q}
               onClick={() => send(q)}
@@ -826,7 +927,7 @@ function AquaBotWidget() {
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={T("Pregunta a AquaBot…", "Ask AquaBot…")}
+            placeholder={T("Pregunta a Aqua Buddy…", "Ask Aqua Buddy…")}
             className="flex-1 bg-transparent border-0 outline-none text-[12.5px] text-[var(--ink)] placeholder:text-[var(--ink-3)]"
           />
           <button
@@ -959,5 +1060,5 @@ function Dashboard({ onNavigate, alerts: allAlerts, onDismissAlert, routinesDone
 Object.assign(window, {
   Dashboard, AlertCard, AquaBotWidget, RoutinesTimeline, RoutineItem,
   ReefStatusHero, WaterParamsCard, LightingScheduleCard, LivestockInventory, GalleryStrip,
-  TankVitalsStrip, PARAM_ICON, callAquaBot, localAquaBot, alertCTAAction, applyAquaCommand,
+  TankVitalsStrip, PARAM_ICON, callAquaBot, callAquaBuddy, localAquaBuddy, localAquaBot, alertCTAAction, applyAquaCommand,
 });

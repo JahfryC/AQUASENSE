@@ -55,8 +55,8 @@ function Sidebar({ activePage, onNavigate, alertCount = 0, session }) {
         <div className="flex items-center gap-3 px-5 pt-5 pb-4">
           <Logo />
           <div>
-            <div className="text-[15.5px] font-semibold tracking-tight text-[var(--ink)]">AquaSense</div>
-            <div className="text-[9px] uppercase tracking-[0.18em] text-[var(--ink-3)] font-medium">Reef Intelligence</div>
+            <div className="text-[15.5px] font-semibold tracking-tight text-[var(--ink)]">AquaMind</div>
+            <div className="text-[9px] uppercase tracking-[0.18em] text-[var(--ink-3)] font-medium">Aquarium Intelligence</div>
           </div>
         </div>
 
@@ -106,10 +106,32 @@ function useClock() {
 }
 
 function TankSelector() {
-  const { TANK_CONFIG, CURRENT_PARAMETERS } = window.AQUA;
+  const { ALL_TANKS, CURRENT_PARAMETERS } = window.AQUA;
   const [open, setOpen] = React.useState(false);
+  const [activeTankId, setActiveTankId] = React.useState(() => window.AquaStore?.activeTankId || "tank-001");
   const close = React.useCallback(() => setOpen(false), []);
   useEscape(close);
+
+  // Keep in sync if tank changes from elsewhere
+  React.useEffect(() => {
+    const fn = (e) => setActiveTankId(e.detail?.id || "tank-001");
+    window.addEventListener("aqua:tank", fn);
+    return () => window.removeEventListener("aqua:tank", fn);
+  }, []);
+
+  const activeTank = (ALL_TANKS || []).find((t) => t.id === activeTankId) || ALL_TANKS?.[0];
+
+  const typeLabel = (tank) => {
+    if (tank.type === "freshwater") return T(`Dulce · ${tank.displayVolume} gal`, `Freshwater · ${tank.displayVolume} gal`);
+    return T(`Marino · ${tank.displayVolume} gal`, `Saltwater · ${tank.displayVolume} gal`);
+  };
+
+  const switchTank = (id) => {
+    window.AquaStore?.setActiveTank(id);
+    setActiveTankId(id);
+    close();
+  };
+
   return (
     <div className="relative">
       <button
@@ -119,7 +141,7 @@ function TankSelector() {
         className="glass-strong inline-flex items-center gap-2 rounded-full pl-2.5 pr-3 py-1.5 text-[12.5px] font-medium text-[var(--ink)] hover:brightness-105 transition-all"
       >
         <PulsingDot color="#0E9F6E" size={7} />
-        {TANK_CONFIG.name}
+        {activeTank?.name || "Tank"}
         <span className="hidden sm:inline text-[var(--ink-3)]">·</span>
         <span className="hidden sm:inline-flex items-center gap-1 text-[var(--ink-2)] tabular-nums">
           <L name="Thermometer" size={12} /> {CURRENT_PARAMETERS.temperature.value}°F
@@ -131,14 +153,21 @@ function TankSelector() {
           <div className="fixed inset-0 z-40" onClick={close} aria-hidden="true" />
           <div role="menu" className="absolute right-0 top-full mt-2 z-50 glass-strong rounded-2xl p-1.5 w-64" style={{ boxShadow: "var(--glass-shadow)" }}>
             <div className="px-3 pt-2 pb-1.5 text-[9.5px] uppercase tracking-[0.12em] text-[var(--ink-3)] font-semibold">{T("Tus tanques", "Your tanks")}</div>
-            <button role="menuitem" onClick={close} className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-[var(--hover)] transition-colors text-left">
-              <PulsingDot color="#0E9F6E" size={7} />
-              <span className="flex-1 min-w-0">
-                <span className="block text-[12.5px] font-medium text-[var(--ink)]">{TANK_CONFIG.name}</span>
-                <span className="block text-[10.5px] text-[var(--ink-2)]">{T("Marino · 20 gal · en línea", "Saltwater · 20 gal · online")}</span>
-              </span>
-              <L name="Check" size={14} style={{ color: "var(--accent)" }} />
-            </button>
+            {(ALL_TANKS || []).map((tank) => (
+              <button
+                key={tank.id}
+                role="menuitem"
+                onClick={() => switchTank(tank.id)}
+                className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-[var(--hover)] transition-colors text-left"
+              >
+                <PulsingDot color={tank.type === "freshwater" ? "#16a34a" : "#0E9F6E"} size={7} />
+                <span className="flex-1 min-w-0">
+                  <span className="block text-[12.5px] font-medium text-[var(--ink)]">{tank.name}</span>
+                  <span className="block text-[10.5px] text-[var(--ink-2)]">{typeLabel(tank)} {T("· en línea", "· online")}</span>
+                </span>
+                {tank.id === activeTankId && <L name="Check" size={14} style={{ color: "var(--accent)" }} />}
+              </button>
+            ))}
             <div className="h-px bg-[var(--hairline)] mx-2 my-1" />
             <button role="menuitem" onClick={() => { close(); demoAction(); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-[var(--hover)] transition-colors text-left text-[var(--ink-2)] hover:text-[var(--ink)]">
               <span className="grid place-items-center w-5 h-5 rounded-full bg-[var(--well)] border border-[var(--hairline)]"><L name="Plus" size={11} /></span>

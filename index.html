@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>AquaSense · Reef Intelligence</title>
-  <meta name="description" content="AquaSense — monitoreo y gestión inteligente de acuarios marinos con IA" />
+  <title>AquaMind · Aquarium Intelligence</title>
+  <meta name="description" content="AquaMind — intelligent aquarium management with AI. Track parameters, livestock, equipment and get personalized advice from Aqua Buddy." />
   <meta name="theme-color" content="#DCEAF2" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23D8E8EE'/%3E%3Cpath d='M50 18 C50 18 28 44 28 60 a22 22 0 0 0 44 0 C72 44 50 18 50 18 Z' fill='%230E8C86'/%3E%3C/svg%3E" />
   <link rel="apple-touch-icon" href="icon-180.png" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <meta name="apple-mobile-web-app-title" content="AquaSense" />
+  <meta name="apple-mobile-web-app-title" content="AquaMind" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -1352,22 +1352,40 @@ lucide.createIcons({icons});\``);if(typeof document>"u")throw new Error("`create
 
 </script>
 <script>/* data.js */
-// AquaSense mock data — single source of truth
+// AquaMind mock data — single source of truth
 window.AQUA = (() => {
   // The dataset is a coherent snapshot of this date; "today" everywhere means this.
   const MOCK_TODAY = "2026-05-20";
 
-  const TANK_CONFIG = {
-    id: "tank-001",
-    name: "20G High Reef",
-    type: "saltwater",
-    displayVolume: 20,
-    realVolume: 23,
-    location: "Columbus, Ohio",
-    localStore: { name: "Matt's Corals", address: "265 Lincoln Cir B, Gahanna", rodiPricePerGal: 0.75 },
-    setupDate: "2026-05-01",
-    owner: "Jeffrey",
-  };
+  // Multi-tank registry — the active tank is selected via AquaStore.activeTankId
+  const ALL_TANKS = [
+    {
+      id: "tank-001",
+      name: "20G High Reef",
+      type: "saltwater",
+      displayVolume: 20,
+      realVolume: 23,
+      location: "Columbus, Ohio",
+      localStore: { name: "Matt's Corals", address: "265 Lincoln Cir B, Gahanna", rodiPricePerGal: 0.75 },
+      setupDate: "2026-05-01",
+      owner: "Jeffrey",
+      online: true,
+    },
+    {
+      id: "tank-002",
+      name: "Planted 10G",
+      type: "freshwater",
+      displayVolume: 10,
+      realVolume: 10,
+      location: "Columbus, Ohio",
+      localStore: { name: "Matt's Corals", address: "265 Lincoln Cir B, Gahanna", rodiPricePerGal: 0.75 },
+      setupDate: "2026-04-10",
+      owner: "Jeffrey",
+      online: true,
+    },
+  ];
+
+  const TANK_CONFIG = ALL_TANKS[0];
 
   // status: ok | warn | danger | info
   const CURRENT_PARAMETERS = {
@@ -1380,6 +1398,7 @@ window.AQUA = (() => {
     ammonia:     { label: "Amonio",      value: 0,     unit: "ppm",  idealMin: 0,    idealMax: 0.25, status: "ok",     trend: "flat",   note: "Indetectable" },
     temperature: { label: "Temperatura", value: 79,    unit: "°F",   idealMin: 76,   idealMax: 80,   status: "ok",     trend: "flat",   note: "Estable" },
     salinity:    { label: "Salinidad",   value: 1.025, unit: "SG",   idealMin: 1.024,idealMax: 1.026,status: "ok",     trend: "flat",   note: "En rango" },
+    magnesium:   { label: "Magnesio",    value: 1320,  unit: "mg/L", idealMin: 1250, idealMax: 1350, status: "ok",     trend: "flat",   note: "Estable" },
   };
 
   // 14-day history (last index = today)
@@ -1393,6 +1412,7 @@ window.AQUA = (() => {
     ammonia:     [0,0,0,0,0,0,0,0,0,0,0,0,0,0],
     temperature: [78.6, 78.8, 79.1, 79.0, 78.7, 78.9, 79.2, 79.0, 78.8, 79.1, 79.0, 78.9, 79.0, 79.0],
     salinity:    [1.025,1.025,1.025,1.024,1.025,1.026,1.025,1.025,1.025,1.025,1.025,1.025,1.025,1.025],
+    magnesium:   [1280,1290,1295,1300,1305,1310,1305,1315,1318,1320,1322,1320,1321,1320],
   };
 
   const INHABITANTS = {
@@ -1486,7 +1506,7 @@ window.AQUA = (() => {
       badge: "AVISO",
       title: "Fosfatos en ascenso continuo",
       body: "0.25 ppm hoy (ideal 0.03–0.10). PhosGuard instalado hace 2 días — vigilar 48h más.",
-      cta: "Preguntar a AquaBot",
+      cta: "Preguntar a Aqua Buddy",
       tag: "Parámetro · PO₄",
     },
     {
@@ -1519,7 +1539,7 @@ window.AQUA = (() => {
   }
 
   return {
-    MOCK_TODAY, TANK_CONFIG, CURRENT_PARAMETERS, HISTORY, INHABITANTS, EQUIPMENT,
+    MOCK_TODAY, ALL_TANKS, TANK_CONFIG, CURRENT_PARAMETERS, HISTORY, INHABITANTS, EQUIPMENT,
     LIGHTING_SCHEDULE, LIGHT_CHANNELS, ROUTINES, ALERTS, logReading
   };
 })();
@@ -1536,10 +1556,11 @@ window.AquaStore = (() => {
   const A = window.AQUA;
 
   let ud = {
+    activeTankId: "tank-001",  // selected tank
     readings: null,            // snapshot de HISTORY
     params: null,              // snapshot de CURRENT_PARAMETERS (valor/estado/tendencia/nota)
     dismissedAlerts: [],
-    customAlerts: [],          // creadas por el usuario vía AquaBot
+    customAlerts: [],          // creadas por el usuario vía Aqua Buddy
     routinesDone: {},
     customRoutines: [],
     customInhabitants: [],     // [{ kind, item }]
@@ -1664,6 +1685,17 @@ window.AquaStore = (() => {
       touch();
     },
 
+    // ---- multi-tank ----
+    get activeTankId() { return ud.activeTankId || "tank-001"; },
+    get activeTank() { return (A.ALL_TANKS || []).find((t) => t.id === (ud.activeTankId || "tank-001")) || A.TANK_CONFIG; },
+    setActiveTank(id) {
+      ud.activeTankId = id;
+      const tank = (A.ALL_TANKS || []).find((t) => t.id === id);
+      if (tank) Object.assign(A.TANK_CONFIG, tank);
+      touch();
+      window.dispatchEvent(new CustomEvent("aqua:tank", { detail: { id } }));
+    },
+
     // ---- sincronización nube → local (last-write-wins por updatedAt) ----
     applyRemote(remote) {
       if (remote && typeof remote.updatedAt === "number" && remote.updatedAt > ud.updatedAt) {
@@ -1674,6 +1706,10 @@ window.AquaStore = (() => {
 
     reset() { localStorage.removeItem(KEY); location.reload(); },
   };
+
+  // Load OpenAI key on startup so callOpenAI can use it immediately
+  const storedKey = localStorage.getItem("aqua:openai_key");
+  if (storedKey) window.AQUAMIND_OPENAI_KEY = storedKey;
 })();
 
 </script>
@@ -1706,7 +1742,15 @@ window.AquaStore = (() => {
 // 6. En Authentication → Settings → Dominios autorizados, añade el dominio
 //    donde publicaste la app (p. ej. aquasense.netlify.app).
 // ═════════════════════════════════════════════════════════════
-const FIREBASE_CONFIG = null;
+const FIREBASE_CONFIG =  {
+  apiKey: "AIzaSyBGJKIg9SDqv7CJSx-TB-Q7KtRzy5U88-w",
+  authDomain: "aquasense1-d059a.firebaseapp.com",
+  projectId: "aquasense1-d059a",
+  storageBucket: "aquasense1-d059a.firebasestorage.app",
+  messagingSenderId: "259308806928",
+  appId: "1:259308806928:web:c1662f248115335d433b95",
+  measurementId: "G-J1N9E7VR43"
+};
 
 window.CLOUD = (() => {
   const SDK = "https://www.gstatic.com/firebasejs/10.14.1/";
@@ -3277,9 +3321,9 @@ function Sidebar({
     className: "flex items-center gap-3 px-5 pt-5 pb-4"
   }, /*#__PURE__*/React.createElement(Logo, null), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "text-[15.5px] font-semibold tracking-tight text-[var(--ink)]"
-  }, "AquaSense"), /*#__PURE__*/React.createElement("div", {
+  }, "AquaMind"), /*#__PURE__*/React.createElement("div", {
     className: "text-[9px] uppercase tracking-[0.18em] text-[var(--ink-3)] font-medium"
-  }, "Reef Intelligence"))), /*#__PURE__*/React.createElement("nav", {
+  }, "Aquarium Intelligence"))), /*#__PURE__*/React.createElement("nav", {
     className: "flex-1 px-3 overflow-y-auto flex flex-col gap-1"
   }, NAV_ITEMS().map(item => /*#__PURE__*/React.createElement(NavItem, {
     key: item.id,
@@ -3323,12 +3367,30 @@ function useClock() {
 }
 function TankSelector() {
   const {
-    TANK_CONFIG,
+    ALL_TANKS,
     CURRENT_PARAMETERS
   } = window.AQUA;
   const [open, setOpen] = React.useState(false);
+  const [activeTankId, setActiveTankId] = React.useState(() => window.AquaStore?.activeTankId || "tank-001");
   const close = React.useCallback(() => setOpen(false), []);
   useEscape(close);
+
+  // Keep in sync if tank changes from elsewhere
+  React.useEffect(() => {
+    const fn = e => setActiveTankId(e.detail?.id || "tank-001");
+    window.addEventListener("aqua:tank", fn);
+    return () => window.removeEventListener("aqua:tank", fn);
+  }, []);
+  const activeTank = (ALL_TANKS || []).find(t => t.id === activeTankId) || ALL_TANKS?.[0];
+  const typeLabel = tank => {
+    if (tank.type === "freshwater") return T(`Dulce · ${tank.displayVolume} gal`, `Freshwater · ${tank.displayVolume} gal`);
+    return T(`Marino · ${tank.displayVolume} gal`, `Saltwater · ${tank.displayVolume} gal`);
+  };
+  const switchTank = id => {
+    window.AquaStore?.setActiveTank(id);
+    setActiveTankId(id);
+    close();
+  };
   return /*#__PURE__*/React.createElement("div", {
     className: "relative"
   }, /*#__PURE__*/React.createElement("button", {
@@ -3339,7 +3401,7 @@ function TankSelector() {
   }, /*#__PURE__*/React.createElement(PulsingDot, {
     color: "#0E9F6E",
     size: 7
-  }), TANK_CONFIG.name, /*#__PURE__*/React.createElement("span", {
+  }), activeTank?.name || "Tank", /*#__PURE__*/React.createElement("span", {
     className: "hidden sm:inline text-[var(--ink-3)]"
   }, "\xB7"), /*#__PURE__*/React.createElement("span", {
     className: "hidden sm:inline-flex items-center gap-1 text-[var(--ink-2)] tabular-nums"
@@ -3362,26 +3424,27 @@ function TankSelector() {
     }
   }, /*#__PURE__*/React.createElement("div", {
     className: "px-3 pt-2 pb-1.5 text-[9.5px] uppercase tracking-[0.12em] text-[var(--ink-3)] font-semibold"
-  }, T("Tus tanques", "Your tanks")), /*#__PURE__*/React.createElement("button", {
+  }, T("Tus tanques", "Your tanks")), (ALL_TANKS || []).map(tank => /*#__PURE__*/React.createElement("button", {
+    key: tank.id,
     role: "menuitem",
-    onClick: close,
+    onClick: () => switchTank(tank.id),
     className: "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-[var(--hover)] transition-colors text-left"
   }, /*#__PURE__*/React.createElement(PulsingDot, {
-    color: "#0E9F6E",
+    color: tank.type === "freshwater" ? "#16a34a" : "#0E9F6E",
     size: 7
   }), /*#__PURE__*/React.createElement("span", {
     className: "flex-1 min-w-0"
   }, /*#__PURE__*/React.createElement("span", {
     className: "block text-[12.5px] font-medium text-[var(--ink)]"
-  }, TANK_CONFIG.name), /*#__PURE__*/React.createElement("span", {
+  }, tank.name), /*#__PURE__*/React.createElement("span", {
     className: "block text-[10.5px] text-[var(--ink-2)]"
-  }, T("Marino · 20 gal · en línea", "Saltwater · 20 gal · online"))), /*#__PURE__*/React.createElement(L, {
+  }, typeLabel(tank), " ", T("· en línea", "· online"))), tank.id === activeTankId && /*#__PURE__*/React.createElement(L, {
     name: "Check",
     size: 14,
     style: {
       color: "var(--accent)"
     }
-  })), /*#__PURE__*/React.createElement("div", {
+  }))), /*#__PURE__*/React.createElement("div", {
     className: "h-px bg-[var(--hairline)] mx-2 my-1"
   }), /*#__PURE__*/React.createElement("button", {
     role: "menuitem",
@@ -3512,10 +3575,11 @@ const PARAM_ICON = {
   nitrite: "Droplets",
   ammonia: "Droplets",
   temperature: "Thermometer",
-  salinity: "Sailboat"
+  salinity: "Sailboat",
+  magnesium: "Atom"
 };
 
-// ---- AquaBot command engine ----
+// ---- Aqua Buddy command engine ----
 // Entiende órdenes en lenguaje natural (ES/EN) y las aplica a la app:
 // lecturas, rutinas, alertas/recordatorios, habitantes e iluminación.
 // Todo lo que toca pasa por AquaStore → persiste en local y se sincroniza
@@ -3588,14 +3652,14 @@ function applyAquaCommand(raw) {
     const r = {
       id: "ru" + Date.now(),
       task: cap1(text),
-      detail: T("Añadida vía AquaBot", "Added via AquaBot"),
+      detail: T("Añadida vía Aqua Buddy", "Added via Aqua Buddy"),
       frequency: freq,
       nextDue: "today",
       time: "12:00",
       icon: "CalendarCheck"
     };
     S.addRoutine(r);
-    return T(`✓ Rutina creada: «${r.task}» (${freq}). Ya aparece en Rutinas y en el timeline del dashboard.`, `✓ Routine created: “${r.task}” (${freq}). It's now in Routines and on the dashboard timeline.`);
+    return T(`✓ Rutina creada: «${r.task}» (${freq}). Ya aparece en Rutinas y en el timeline del dashboard.`, `✓ Routine created: "${r.task}" (${freq}). It's now in Routines and on the dashboard timeline.`);
   }
 
   // 3) Recordatorio/alerta: "recuérdame comprar sal" · "avísame revisar la bomba"
@@ -3606,12 +3670,12 @@ function applyAquaCommand(raw) {
       severity: "info",
       badge: T("RECORDATORIO", "REMINDER"),
       title: cap1(m[1].trim().replace(/[.!]$/, "")),
-      body: T("Creado por ti vía AquaBot.", "Created by you via AquaBot."),
+      body: T("Creado por ti vía Aqua Buddy.", "Created by you via Aqua Buddy."),
       cta: T("Marcar hecho", "Mark done"),
-      tag: "AquaBot"
+      tag: "Aqua Buddy"
     };
     S.addAlert(a);
-    return T(`✓ Anotado: «${a.title}». Lo dejé en el centro de alertas — el badge ya lo cuenta.`, `✓ Noted: “${a.title}”. It's in the alert center — the badge counts it now.`);
+    return T(`✓ Anotado: «${a.title}». Lo dejé en el centro de alertas — el badge ya lo cuenta.`, `✓ Noted: "${a.title}". It's in the alert center — the badge counts it now.`);
   }
 
   // 4) Nuevo habitante: "agrega un pez royal gramma" · "añade coral zoa"
@@ -3635,7 +3699,7 @@ function applyAquaCommand(raw) {
       scientific: "",
       added: window.AQUA.MOCK_TODAY,
       status: "ok",
-      note: T("Añadido vía AquaBot — en observación", "Added via AquaBot — under observation")
+      note: T("Añadido vía Aqua Buddy — en observación", "Added via Aqua Buddy — under observation")
     };
     S.addInhabitant(kind, item);
     const kindLabel = {
@@ -3684,7 +3748,7 @@ function applyAquaCommand(raw) {
     });
     if (r) {
       if (!S.ud.routinesDone[r.id]) S.toggleRoutine(r.id);
-      return T(`✓ «${r.task}» marcada como completada. Bien ahí.`, `✓ “${r.task}” marked complete. Nice.`);
+      return T(`✓ «${r.task}» marcada como completada. Bien ahí.`, `✓ "${r.task}" marked complete. Nice.`);
     }
   }
 
@@ -3702,50 +3766,117 @@ function applyAquaCommand(raw) {
 // Rule-based fallback so the chat stays useful when the in-page Claude helper
 // isn't available (standalone HTML, plain browser). Answers are computed from
 // the same tank context the real prompt carries.
-function localAquaBot(q) {
+function localAquaBuddy(q) {
   const m = q.toLowerCase();
   if (/\bkh\b|buffer|alcalin|alkalin|dkh/.test(m)) return T("Con KH en 7.0 dKH, dosifica 7 ml de Reef Buffer hoy (calculado para los 23 gal reales). Eso sube ~0.3 dKH/día — nunca más de 1 dKH/día. Re-mide en 24 h y repite hasta estabilizar en 8–8.5.", "With KH at 7.0 dKH, dose 7 ml of Reef Buffer today (computed for the real 23 gal). That raises ~0.3 dKH/day — never exceed 1 dKH/day. Re-test in 24 h and repeat until stable at 8–8.5.");
   if (/birdsnest|blanque|bleach|seriatopora|sps/.test(m)) return T("El Birdsnest es tu coral más sensible: KH 7.0 + el apagón de 6 h explican el blanqueo. Prioridad: estabilizar KH en 8–8.5, flujo moderado y no lo muevas. Si la base conserva tejido, puede recuperarse en 2–3 semanas.", "The Birdsnest is your most sensitive coral: KH 7.0 plus the 6 h outage explain the bleaching. Priority: stabilize KH at 8–8.5, moderate flow, and don't move it. If the base keeps tissue it can recover in 2–3 weeks.");
   if (/fosfat|phosphat|po4|po₄|algas|algae/.test(m)) return T("PO₄ en 0.25 ppm (meta 0.03–0.10): deja actuar el PhosGuard 48 h más, haz un cambio de 25% (5–6 gal) y reduce la alimentación a la mitad esta semana. Re-mide en 3 días.", "PO₄ at 0.25 ppm (target 0.03–0.10): give PhosGuard 48 h more, do a 25% water change (5–6 gal) and halve feeding this week. Re-test in 3 days.");
   if (/cambio|water change|agua|rodi/.test(m)) return T("Cambio de 25%: 5–6 gal de RODI + Instant Ocean a 1.025 SG y 79 °F, quincenal. Con los fosfatos altos conviene adelantarlo a esta semana. Matt's Corals vende RODI a $0.75/gal.", "25% change: 5–6 gal RODI + Instant Ocean at 1.025 SG and 79 °F, biweekly. With phosphates high, move it up to this week. Matt's Corals sells RODI at $0.75/gal.");
   if (/\bph\b/.test(m)) return T("El pH 7.9 es consecuencia de la KH baja — corrige primero la alcalinidad y el pH subirá solo. Más aireación y agitación de superficie ayudan; no persigas el pH con químicos.", "pH 7.9 follows from the low KH — fix alkalinity first and pH will rise on its own. More aeration and surface agitation help; don't chase pH with chemicals.");
-  return T("Estoy en modo demo sin conexión: pregúntame por el KH y la dosis de buffer, el Birdsnest, los fosfatos o los cambios de agua. Con la app conectada respondo cualquier consulta con IA real.", "I'm in offline demo mode: ask me about KH and buffer dosing, the Birdsnest, phosphates or water changes. When the app is connected I answer anything with real AI.");
+  if (/magnesio|magnesium|mg\b/.test(m)) return T("El magnesio en 1320 mg/L está en rango óptimo (1250–1350). No requiere suplementación adicional — solo mantén los cambios de agua regulares con agua bien mezclada.", "Magnesium at 1320 mg/L is in the optimal range (1250–1350). No extra supplementation needed — just keep up regular water changes with well-mixed saltwater.");
+  return T("Estoy en modo demo sin conexión: pregúntame por KH, fosfatos, el Birdsnest, magnesio o cambios de agua. Con OpenAI configurado respondo cualquier consulta con IA real.", "I'm in offline demo mode: ask me about KH, phosphates, the Birdsnest, magnesium or water changes. With OpenAI configured I answer anything with real AI.");
 }
-async function callAquaBot(userMessage) {
-  // Primero: ¿es una orden? (registrar, agregar, recordar…) — se ejecuta
-  // en la app directamente, online u offline.
+
+// Build a rich system prompt from live tank data for Aqua Buddy
+function buildAquaBuddyPrompt(mode = "personalized") {
+  const {
+    TANK_CONFIG,
+    CURRENT_PARAMETERS,
+    INHABITANTS,
+    EQUIPMENT,
+    ALERTS
+  } = window.AQUA;
+  const lang = window.__lang === "en" ? "English" : "Spanish";
+  const params = Object.entries(CURRENT_PARAMETERS).map(([k, p]) => `${p.label}: ${p.value}${p.unit ? " " + p.unit : ""} (${p.status === "ok" ? "ok" : p.status === "warn" ? "warn" : "critical"})`).join(", ");
+  const fish = INHABITANTS.fish.map(f => `${f.name} (${f.status})`).join(", ");
+  const corals = INHABITANTS.corals.map(c => `${c.name} (${c.status})`).join(", ");
+  const equipment = EQUIPMENT.map(e => e.name).join(", ");
+  const alerts = ALERTS.map(a => a.title).join("; ");
+  const tankContext = mode === "personalized" ? `
+TANK: ${TANK_CONFIG.name} — ${TANK_CONFIG.displayVolume} gal display / ${TANK_CONFIG.realVolume} gal real, ${TANK_CONFIG.type}, ${TANK_CONFIG.location}.
+PARAMETERS (live): ${params}.
+FISH: ${fish}.
+CORALS: ${corals}.
+EQUIPMENT: ${equipment}.
+ACTIVE ALERTS: ${alerts || "none"}.
+OWNER: ${TANK_CONFIG.owner} — experienced in freshwater, newer to saltwater.` : "";
+  return `You are Aqua Buddy, the AI assistant for AquaMind — an aquarium intelligence app.
+You are an expert marine and freshwater aquarist with deep knowledge of reef chemistry, coral husbandry, fish health, and planted tank techniques. You also draw on community knowledge from Reef2Reef and other leading reef forums.
+${tankContext}
+RULES:
+- Reply in ${lang}. Keep responses concise (3–5 sentences for the widget, longer for the AI chat page).
+- When the tank context is available, reference the owner's specific parameters, livestock, and equipment — give personalized advice with exact quantities (ml, g) based on the real tank volume.
+- When answering general questions, cite best practices from the reef community (Reef2Reef, BRS, etc.).
+- Be friendly, expert, and direct — like a veteran reefer helping a friend.
+- Mode: ${mode === "personalized" ? "personalized to this tank" : "general aquarium expert"}.`;
+}
+
+// Call OpenAI API directly via fetch (browser-side)
+async function callOpenAI(messages, system) {
+  const apiKey = window.AQUAMIND_OPENAI_KEY || localStorage.getItem("aqua:openai_key");
+  if (!apiKey) return null;
+  try {
+    const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        max_tokens: 400,
+        messages: [{
+          role: "system",
+          content: system
+        }, ...messages]
+      })
+    });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    return data.choices?.[0]?.message?.content?.trim() || null;
+  } catch {
+    return null;
+  }
+}
+async function callAquaBuddy(userMessage, mode = "personalized", history = []) {
+  // First: command? (log reading, add routine, etc.) — executes locally, online or offline
   const command = applyAquaCommand(userMessage);
   if (command) {
     await new Promise(r => setTimeout(r, 450));
     return command;
   }
-  if (!window.claude?.complete) {
-    await new Promise(r => setTimeout(r, 800));
-    return localAquaBot(userMessage);
+  const system = buildAquaBuddyPrompt(mode);
+  const messages = [...history.map(m => ({
+    role: m.from === "user" ? "user" : "assistant",
+    content: m.text
+  })), {
+    role: "user",
+    content: userMessage
+  }];
+
+  // Try OpenAI first
+  const openaiReply = await callOpenAI(messages, system);
+  if (openaiReply) return openaiReply;
+
+  // Fallback to Claude if available
+  if (window.claude?.complete) {
+    try {
+      const text = await window.claude.complete({
+        messages: [{
+          role: "user",
+          content: `[System]\n${system}\n\n[Question]\n${userMessage}`
+        }]
+      });
+      if (text?.trim()) return text.trim();
+    } catch {/* fall through */}
   }
-  const lang = window.__lang === "en" ? "inglés" : "español";
-  const system = `Eres AquaBot, asistente IA de AquaSense para acuarios marinos.
-CONTEXTO: Tanque marino 20G High, 23 gal reales con sump, Columbus Ohio.
-Parámetros: pH 7.9 (bajo), KH 7.0 dKH (bajo), Fosfatos 0.25 ppm (alto), Calcio 400 mg/L (ok), Nitratos 5 ppm.
-Alertas: Birdsnest blanqueando por KH bajo, ATO al 15%, fosfatos en ascenso.
-Equipo: Smatfarm G5 95W, Fluval Sea Nano, ATO, PhosGuard hace 2 días, Reef Buffer Seachem.
-Usuario: Jeffrey, nuevo en salado, experimentado en dulce.
-REGLAS:
-- Responde en ${lang}, máximo 3-4 oraciones (es un widget).
-- Siempre menciona cantidades específicas (ml/g) usando 23 gal reales.
-- Tono experto pero accesible, como reefer veterano.`;
-  try {
-    const text = await window.claude.complete({
-      messages: [{
-        role: "user",
-        content: `[Sistema]\n${system}\n\n[Pregunta]\n${userMessage}`
-      }]
-    });
-    return (text || "").trim() || T("No pude procesar tu pregunta. Intenta de nuevo.", "I couldn't process that. Try again.");
-  } catch (e) {
-    return localAquaBot(userMessage);
-  }
+  await new Promise(r => setTimeout(r, 800));
+  return localAquaBuddy(userMessage);
 }
+
+// Backward-compat alias used by other call sites
+const callAquaBot = (msg, hist) => callAquaBuddy(msg, "personalized", hist);
+const localAquaBot = localAquaBuddy;
 
 // ---- Reef Status & AI Update hero ----
 function ReefStatusHero({
@@ -3848,7 +3979,7 @@ function ReefStatusHero({
     }
   })), /*#__PURE__*/React.createElement("p", {
     className: "text-[11px] text-[var(--ink-2)] leading-snug truncate"
-  }, T("AquaBot: el KH bajó otra vez — ¿te paso el plan de dosificación?", "AquaBot: KH dropped again — want today's dosing plan?")))), /*#__PURE__*/React.createElement("div", {
+  }, T("Aqua Buddy: el KH bajó otra vez — ¿te paso el plan de dosificación?", "Aqua Buddy: KH dropped again — want today's dosing plan?")))), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-2"
   }, /*#__PURE__*/React.createElement("div", {
     className: "relative flex-1"
@@ -3915,7 +4046,7 @@ function ReefStatusHero({
   }, /*#__PURE__*/React.createElement(L, {
     name: "Sparkles",
     size: 11
-  }), " AquaBot"), /*#__PURE__*/React.createElement("div", null, loading ? T("Analizando tu tanque…", "Analyzing your tank…") : reply))));
+  }), " Aqua Buddy"), /*#__PURE__*/React.createElement("div", null, loading ? T("Analizando tu tanque…", "Analyzing your tank…") : reply))));
 }
 
 // ---- Tank vitals strip ----
@@ -4510,8 +4641,9 @@ function RoutinesTimeline({
   })));
 }
 
-// ---- AquaBot widget ----
+// ---- Aqua Buddy widget ----
 const QUICK_PROMPTS = () => window.__lang === "en" ? ["How much Reef Buffer today?", "Log KH 7.5", "Remind me to buy salt", "Add routine clean glass weekly", "Why is my Birdsnest bleaching?"] : ["¿Cuánto Reef Buffer dosifico hoy?", "Registra KH 7.5", "Recuérdame comprar sal", "Agrega rutina limpiar cristales semanal", "¿Por qué blanquea mi Birdsnest?"];
+const GENERAL_PROMPTS = () => window.__lang === "en" ? ["Best corals for beginners?", "How to cycle a new tank?", "SPS vs LPS: what's easier?", "Reef2Reef: most common mistakes?"] : ["¿Mejores corales para principiantes?", "¿Cómo ciclar un tanque nuevo?", "¿SPS vs LPS: cuál es más fácil?", "¿Errores más comunes en reef?"];
 function TypingDots() {
   return /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-1 px-3 py-2"
@@ -4525,29 +4657,40 @@ function TypingDots() {
     }
   })));
 }
-function AquaBotWidget() {
+function AquaBotWidget({
+  fullPage = false
+}) {
+  const {
+    TANK_CONFIG
+  } = window.AQUA;
+  const owner = TANK_CONFIG.owner;
+  const [mode, setMode] = React.useState("personalized"); // "personalized" | "general"
   const [messages, setMessages] = React.useState([{
     from: "bot",
-    text: T("Hola Jeffrey. El KH bajó otra vez — ¿te paso el plan de dosificación? También puedo registrar lecturas, crear rutinas o recordatorios: prueba «Registra KH 7.5» o «Recuérdame comprar sal».", "Hi Jeffrey. KH dropped again — want the dosing plan? I can also log readings, create routines or reminders: try “Log KH 7.5” or “Remind me to buy salt”.")
+    text: T(`Hola ${owner}. El KH bajó otra vez — ¿te paso el plan de dosificación? También puedo registrar lecturas, crear rutinas o recordatorios: prueba «Registra KH 7.5» o «Recuérdame comprar sal».`, `Hi ${owner}. KH dropped again — want the dosing plan? I can also log readings, create routines or reminders: try "Log KH 7.5" or "Remind me to buy salt".`)
   }]);
   const [input, setInput] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const loadingRef = React.useRef(false);
   const scroller = React.useRef(null);
+  const historyRef = React.useRef(messages);
+  historyRef.current = messages;
   React.useEffect(() => {
     if (scroller.current) scroller.current.scrollTop = scroller.current.scrollHeight;
   }, [messages, loading]);
   const send = async text => {
     const msg = (text ?? input).trim();
     if (!msg || loadingRef.current) return;
-    setMessages(m => [...m, {
+    const newMsg = {
       from: "user",
       text: msg
-    }]);
+    };
+    setMessages(m => [...m, newMsg]);
     setInput("");
     loadingRef.current = true;
     setLoading(true);
-    const reply = await callAquaBot(msg);
+    const context = historyRef.current.slice(-8); // last 8 messages for context
+    const reply = await callAquaBuddy(msg, mode, context);
     setMessages(m => [...m, {
       from: "bot",
       text: reply
@@ -4556,7 +4699,7 @@ function AquaBotWidget() {
     setLoading(false);
   };
 
-  // Other surfaces (AquaBot page suggestions) can hand the widget a question.
+  // Other surfaces (AI page suggestions) can hand the widget a question.
   const sendRef = React.useRef(send);
   sendRef.current = send;
   React.useEffect(() => {
@@ -4564,6 +4707,7 @@ function AquaBotWidget() {
     window.addEventListener("aquabot:ask", fn);
     return () => window.removeEventListener("aquabot:ask", fn);
   }, []);
+  const prompts = mode === "personalized" ? QUICK_PROMPTS() : GENERAL_PROMPTS();
   return /*#__PURE__*/React.createElement(Card, {
     className: "flex flex-col overflow-hidden h-full"
   }, /*#__PURE__*/React.createElement("div", {
@@ -4586,19 +4730,53 @@ function AquaBotWidget() {
     className: "flex items-center gap-1.5"
   }, /*#__PURE__*/React.createElement("span", {
     className: "text-[13px] font-semibold text-[var(--ink)]"
-  }, "AquaBot"), /*#__PURE__*/React.createElement("span", {
+  }, "Aqua Buddy"), /*#__PURE__*/React.createElement("span", {
     className: "text-[9px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded-md",
     style: {
       background: "var(--accent-soft)",
       color: "var(--accent)",
       border: "1px solid var(--accent-border)"
     }
-  }, "Pro")), /*#__PURE__*/React.createElement("div", {
+  }, "AI")), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-1.5 text-[10px] text-[var(--ink-2)]"
   }, /*#__PURE__*/React.createElement(PulsingDot, {
     color: "#0E9F6E",
     size: 5
-  }), " ", T("En línea · contexto cargado", "Online · context loaded")))), /*#__PURE__*/React.createElement("div", {
+  }), " ", T("En línea · Reef2Reef + tu tanque", "Online · Reef2Reef + your tank"))), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-1 p-0.5 rounded-lg",
+    style: {
+      background: "var(--well)",
+      border: "1px solid var(--hairline)"
+    }
+  }, [{
+    id: "personalized",
+    label: T("Mi tanque", "My tank"),
+    icon: "Fish"
+  }, {
+    id: "general",
+    label: T("General", "General"),
+    icon: "Globe"
+  }].map(m => /*#__PURE__*/React.createElement("button", {
+    key: m.id,
+    onClick: () => setMode(m.id),
+    className: `flex items-center gap-1 px-2 py-1 rounded-md text-[10.5px] font-medium transition-all ${mode === m.id ? "glass-strong text-[var(--ink)]" : "text-[var(--ink-3)] hover:text-[var(--ink-2)]"}`
+  }, /*#__PURE__*/React.createElement(L, {
+    name: m.icon,
+    size: 10
+  }), m.label)))), mode === "general" && /*#__PURE__*/React.createElement("div", {
+    className: "px-4 py-2 border-b border-[var(--hairline)]",
+    style: {
+      background: "rgba(99,102,241,0.06)"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-[10.5px] text-[var(--ink-2)] flex items-center gap-1.5"
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "Globe",
+    size: 11,
+    style: {
+      color: "var(--indigo)"
+    }
+  }), T("Modo general — basado en Reef2Reef y mejores prácticas de la comunidad", "General mode — based on Reef2Reef and community best practices"))), /*#__PURE__*/React.createElement("div", {
     ref: scroller,
     className: "flex-1 px-4 py-3 overflow-y-auto space-y-2.5 min-h-[260px] max-h-[420px]"
   }, messages.map((m, i) => /*#__PURE__*/React.createElement("div", {
@@ -4649,7 +4827,7 @@ function AquaBotWidget() {
     className: "px-3 pt-2 pb-3 border-t border-[var(--hairline)] min-w-0 max-w-full"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex gap-1.5 mb-2 overflow-x-auto pb-1 scroller min-w-0"
-  }, QUICK_PROMPTS().map(q => /*#__PURE__*/React.createElement("button", {
+  }, prompts.map(q => /*#__PURE__*/React.createElement("button", {
     key: q,
     onClick: () => send(q),
     className: "shrink-0 text-[11px] px-2.5 py-1 rounded-full transition-colors hover:brightness-105",
@@ -4667,7 +4845,7 @@ function AquaBotWidget() {
   }, /*#__PURE__*/React.createElement("input", {
     value: input,
     onChange: e => setInput(e.target.value),
-    placeholder: T("Pregunta a AquaBot…", "Ask AquaBot…"),
+    placeholder: T("Pregunta a Aqua Buddy…", "Ask Aqua Buddy…"),
     className: "flex-1 bg-transparent border-0 outline-none text-[12.5px] text-[var(--ink)] placeholder:text-[var(--ink-3)]"
   }), /*#__PURE__*/React.createElement("button", {
     type: "submit",
@@ -4823,13 +5001,15 @@ Object.assign(window, {
   TankVitalsStrip,
   PARAM_ICON,
   callAquaBot,
+  callAquaBuddy,
+  localAquaBuddy,
   localAquaBot,
   alertCTAAction,
   applyAquaCommand
 });
 </script>
 <script>/* pages.jsx (precompiled) */
-// Secondary pages: Parameters, Inhabitants, Lighting, Routines, AquaBot full chat, Alerts
+// Secondary pages: Parameters, Inhabitants, Lighting, Routines, Aqua Buddy full chat, Alerts
 
 // Generate a 30-day history series from a 14-day base
 function expand30(base) {
@@ -4974,12 +5154,12 @@ function exportParamsCSV() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = "aquasense-parametros.csv";
+  a.download = "aquamind-parametros.csv";
   document.body.appendChild(a);
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 4000);
-  window.toast?.(T("CSV exportado — 14 días, 9 parámetros", "CSV exported — 14 days, 9 parameters"), {
+  window.toast?.(T("CSV exportado — 14 días, 10 parámetros", "CSV exported — 14 days, 10 parameters"), {
     icon: "FileDown"
   });
 }
@@ -5154,7 +5334,7 @@ function ParameterDetailRow({
     variant: "primary",
     icon: "Sparkles",
     onClick: () => onAskAI(paramKey, param)
-  }, T("Preguntar a AquaBot", "Ask AquaBot")))), /*#__PURE__*/React.createElement("div", {
+  }, T("Preguntar a Aqua Buddy", "Ask Aqua Buddy")))), /*#__PURE__*/React.createElement("div", {
     className: "flex items-baseline gap-3 mb-4"
   }, /*#__PURE__*/React.createElement("div", {
     className: "text-[40px] font-medium text-[var(--ink)] tabular-nums leading-none",
@@ -5225,7 +5405,7 @@ function ParametersPage({
   const {
     CURRENT_PARAMETERS
   } = window.AQUA;
-  const order = ["ph", "kh", "phosphate", "calcium", "nitrate", "temperature", "salinity", "ammonia", "nitrite"];
+  const order = ["ph", "kh", "phosphate", "calcium", "magnesium", "nitrate", "temperature", "salinity", "ammonia", "nitrite"];
   // null = closed · "all" = every parameter · paramKey = just that one
   const [logTarget, setLogTarget] = useState(null);
   return /*#__PURE__*/React.createElement("div", {
@@ -5434,7 +5614,7 @@ function DiagnoseModal({
     className: "text-[var(--accent)]"
   }), /*#__PURE__*/React.createElement("span", {
     className: "text-[10.5px] uppercase tracking-wider text-[var(--accent)] font-medium"
-  }, T("Análisis AquaBot", "AquaBot Analysis"))), /*#__PURE__*/React.createElement("div", {
+  }, T("Análisis Aqua Buddy", "Aqua Buddy Analysis"))), /*#__PURE__*/React.createElement("div", {
     className: "text-[12px] text-[var(--ink)] leading-relaxed whitespace-pre-wrap"
   }, result)), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-end gap-2 pt-1"
@@ -5447,7 +5627,7 @@ function DiagnoseModal({
     onClick: analyze,
     loading: analyzing,
     disabled: analyzing
-  }, T("Analizar con AquaBot", "Analyze with AquaBot"))))));
+  }, T("Analizar con Aqua Buddy", "Analyze with Aqua Buddy"))))));
 }
 function InhabitantsPage() {
   const {
@@ -5909,21 +6089,29 @@ function RoutinesPage({
 
 // ---------------------------- AQUABOT FULL CHAT PAGE ----------------------------
 function AquaBotPage() {
+  const {
+    TANK_CONFIG,
+    CURRENT_PARAMETERS
+  } = window.AQUA;
+  const params = CURRENT_PARAMETERS;
+  const contextRows = [["pH", `${params.ph?.value} (${params.ph?.status})`], ["KH", `${params.kh?.value} dKH (${params.kh?.status})`], ["PO₄", `${params.phosphate?.value} ppm (${params.phosphate?.status})`], ["Ca", `${params.calcium?.value} mg/L`], ["Mg", `${params.magnesium?.value} mg/L`], ["Temp", `${params.temperature?.value}°F`], [T("Volumen real", "Real volume"), `${TANK_CONFIG.realVolume} gal`]];
   return /*#__PURE__*/React.createElement("div", {
     className: "px-4 lg:px-6 py-5 lg:py-6"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-end justify-between flex-wrap gap-3 mb-4"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "text-[10px] uppercase tracking-[0.12em] text-[var(--ink-3)] mb-1"
-  }, T("AquaBot · IA experta en reefing", "AquaBot · reefing AI expert")), /*#__PURE__*/React.createElement("h1", {
+  }, T("Aqua Buddy · IA experta en reefing", "Aqua Buddy · reef & aquarium AI")), /*#__PURE__*/React.createElement("h1", {
     className: "text-[20px] lg:text-[22px] font-medium text-[var(--ink)] tracking-tight"
-  }, T("Conversación con tu asistente", "Chat with your assistant")), /*#__PURE__*/React.createElement("p", {
+  }, T("Conversación con Aqua Buddy", "Chat with Aqua Buddy")), /*#__PURE__*/React.createElement("p", {
     className: "text-[12.5px] text-[var(--ink-2)] mt-1"
-  }, T("Contexto completo de tu tanque cargado · respuestas calculadas para 23 gal reales", "Full tank context loaded · answers computed for the real 23 gal")))), /*#__PURE__*/React.createElement("div", {
+  }, T("Contexto completo de tu tanque cargado · OpenAI + Reef2Reef · modo personalizado y general", "Full tank context loaded · OpenAI + Reef2Reef · personalized and general mode")))), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4"
   }, /*#__PURE__*/React.createElement("div", {
     className: "h-[680px] min-w-0"
-  }, /*#__PURE__*/React.createElement(AquaBotWidget, null)), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement(AquaBotWidget, {
+    fullPage: true
+  })), /*#__PURE__*/React.createElement("div", {
     className: "space-y-3"
   }, /*#__PURE__*/React.createElement(Card, {
     className: "p-4"
@@ -5932,7 +6120,7 @@ function AquaBotPage() {
     title: T("Estado del tanque", "Tank state")
   }), /*#__PURE__*/React.createElement("ul", {
     className: "space-y-1.5 text-[11.5px]"
-  }, [["pH", "7.9 (bajo)"], ["KH", "7.0 dKH (bajo)"], ["PO₄", "0.25 ppm (alto)"], ["Ca", "400 mg/L"], ["Temp", "79°F"], ["Volumen real", "23 gal"]].map(([k, v]) => /*#__PURE__*/React.createElement("li", {
+  }, contextRows.map(([k, v]) => /*#__PURE__*/React.createElement("li", {
     key: k,
     className: "flex items-center justify-between text-[var(--ink-2)]"
   }, /*#__PURE__*/React.createElement("span", null, k), /*#__PURE__*/React.createElement("span", {
@@ -5943,11 +6131,24 @@ function AquaBotPage() {
   }, v))))), /*#__PURE__*/React.createElement(Card, {
     className: "p-4"
   }, /*#__PURE__*/React.createElement(SectionHeader, {
-    kicker: T("Sugerencias", "Suggestions"),
-    title: T("Preguntas frecuentes", "Frequent questions")
+    kicker: T("Modo personalizado", "Personalized mode"),
+    title: T("Preguntas sobre tu tanque", "Questions about your tank")
   }), /*#__PURE__*/React.createElement("div", {
     className: "flex flex-col gap-1.5"
-  }, [T("Plan diario para subir KH sin chocar pH", "Daily plan to raise KH without crashing pH"), T("¿Por qué blanquea el Birdsnest?", "Why is the Birdsnest bleaching?"), T("Esquema completo de cambios de agua", "Full water-change scheme"), T("Compatibilidad de nuevos peces", "New fish compatibility"), T("Cuándo agregar segundo reactor", "When to add a second reactor")].map(q => /*#__PURE__*/React.createElement("button", {
+  }, [T("Plan diario para subir KH sin chocar pH", "Daily plan to raise KH without crashing pH"), T("¿Por qué blanquea el Birdsnest?", "Why is the Birdsnest bleaching?"), T("Esquema completo de cambios de agua", "Full water-change scheme"), T("¿Es seguro agregar un nuevo coral ahora?", "Is it safe to add a new coral now?")].map(q => /*#__PURE__*/React.createElement("button", {
+    key: q,
+    onClick: () => window.dispatchEvent(new CustomEvent("aquabot:ask", {
+      detail: q
+    })),
+    className: "text-left text-[12px] text-[var(--ink-2)] hover:text-[var(--ink)] hover:bg-[var(--hover)] rounded-lg px-2 py-1.5 transition-colors"
+  }, q)))), /*#__PURE__*/React.createElement(Card, {
+    className: "p-4"
+  }, /*#__PURE__*/React.createElement(SectionHeader, {
+    kicker: T("Modo general", "General mode"),
+    title: T("Reef2Reef & comunidad", "Reef2Reef & community")
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-col gap-1.5"
+  }, [T("¿Mejores corales para principiantes?", "Best corals for beginners?"), T("¿Cómo identificar RTN vs STN?", "How to identify RTN vs STN?"), T("¿SPS o LPS para empezar?", "SPS or LPS to start?"), T("Guía de aclimatación de nuevos peces", "New fish acclimation guide")].map(q => /*#__PURE__*/React.createElement("button", {
     key: q,
     onClick: () => window.dispatchEvent(new CustomEvent("aquabot:ask", {
       detail: q
@@ -6135,9 +6336,9 @@ function LoginScreen({
     size: 52
   })), /*#__PURE__*/React.createElement("h1", {
     className: "text-[22px] font-semibold tracking-tight text-[var(--ink)]"
-  }, "AquaSense"), /*#__PURE__*/React.createElement("p", {
+  }, "AquaMind"), /*#__PURE__*/React.createElement("p", {
     className: "text-[12.5px] text-[var(--ink-2)] mt-1 mb-6"
-  }, T("Tu reef, monitoreado con inteligencia. Inicia sesión para sincronizar tu tanque en todos tus dispositivos.", "Your reef, intelligently monitored. Sign in to sync your tank across devices.")), /*#__PURE__*/React.createElement("button", {
+  }, T("Tu acuario, monitoreado con inteligencia. Inicia sesión para sincronizar tus tanques en todos tus dispositivos.", "Your aquarium, intelligently managed. Sign in to sync your tanks across devices.")), /*#__PURE__*/React.createElement("button", {
     onClick: googleSignIn,
     disabled: googleLoading,
     className: "w-full glass-strong rounded-full px-4 py-3 flex items-center justify-center gap-3 text-[13.5px] font-medium text-[var(--ink)] hover:brightness-105 transition-all active:scale-[0.99] disabled:opacity-60"
@@ -6180,7 +6381,7 @@ function LoginScreen({
     className: "text-[13.5px] font-semibold text-[var(--ink)]"
   }, T("Elige una cuenta", "Choose an account")), /*#__PURE__*/React.createElement("div", {
     className: "text-[11px] text-[var(--ink-2)]"
-  }, T("para continuar a AquaSense", "to continue to AquaSense")))), /*#__PURE__*/React.createElement("div", {
+  }, T("para continuar a AquaMind", "to continue to AquaMind")))), /*#__PURE__*/React.createElement("div", {
     className: "p-2"
   }, GOOGLE_ACCOUNTS.map(acc => /*#__PURE__*/React.createElement("button", {
     key: acc.email,
@@ -6217,7 +6418,7 @@ function buildICS(kind) {
   const todayStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
   const dateFor = r => r.nextDue === "today" ? todayStr : r.nextDue.replaceAll("-", "");
   const esc = s => String(s).replace(/([,;\\])/g, "\\$1");
-  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//AquaSense//Reef Intelligence//ES", "CALSCALE:GREGORIAN", `X-WR-CALNAME:AquaSense · ${TANK_CONFIG.name}`];
+  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//AquaMind//Aquarium Intelligence//ES", "CALSCALE:GREGORIAN", `X-WR-CALNAME:AquaMind · ${TANK_CONFIG.name}`];
   ROUTINES.forEach(r => {
     const d = dateFor(r);
     const time = r.time.replace(":", "") + "00";
@@ -6246,6 +6447,67 @@ function downloadICS(kind) {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+// ---------- OpenAI key input ----------
+function OpenAIKeyRow() {
+  const [key, setKey] = React.useState(() => localStorage.getItem("aqua:openai_key") || "");
+  const [show, setShow] = React.useState(false);
+  const [saved, setSaved] = React.useState(false);
+  const save = () => {
+    if (key.trim()) {
+      localStorage.setItem("aqua:openai_key", key.trim());
+      window.AQUAMIND_OPENAI_KEY = key.trim();
+    } else {
+      localStorage.removeItem("aqua:openai_key");
+      delete window.AQUAMIND_OPENAI_KEY;
+    }
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+    window.toast?.(T("API key guardada — Aqua Buddy usará OpenAI", "API key saved — Aqua Buddy will use OpenAI"), {
+      icon: "Sparkles"
+    });
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "space-y-2"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-[11.5px] text-[var(--ink-2)] leading-relaxed"
+  }, T("Pega tu OpenAI API key (sk-...) para que Aqua Buddy use GPT-4o Mini con contexto de tu tanque y conocimiento de Reef2Reef. La key se guarda solo en este dispositivo.", "Paste your OpenAI API key (sk-...) so Aqua Buddy uses GPT-4o Mini with your tank context and Reef2Reef knowledge. The key is stored on this device only.")), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 flex items-center gap-2 bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2 focus-within:ring-1 focus-within:ring-[var(--accent-border)] transition-all"
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "KeyRound",
+    size: 13,
+    className: "text-[var(--ink-3)] shrink-0"
+  }), /*#__PURE__*/React.createElement("input", {
+    type: show ? "text" : "password",
+    value: key,
+    onChange: e => setKey(e.target.value),
+    placeholder: "sk-...",
+    className: "flex-1 bg-transparent border-0 outline-none text-[12.5px] text-[var(--ink)] placeholder:text-[var(--ink-3)] font-mono",
+    onKeyDown: e => {
+      if (e.key === "Enter") save();
+    }
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShow(s => !s),
+    className: "text-[var(--ink-3)] hover:text-[var(--ink-2)] transition-colors"
+  }, /*#__PURE__*/React.createElement(L, {
+    name: show ? "EyeOff" : "Eye",
+    size: 13
+  }))), /*#__PURE__*/React.createElement(Button, {
+    variant: saved ? "primary" : "secondary",
+    icon: saved ? "Check" : "Save",
+    onClick: save
+  }, saved ? T("Guardado", "Saved") : T("Guardar", "Save"))), key && /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-1.5 text-[10.5px]",
+    style: {
+      color: "var(--accent)"
+    }
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "CheckCircle2",
+    size: 11
+  }), T("Key configurada — Aqua Buddy usará OpenAI", "Key configured — Aqua Buddy will use OpenAI")));
 }
 
 // ---------- shared bits ----------
@@ -6351,14 +6613,14 @@ function SettingsPage({
     const p = await Notification.requestPermission();
     setPerm(p);
     if (p === "granted") {
-      new Notification("AquaSense", {
+      new Notification("AquaMind", {
         body: T("Notificaciones activadas — te avisaremos de alertas críticas y rutinas.", "Notifications on — we'll ping you about critical alerts and routines.")
       });
     }
   };
   const testNotification = () => {
     if (perm === "granted") {
-      new Notification("AquaSense · " + T("Alerta crítica", "Critical alert"), {
+      new Notification("AquaMind · " + T("Alerta crítica", "Critical alert"), {
         body: T("Birdsnest blanqueando — KH 7.0 dKH. Dosifica 7 ml de Reef Buffer.", "Birdsnest bleaching — KH 7.0 dKH. Dose 7 ml Reef Buffer.")
       });
     }
@@ -6468,6 +6730,28 @@ function SettingsPage({
       border: "1px solid var(--hairline)"
     }
   }, i + 1), step)))))), /*#__PURE__*/React.createElement(Card, {
+    className: "overflow-hidden"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3 px-5 py-4 border-b border-[var(--hairline)]"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "grid place-items-center w-9 h-9 rounded-xl shrink-0",
+    style: {
+      background: "var(--accent-soft)",
+      border: "1px solid var(--accent-border)"
+    }
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "Sparkles",
+    size: 16,
+    style: {
+      color: "var(--accent)"
+    }
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "text-[14px] font-semibold text-[var(--ink)]"
+  }, "Aqua Buddy \xB7 OpenAI"), /*#__PURE__*/React.createElement("div", {
+    className: "text-[11px] text-[var(--ink-2)]"
+  }, T("Configura tu API key para respuestas IA reales", "Configure your API key for real AI responses")))), /*#__PURE__*/React.createElement("div", {
+    className: "px-5 py-4 space-y-3"
+  }, /*#__PURE__*/React.createElement(OpenAIKeyRow, null))), /*#__PURE__*/React.createElement(Card, {
     className: "overflow-hidden"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-4 px-5 py-5 border-b border-[var(--hairline)]"
@@ -6628,7 +6912,7 @@ function SettingsPage({
     label: permBadge.label
   })), /*#__PURE__*/React.createElement("p", {
     className: "text-[11.5px] text-[var(--ink-2)] mt-1 leading-relaxed"
-  }, T("AquaSense necesita permiso del navegador para avisarte de alertas críticas (blanqueamiento, parámetros fuera de rango) y rutinas pendientes.", "AquaSense needs browser permission to alert you about critical events (bleaching, out-of-range parameters) and pending routines."))), /*#__PURE__*/React.createElement("div", {
+  }, T("AquaMind necesita permiso del navegador para avisarte de alertas críticas (blanqueamiento, parámetros fuera de rango) y rutinas pendientes.", "AquaMind needs browser permission to alert you about critical events (bleaching, out-of-range parameters) and pending routines."))), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-2"
   }, perm !== "granted" && perm !== "unsupported" && /*#__PURE__*/React.createElement(Button, {
     variant: "primary",
@@ -6681,7 +6965,7 @@ function SettingsPage({
     }))
   })), /*#__PURE__*/React.createElement(SettingRow, {
     icon: "Sparkles",
-    title: T("Consejos de AquaBot", "AquaBot tips"),
+    title: T("Consejos de Aqua Buddy", "Aqua Buddy tips"),
     sub: T("Sugerencias proactivas de cuidado", "Proactive care suggestions")
   }, /*#__PURE__*/React.createElement(GlassToggle, {
     on: notifPrefs.ai,
@@ -6733,9 +7017,9 @@ function SettingsPage({
     className: "text-[14px] font-semibold text-[var(--ink)]"
   }, T("Atajo de Siri (Shortcuts)", "Siri Shortcut")), /*#__PURE__*/React.createElement("p", {
     className: "text-[11.5px] text-[var(--ink-2)] mt-1 leading-relaxed"
-  }, T("Crea un atajo «Registrar lectura AquaSense» en la app Atajos: nuevo atajo → «Abrir URL» con la dirección de esta app (?page=parameters) → añádelo a la pantalla de inicio o dí «Oye Siri, registrar lectura».", "Create a “Log AquaSense reading” shortcut in the Shortcuts app: new shortcut → “Open URL” pointing to this app (?page=parameters) → add it to your home screen or say “Hey Siri, log reading”.")), /*#__PURE__*/React.createElement("ol", {
+  }, T("Crea un atajo 'Registrar lectura AquaMind' en la app Atajos: nuevo atajo → 'Abrir URL' con la dirección de esta app (?page=parameters) → añádelo a la pantalla de inicio o dí 'Oye Siri, registrar lectura'.", "Create a 'Log AquaMind reading' shortcut in the Shortcuts app: new shortcut → 'Open URL' pointing to this app (?page=parameters) → add it to your home screen or say 'Hey Siri, log reading'.")), /*#__PURE__*/React.createElement("ol", {
     className: "mt-2.5 space-y-1.5"
-  }, [T("Abre Atajos → «+» → Añadir acción", "Open Shortcuts → “+” → Add action"), T("Busca «Abrir URL» y pega la URL de AquaSense", "Search “Open URL” and paste the AquaSense URL"), T("Renómbralo y actívalo con Siri o un widget", "Rename it and trigger via Siri or a widget")].map((step, i) => /*#__PURE__*/React.createElement("li", {
+  }, [T("Abre Atajos → «+» → Añadir acción", "Open Shortcuts → '+' → Add action"), T("Busca «Abrir URL» y pega la URL de AquaMind", "Search 'Open URL' and paste the AquaMind URL"), T("Renómbralo y actívalo con Siri o un widget", "Rename it and trigger via Siri or a widget")].map((step, i) => /*#__PURE__*/React.createElement("li", {
     key: i,
     className: "flex items-center gap-2 text-[11.5px] text-[var(--ink-2)]"
   }, /*#__PURE__*/React.createElement("span", {

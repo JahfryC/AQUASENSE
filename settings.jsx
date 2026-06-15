@@ -53,10 +53,10 @@ function LoginScreen({ onSignIn }) {
       <div className="relative z-10 w-full max-w-[400px]">
         <Card className="p-7 text-center">
           <div className="mx-auto w-fit mb-4"><Logo size={52} /></div>
-          <h1 className="text-[22px] font-semibold tracking-tight text-[var(--ink)]">AquaSense</h1>
+          <h1 className="text-[22px] font-semibold tracking-tight text-[var(--ink)]">AquaMind</h1>
           <p className="text-[12.5px] text-[var(--ink-2)] mt-1 mb-6">
-            {T("Tu reef, monitoreado con inteligencia. Inicia sesión para sincronizar tu tanque en todos tus dispositivos.",
-               "Your reef, intelligently monitored. Sign in to sync your tank across devices.")}
+            {T("Tu acuario, monitoreado con inteligencia. Inicia sesión para sincronizar tus tanques en todos tus dispositivos.",
+               "Your aquarium, intelligently managed. Sign in to sync your tanks across devices.")}
           </p>
 
           <button
@@ -101,7 +101,7 @@ function LoginScreen({ onSignIn }) {
               <GoogleG size={20} />
               <div>
                 <div className="text-[13.5px] font-semibold text-[var(--ink)]">{T("Elige una cuenta", "Choose an account")}</div>
-                <div className="text-[11px] text-[var(--ink-2)]">{T("para continuar a AquaSense", "to continue to AquaSense")}</div>
+                <div className="text-[11px] text-[var(--ink-2)]">{T("para continuar a AquaMind", "to continue to AquaMind")}</div>
               </div>
             </div>
             <div className="p-2">
@@ -142,8 +142,8 @@ function buildICS(kind) {
   const dateFor = (r) => (r.nextDue === "today" ? todayStr : r.nextDue.replaceAll("-", ""));
   const esc = (s) => String(s).replace(/([,;\\])/g, "\\$1");
   const lines = [
-    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//AquaSense//Reef Intelligence//ES", "CALSCALE:GREGORIAN",
-    `X-WR-CALNAME:AquaSense · ${TANK_CONFIG.name}`,
+    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//AquaMind//Aquarium Intelligence//ES", "CALSCALE:GREGORIAN",
+    `X-WR-CALNAME:AquaMind · ${TANK_CONFIG.name}`,
   ];
   ROUTINES.forEach((r) => {
     const d = dateFor(r);
@@ -190,6 +190,62 @@ function downloadICS(kind) {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+// ---------- OpenAI key input ----------
+function OpenAIKeyRow() {
+  const [key, setKey] = React.useState(() => localStorage.getItem("aqua:openai_key") || "");
+  const [show, setShow] = React.useState(false);
+  const [saved, setSaved] = React.useState(false);
+
+  const save = () => {
+    if (key.trim()) {
+      localStorage.setItem("aqua:openai_key", key.trim());
+      window.AQUAMIND_OPENAI_KEY = key.trim();
+    } else {
+      localStorage.removeItem("aqua:openai_key");
+      delete window.AQUAMIND_OPENAI_KEY;
+    }
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+    window.toast?.(T("API key guardada — Aqua Buddy usará OpenAI", "API key saved — Aqua Buddy will use OpenAI"), { icon: "Sparkles" });
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="text-[11.5px] text-[var(--ink-2)] leading-relaxed">
+        {T(
+          "Pega tu OpenAI API key (sk-...) para que Aqua Buddy use GPT-4o Mini con contexto de tu tanque y conocimiento de Reef2Reef. La key se guarda solo en este dispositivo.",
+          "Paste your OpenAI API key (sk-...) so Aqua Buddy uses GPT-4o Mini with your tank context and Reef2Reef knowledge. The key is stored on this device only."
+        )}
+      </div>
+      <div className="flex gap-2">
+        <div className="flex-1 flex items-center gap-2 bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2 focus-within:ring-1 focus-within:ring-[var(--accent-border)] transition-all">
+          <L name="KeyRound" size={13} className="text-[var(--ink-3)] shrink-0" />
+          <input
+            type={show ? "text" : "password"}
+            value={key}
+            onChange={(e) => setKey(e.target.value)}
+            placeholder="sk-..."
+            className="flex-1 bg-transparent border-0 outline-none text-[12.5px] text-[var(--ink)] placeholder:text-[var(--ink-3)] font-mono"
+            onKeyDown={(e) => { if (e.key === "Enter") save(); }}
+          />
+          <button onClick={() => setShow((s) => !s)} className="text-[var(--ink-3)] hover:text-[var(--ink-2)] transition-colors">
+            <L name={show ? "EyeOff" : "Eye"} size={13} />
+          </button>
+        </div>
+        <Button variant={saved ? "primary" : "secondary"} icon={saved ? "Check" : "Save"} onClick={save}>
+          {saved ? T("Guardado", "Saved") : T("Guardar", "Save")}
+        </Button>
+      </div>
+      {key && (
+        <div className="flex items-center gap-1.5 text-[10.5px]" style={{ color: "var(--accent)" }}>
+          <L name="CheckCircle2" size={11} />
+          {T("Key configurada — Aqua Buddy usará OpenAI", "Key configured — Aqua Buddy will use OpenAI")}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ---------- shared bits ----------
@@ -267,13 +323,13 @@ function SettingsPage({ session, onSignOut, tweaks, setTweak }) {
     const p = await Notification.requestPermission();
     setPerm(p);
     if (p === "granted") {
-      new Notification("AquaSense", { body: T("Notificaciones activadas — te avisaremos de alertas críticas y rutinas.", "Notifications on — we'll ping you about critical alerts and routines.") });
+      new Notification("AquaMind", { body: T("Notificaciones activadas — te avisaremos de alertas críticas y rutinas.", "Notifications on — we'll ping you about critical alerts and routines.") });
     }
   };
 
   const testNotification = () => {
     if (perm === "granted") {
-      new Notification("AquaSense · " + T("Alerta crítica", "Critical alert"), { body: T("Birdsnest blanqueando — KH 7.0 dKH. Dosifica 7 ml de Reef Buffer.", "Birdsnest bleaching — KH 7.0 dKH. Dose 7 ml Reef Buffer.") });
+      new Notification("AquaMind · " + T("Alerta crítica", "Critical alert"), { body: T("Birdsnest blanqueando — KH 7.0 dKH. Dosifica 7 ml de Reef Buffer.", "Birdsnest bleaching — KH 7.0 dKH. Dose 7 ml Reef Buffer.") });
     }
   };
 
@@ -364,6 +420,22 @@ function SettingsPage({ session, onSignOut, tweaks, setTweak }) {
             </div>
           </Card>
 
+          {/* Aqua Buddy / OpenAI key */}
+          <Card className="overflow-hidden">
+            <div className="flex items-center gap-3 px-5 py-4 border-b border-[var(--hairline)]">
+              <div className="grid place-items-center w-9 h-9 rounded-xl shrink-0" style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)" }}>
+                <L name="Sparkles" size={16} style={{ color: "var(--accent)" }} />
+              </div>
+              <div>
+                <div className="text-[14px] font-semibold text-[var(--ink)]">Aqua Buddy · OpenAI</div>
+                <div className="text-[11px] text-[var(--ink-2)]">{T("Configura tu API key para respuestas IA reales", "Configure your API key for real AI responses")}</div>
+              </div>
+            </div>
+            <div className="px-5 py-4 space-y-3">
+              <OpenAIKeyRow />
+            </div>
+          </Card>
+
           <Card className="overflow-hidden">
             <div className="flex items-center gap-4 px-5 py-5 border-b border-[var(--hairline)]">
               <span className="grid place-items-center w-14 h-14 rounded-full text-white text-[20px] font-semibold shrink-0" style={{ background: session?.color }}>
@@ -449,8 +521,8 @@ function SettingsPage({ session, onSignOut, tweaks, setTweak }) {
                   <StatusPill status={permBadge.status} label={permBadge.label} />
                 </div>
                 <p className="text-[11.5px] text-[var(--ink-2)] mt-1 leading-relaxed">
-                  {T("AquaSense necesita permiso del navegador para avisarte de alertas críticas (blanqueamiento, parámetros fuera de rango) y rutinas pendientes.",
-                     "AquaSense needs browser permission to alert you about critical events (bleaching, out-of-range parameters) and pending routines.")}
+                  {T("AquaMind necesita permiso del navegador para avisarte de alertas críticas (blanqueamiento, parámetros fuera de rango) y rutinas pendientes.",
+                     "AquaMind needs browser permission to alert you about critical events (bleaching, out-of-range parameters) and pending routines.")}
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -483,7 +555,7 @@ function SettingsPage({ session, onSignOut, tweaks, setTweak }) {
               sub={T("Cuando un parámetro lleva 3 días en deriva", "When a parameter drifts for 3 days")}>
               <GlassToggle on={notifPrefs.params} onChange={(v) => setNotifPrefs((p) => ({ ...p, params: v }))} />
             </SettingRow>
-            <SettingRow icon="Sparkles" title={T("Consejos de AquaBot", "AquaBot tips")}
+            <SettingRow icon="Sparkles" title={T("Consejos de Aqua Buddy", "Aqua Buddy tips")}
               sub={T("Sugerencias proactivas de cuidado", "Proactive care suggestions")}>
               <GlassToggle on={notifPrefs.ai} onChange={(v) => setNotifPrefs((p) => ({ ...p, ai: v }))} />
             </SettingRow>
@@ -519,13 +591,13 @@ function SettingsPage({ session, onSignOut, tweaks, setTweak }) {
               <div className="flex-1">
                 <div className="text-[14px] font-semibold text-[var(--ink)]">{T("Atajo de Siri (Shortcuts)", "Siri Shortcut")}</div>
                 <p className="text-[11.5px] text-[var(--ink-2)] mt-1 leading-relaxed">
-                  {T("Crea un atajo «Registrar lectura AquaSense» en la app Atajos: nuevo atajo → «Abrir URL» con la dirección de esta app (?page=parameters) → añádelo a la pantalla de inicio o dí «Oye Siri, registrar lectura».",
-                     "Create a “Log AquaSense reading” shortcut in the Shortcuts app: new shortcut → “Open URL” pointing to this app (?page=parameters) → add it to your home screen or say “Hey Siri, log reading”.")}
+                  {T("Crea un atajo 'Registrar lectura AquaMind' en la app Atajos: nuevo atajo → 'Abrir URL' con la dirección de esta app (?page=parameters) → añádelo a la pantalla de inicio o dí 'Oye Siri, registrar lectura'.",
+                     "Create a 'Log AquaMind reading' shortcut in the Shortcuts app: new shortcut → 'Open URL' pointing to this app (?page=parameters) → add it to your home screen or say 'Hey Siri, log reading'.")}
                 </p>
                 <ol className="mt-2.5 space-y-1.5">
                   {[
-                    T("Abre Atajos → «+» → Añadir acción", "Open Shortcuts → “+” → Add action"),
-                    T("Busca «Abrir URL» y pega la URL de AquaSense", "Search “Open URL” and paste the AquaSense URL"),
+                    T("Abre Atajos → «+» → Añadir acción", "Open Shortcuts → '+' → Add action"),
+                    T("Busca «Abrir URL» y pega la URL de AquaMind", "Search 'Open URL' and paste the AquaMind URL"),
                     T("Renómbralo y actívalo con Siri o un widget", "Rename it and trigger via Siri or a widget"),
                   ].map((step, i) => (
                     <li key={i} className="flex items-center gap-2 text-[11.5px] text-[var(--ink-2)]">

@@ -1,19 +1,37 @@
-// AquaSense mock data — single source of truth
+// AquaMind mock data — single source of truth
 window.AQUA = (() => {
   // The dataset is a coherent snapshot of this date; "today" everywhere means this.
   const MOCK_TODAY = "2026-05-20";
 
-  const TANK_CONFIG = {
-    id: "tank-001",
-    name: "20G High Reef",
-    type: "saltwater",
-    displayVolume: 20,
-    realVolume: 23,
-    location: "Columbus, Ohio",
-    localStore: { name: "Matt's Corals", address: "265 Lincoln Cir B, Gahanna", rodiPricePerGal: 0.75 },
-    setupDate: "2026-05-01",
-    owner: "Jeffrey",
-  };
+  // Multi-tank registry — the active tank is selected via AquaStore.activeTankId
+  const ALL_TANKS = [
+    {
+      id: "tank-001",
+      name: "20G High Reef",
+      type: "saltwater",
+      displayVolume: 20,
+      realVolume: 23,
+      location: "Columbus, Ohio",
+      localStore: { name: "Matt's Corals", address: "265 Lincoln Cir B, Gahanna", rodiPricePerGal: 0.75 },
+      setupDate: "2026-05-01",
+      owner: "Jeffrey",
+      online: true,
+    },
+    {
+      id: "tank-002",
+      name: "Planted 10G",
+      type: "freshwater",
+      displayVolume: 10,
+      realVolume: 10,
+      location: "Columbus, Ohio",
+      localStore: { name: "Matt's Corals", address: "265 Lincoln Cir B, Gahanna", rodiPricePerGal: 0.75 },
+      setupDate: "2026-04-10",
+      owner: "Jeffrey",
+      online: true,
+    },
+  ];
+
+  const TANK_CONFIG = ALL_TANKS[0];
 
   // status: ok | warn | danger | info
   const CURRENT_PARAMETERS = {
@@ -26,6 +44,7 @@ window.AQUA = (() => {
     ammonia:     { label: "Amonio",      value: 0,     unit: "ppm",  idealMin: 0,    idealMax: 0.25, status: "ok",     trend: "flat",   note: "Indetectable" },
     temperature: { label: "Temperatura", value: 79,    unit: "°F",   idealMin: 76,   idealMax: 80,   status: "ok",     trend: "flat",   note: "Estable" },
     salinity:    { label: "Salinidad",   value: 1.025, unit: "SG",   idealMin: 1.024,idealMax: 1.026,status: "ok",     trend: "flat",   note: "En rango" },
+    magnesium:   { label: "Magnesio",    value: 1320,  unit: "mg/L", idealMin: 1250, idealMax: 1350, status: "ok",     trend: "flat",   note: "Estable" },
   };
 
   // 14-day history (last index = today)
@@ -39,6 +58,7 @@ window.AQUA = (() => {
     ammonia:     [0,0,0,0,0,0,0,0,0,0,0,0,0,0],
     temperature: [78.6, 78.8, 79.1, 79.0, 78.7, 78.9, 79.2, 79.0, 78.8, 79.1, 79.0, 78.9, 79.0, 79.0],
     salinity:    [1.025,1.025,1.025,1.024,1.025,1.026,1.025,1.025,1.025,1.025,1.025,1.025,1.025,1.025],
+    magnesium:   [1280,1290,1295,1300,1305,1310,1305,1315,1318,1320,1322,1320,1321,1320],
   };
 
   const INHABITANTS = {
@@ -132,7 +152,7 @@ window.AQUA = (() => {
       badge: "AVISO",
       title: "Fosfatos en ascenso continuo",
       body: "0.25 ppm hoy (ideal 0.03–0.10). PhosGuard instalado hace 2 días — vigilar 48h más.",
-      cta: "Preguntar a AquaBot",
+      cta: "Preguntar a Aqua Buddy",
       tag: "Parámetro · PO₄",
     },
     {
@@ -165,7 +185,7 @@ window.AQUA = (() => {
   }
 
   return {
-    MOCK_TODAY, TANK_CONFIG, CURRENT_PARAMETERS, HISTORY, INHABITANTS, EQUIPMENT,
+    MOCK_TODAY, ALL_TANKS, TANK_CONFIG, CURRENT_PARAMETERS, HISTORY, INHABITANTS, EQUIPMENT,
     LIGHTING_SCHEDULE, LIGHT_CHANNELS, ROUTINES, ALERTS, logReading
   };
 })();

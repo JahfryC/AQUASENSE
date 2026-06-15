@@ -8,10 +8,11 @@ window.AquaStore = (() => {
   const A = window.AQUA;
 
   let ud = {
+    activeTankId: "tank-001",  // selected tank
     readings: null,            // snapshot de HISTORY
     params: null,              // snapshot de CURRENT_PARAMETERS (valor/estado/tendencia/nota)
     dismissedAlerts: [],
-    customAlerts: [],          // creadas por el usuario vía AquaBot
+    customAlerts: [],          // creadas por el usuario vía Aqua Buddy
     routinesDone: {},
     customRoutines: [],
     customInhabitants: [],     // [{ kind, item }]
@@ -136,6 +137,17 @@ window.AquaStore = (() => {
       touch();
     },
 
+    // ---- multi-tank ----
+    get activeTankId() { return ud.activeTankId || "tank-001"; },
+    get activeTank() { return (A.ALL_TANKS || []).find((t) => t.id === (ud.activeTankId || "tank-001")) || A.TANK_CONFIG; },
+    setActiveTank(id) {
+      ud.activeTankId = id;
+      const tank = (A.ALL_TANKS || []).find((t) => t.id === id);
+      if (tank) Object.assign(A.TANK_CONFIG, tank);
+      touch();
+      window.dispatchEvent(new CustomEvent("aqua:tank", { detail: { id } }));
+    },
+
     // ---- sincronización nube → local (last-write-wins por updatedAt) ----
     applyRemote(remote) {
       if (remote && typeof remote.updatedAt === "number" && remote.updatedAt > ud.updatedAt) {
@@ -146,4 +158,8 @@ window.AquaStore = (() => {
 
     reset() { localStorage.removeItem(KEY); location.reload(); },
   };
+
+  // Load OpenAI key on startup so callOpenAI can use it immediately
+  const storedKey = localStorage.getItem("aqua:openai_key");
+  if (storedKey) window.AQUAMIND_OPENAI_KEY = storedKey;
 })();

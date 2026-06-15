@@ -1,4 +1,4 @@
-// Secondary pages: Parameters, Inhabitants, Lighting, Routines, AquaBot full chat, Alerts
+// Secondary pages: Parameters, Inhabitants, Lighting, Routines, Aqua Buddy full chat, Alerts
 
 // Generate a 30-day history series from a 14-day base
 function expand30(base) {
@@ -113,12 +113,12 @@ function exportParamsCSV() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = "aquasense-parametros.csv";
+  a.download = "aquamind-parametros.csv";
   document.body.appendChild(a);
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 4000);
-  window.toast?.(T("CSV exportado — 14 días, 9 parámetros", "CSV exported — 14 days, 9 parameters"), { icon: "FileDown" });
+  window.toast?.(T("CSV exportado — 14 días, 10 parámetros", "CSV exported — 14 days, 10 parameters"), { icon: "FileDown" });
 }
 
 // ---------------------------- PARAMETERS PAGE ----------------------------
@@ -199,7 +199,7 @@ function ParameterDetailRow({ paramKey, param, onAskAI, onLog }) {
             <div className="flex items-center gap-2">
               <StatusPill status={param.status} />
               <Button size="sm" variant="secondary" icon="Plus" onClick={() => onLog(paramKey)}>{T("Registrar lectura","Log reading")}</Button>
-              <Button size="sm" variant="primary" icon="Sparkles" onClick={() => onAskAI(paramKey, param)}>{T("Preguntar a AquaBot","Ask AquaBot")}</Button>
+              <Button size="sm" variant="primary" icon="Sparkles" onClick={() => onAskAI(paramKey, param)}>{T("Preguntar a Aqua Buddy","Ask Aqua Buddy")}</Button>
             </div>
           </div>
 
@@ -251,7 +251,7 @@ function ParameterDetailRow({ paramKey, param, onAskAI, onLog }) {
 
 function ParametersPage({ onNavigate }) {
   const { CURRENT_PARAMETERS } = window.AQUA;
-  const order = ["ph", "kh", "phosphate", "calcium", "nitrate", "temperature", "salinity", "ammonia", "nitrite"];
+  const order = ["ph", "kh", "phosphate", "calcium", "magnesium", "nitrate", "temperature", "salinity", "ammonia", "nitrite"];
   // null = closed · "all" = every parameter · paramKey = just that one
   const [logTarget, setLogTarget] = useState(null);
 
@@ -403,7 +403,7 @@ function DiagnoseModal({ inhabitant, onClose }) {
             <div className="rounded-xl bg-teal-500/8 border border-teal-500/25 p-3.5">
               <div className="flex items-center gap-1.5 mb-1.5">
                 <L name="Sparkles" size={12} className="text-[var(--accent)]" />
-                <span className="text-[10.5px] uppercase tracking-wider text-[var(--accent)] font-medium">{T("Análisis AquaBot","AquaBot Analysis")}</span>
+                <span className="text-[10.5px] uppercase tracking-wider text-[var(--accent)] font-medium">{T("Análisis Aqua Buddy","Aqua Buddy Analysis")}</span>
               </div>
               <div className="text-[12px] text-[var(--ink)] leading-relaxed whitespace-pre-wrap">{result}</div>
             </div>
@@ -412,7 +412,7 @@ function DiagnoseModal({ inhabitant, onClose }) {
           <div className="flex items-center justify-end gap-2 pt-1">
             <Button variant="ghost" onClick={onClose}>{T("Cerrar","Close")}</Button>
             <Button variant="primary" icon="Sparkles" onClick={analyze} loading={analyzing} disabled={analyzing}>
-              {T("Analizar con AquaBot","Analyze with AquaBot")}
+              {T("Analizar con Aqua Buddy","Analyze with Aqua Buddy")}
             </Button>
           </div>
         </div>
@@ -733,32 +733,38 @@ function RoutinesPage({ routinesDone, onToggleRoutine }) {
 
 // ---------------------------- AQUABOT FULL CHAT PAGE ----------------------------
 function AquaBotPage() {
+  const { TANK_CONFIG, CURRENT_PARAMETERS } = window.AQUA;
+  const params = CURRENT_PARAMETERS;
+
+  const contextRows = [
+    ["pH", `${params.ph?.value} (${params.ph?.status})`],
+    ["KH", `${params.kh?.value} dKH (${params.kh?.status})`],
+    ["PO₄", `${params.phosphate?.value} ppm (${params.phosphate?.status})`],
+    ["Ca", `${params.calcium?.value} mg/L`],
+    ["Mg", `${params.magnesium?.value} mg/L`],
+    ["Temp", `${params.temperature?.value}°F`],
+    [T("Volumen real", "Real volume"), `${TANK_CONFIG.realVolume} gal`],
+  ];
+
   return (
     <div className="px-4 lg:px-6 py-5 lg:py-6">
       <div className="flex items-end justify-between flex-wrap gap-3 mb-4">
         <div>
-          <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--ink-3)] mb-1">{T("AquaBot · IA experta en reefing","AquaBot · reefing AI expert")}</div>
-          <h1 className="text-[20px] lg:text-[22px] font-medium text-[var(--ink)] tracking-tight">{T("Conversación con tu asistente","Chat with your assistant")}</h1>
-          <p className="text-[12.5px] text-[var(--ink-2)] mt-1">{T("Contexto completo de tu tanque cargado · respuestas calculadas para 23 gal reales","Full tank context loaded · answers computed for the real 23 gal")}</p>
+          <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--ink-3)] mb-1">{T("Aqua Buddy · IA experta en reefing","Aqua Buddy · reef & aquarium AI")}</div>
+          <h1 className="text-[20px] lg:text-[22px] font-medium text-[var(--ink)] tracking-tight">{T("Conversación con Aqua Buddy","Chat with Aqua Buddy")}</h1>
+          <p className="text-[12.5px] text-[var(--ink-2)] mt-1">{T("Contexto completo de tu tanque cargado · OpenAI + Reef2Reef · modo personalizado y general","Full tank context loaded · OpenAI + Reef2Reef · personalized and general mode")}</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4">
         <div className="h-[680px] min-w-0">
-          <AquaBotWidget />
+          <AquaBotWidget fullPage={true} />
         </div>
         <div className="space-y-3">
           <Card className="p-4">
             <SectionHeader kicker={T("Contexto cargado","Context loaded")} title={T("Estado del tanque","Tank state")} />
             <ul className="space-y-1.5 text-[11.5px]">
-              {[
-                ["pH", "7.9 (bajo)"],
-                ["KH", "7.0 dKH (bajo)"],
-                ["PO₄", "0.25 ppm (alto)"],
-                ["Ca", "400 mg/L"],
-                ["Temp", "79°F"],
-                ["Volumen real", "23 gal"],
-              ].map(([k, v]) => (
+              {contextRows.map(([k, v]) => (
                 <li key={k} className="flex items-center justify-between text-[var(--ink-2)]">
                   <span>{k}</span>
                   <span className="text-[var(--ink)] tabular-nums" style={{ fontFamily: "var(--font-mono)" }}>{v}</span>
@@ -768,14 +774,33 @@ function AquaBotPage() {
           </Card>
 
           <Card className="p-4">
-            <SectionHeader kicker={T("Sugerencias","Suggestions")} title={T("Preguntas frecuentes","Frequent questions")} />
+            <SectionHeader kicker={T("Modo personalizado","Personalized mode")} title={T("Preguntas sobre tu tanque","Questions about your tank")} />
             <div className="flex flex-col gap-1.5">
               {[
                 T("Plan diario para subir KH sin chocar pH","Daily plan to raise KH without crashing pH"),
                 T("¿Por qué blanquea el Birdsnest?","Why is the Birdsnest bleaching?"),
                 T("Esquema completo de cambios de agua","Full water-change scheme"),
-                T("Compatibilidad de nuevos peces","New fish compatibility"),
-                T("Cuándo agregar segundo reactor","When to add a second reactor"),
+                T("¿Es seguro agregar un nuevo coral ahora?","Is it safe to add a new coral now?"),
+              ].map((q) => (
+                <button
+                  key={q}
+                  onClick={() => window.dispatchEvent(new CustomEvent("aquabot:ask", { detail: q }))}
+                  className="text-left text-[12px] text-[var(--ink-2)] hover:text-[var(--ink)] hover:bg-[var(--hover)] rounded-lg px-2 py-1.5 transition-colors"
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          </Card>
+
+          <Card className="p-4">
+            <SectionHeader kicker={T("Modo general","General mode")} title={T("Reef2Reef & comunidad","Reef2Reef & community")} />
+            <div className="flex flex-col gap-1.5">
+              {[
+                T("¿Mejores corales para principiantes?","Best corals for beginners?"),
+                T("¿Cómo identificar RTN vs STN?","How to identify RTN vs STN?"),
+                T("¿SPS o LPS para empezar?","SPS or LPS to start?"),
+                T("Guía de aclimatación de nuevos peces","New fish acclimation guide"),
               ].map((q) => (
                 <button
                   key={q}
