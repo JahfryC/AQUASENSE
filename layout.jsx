@@ -164,6 +164,7 @@ const TANK_DB = [
   { n:"Fluval Plant 94",         br:"Fluval",            vol:94,   l:48, w:18, h:24, t:"planted" },
   // Tideline
   { n:"Tideline AIO 25",         br:"Tideline",          vol:25,   l:24, w:18, h:18, t:"reef" },
+  { n:"Tideline Lagoon 31",      br:"Tideline",          vol:31,   l:36, w:18, h:14, t:"reef" },
   { n:"Tideline AIO 36 Cube",    br:"Tideline",          vol:50,   l:36, w:24, h:20, t:"reef" },
   { n:"Tideline AIO 48",         br:"Tideline",          vol:75,   l:48, w:20, h:20, t:"reef" },
   { n:"Tideline AIO 60",         br:"Tideline",          vol:100,  l:60, w:20, h:20, t:"reef" },
