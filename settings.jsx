@@ -382,16 +382,16 @@ function AquaBuddyKeyRow() {
     }
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
-    window.toast?.(T("Key de Gemini actualizada", "Gemini key updated"), { icon: "Sparkles" });
+    window.toast?.(T("Key de Groq actualizada", "Groq key updated"), { icon: "Sparkles" });
   };
 
   return (
     <div className="px-5 pb-4 pt-1 space-y-2">
       <div className="text-[11px] text-[var(--ink-3)]">
         {hasKey
-          ? T("Key propia configurada — Aqua Buddy usa Gemini.", "Custom key configured — Aqua Buddy uses Gemini.")
-          : T("Sin key: Aqua Buddy usa respuestas locales. Pega tu key de Gemini para IA completa.", "No key: Aqua Buddy uses local responses. Paste your Gemini key for full AI.")}
-        {" "}<a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" className="underline" style={{ color: "var(--accent)" }}>aistudio.google.com/apikey</a>
+          ? T("Key configurada — Aqua Buddy usa Groq (Llama 3.3).", "Key configured — Aqua Buddy uses Groq (Llama 3.3).")
+          : T("Sin key: Aqua Buddy usa respuestas locales. Pega tu key de Groq para IA completa.", "No key: Aqua Buddy uses local responses. Paste your Groq key for full AI.")}
+        {" "}<a href="https://console.groq.com/keys" target="_blank" rel="noopener" className="underline" style={{ color: "var(--accent)" }}>console.groq.com/keys</a>
       </div>
       <div className="flex gap-2">
         <div className="flex-1 flex items-center gap-2 rounded-xl px-3 py-2" style={{ background: "var(--well)", border: "1px solid var(--hairline)" }}>
@@ -411,7 +411,7 @@ function AquaBuddyKeyRow() {
   );
 }
 
-// ---------- Google Gemini API key ----------
+// ---------- Groq API key ----------
 function GeminiKeyRow() {
   const [key, setKey] = React.useState(() => localStorage.getItem("aqua:ai_key") || "");
   const [show, setShow] = React.useState(false);
@@ -427,7 +427,7 @@ function GeminiKeyRow() {
     }
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
-    window.toast?.(T("API key guardada — Aqua Buddy usará Google Gemini", "API key saved — Aqua Buddy will use Google Gemini"), { icon: "Sparkles" });
+    window.toast?.(T("API key guardada — Aqua Buddy usará Groq (Llama 3.3)", "API key saved — Aqua Buddy will use Groq (Llama 3.3)"), { icon: "Sparkles" });
   };
 
   return (
@@ -437,7 +437,7 @@ function GeminiKeyRow() {
           "Consigue tu API key gratis (sin tarjeta) en ",
           "Get your free API key (no credit card) at "
         )}
-        <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" className="underline" style={{ color: "var(--accent)" }}>aistudio.google.com/apikey</a>
+        <a href="https://console.groq.com/keys" target="_blank" rel="noopener" className="underline" style={{ color: "var(--accent)" }}>console.groq.com/keys</a>
         {T(". Se guarda solo en este dispositivo.", ". Stored on this device only.")}
       </div>
       <div className="flex gap-2">
@@ -447,7 +447,7 @@ function GeminiKeyRow() {
             type={show ? "text" : "password"}
             value={key}
             onChange={(e) => setKey(e.target.value)}
-            placeholder="AIza..."
+            placeholder="gsk_..."
             className="flex-1 bg-transparent border-0 outline-none text-[12.5px] text-[var(--ink)] placeholder:text-[var(--ink-3)] font-mono"
             onKeyDown={(e) => { if (e.key === "Enter") save(); }}
           />
@@ -462,7 +462,7 @@ function GeminiKeyRow() {
       {key && (
         <div className="flex items-center gap-1.5 text-[10.5px]" style={{ color: "var(--accent)" }}>
           <L name="CheckCircle2" size={11} />
-          {T("Key configurada — Aqua Buddy usara Google Gemini", "Key configured — Aqua Buddy will use Google Gemini")}
+          {T("Key configurada — Aqua Buddy usará Groq (Llama 3.3)", "Key configured — Aqua Buddy will use Groq (Llama 3.3)")}
         </div>
       )}
     </div>
@@ -715,11 +715,11 @@ function SettingsPage({ session, onSignOut, tweaks, setTweak }) {
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <div className="text-[14px] font-semibold text-[var(--ink)]">Aqua Buddy · Google Gemini</div>
+                  <div className="text-[14px] font-semibold text-[var(--ink)]">Aqua Buddy · Groq AI</div>
                   <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-md font-semibold" style={{ background: "rgba(16,185,129,0.13)", color: "#0E9F6E", border: "1px solid rgba(16,185,129,0.3)" }}>ACTIVO</span>
                 </div>
                 <div className="text-[11.5px] text-[var(--ink-2)] mt-0.5">
-                  {T("Gemini 2.0 Flash · contexto de tu tanque + acciones directas", "Gemini 2.0 Flash · your tank context + direct actions")}
+                  {T("Llama 3.3 70B vía Groq · contexto de tu tanque + acciones directas", "Llama 3.3 70B via Groq · your tank context + direct actions")}
                 </div>
               </div>
               <PulsingDot color="#0E9F6E" size={8} />

@@ -1421,8 +1421,8 @@ function AquaBotPage() {
                   <L name="Key" size={14} style={{ color: "#C77F00" }} />
                 </div>
                 <div>
-                  <div className="text-[12.5px] font-semibold text-[var(--ink)] mb-0.5">{T("API key de Gemini requerida", "Gemini API key required")}</div>
-                  <div className="text-[11px] text-[var(--ink-2)] leading-relaxed">{T("Obtén tu key gratuita en ", "Get your free key at ")}<span className="font-medium" style={{ color: "var(--accent)" }}>aistudio.google.com/apikey</span>{T(" y agrégala en Ajustes → Cuenta → Aqua Buddy.", " and add it in Settings → Account → Aqua Buddy.")}</div>
+                  <div className="text-[12.5px] font-semibold text-[var(--ink)] mb-0.5">{T("API key de Groq requerida", "Groq API key required")}</div>
+                  <div className="text-[11px] text-[var(--ink-2)] leading-relaxed">{T("Obtén tu key gratuita (sin tarjeta) en ", "Get your free key (no credit card) at ")}<span className="font-medium" style={{ color: "var(--accent)" }}>console.groq.com/keys</span>{T(" y agrégala en Ajustes → Cuenta → Aqua Buddy.", " and add it in Settings → Account → Aqua Buddy.")}</div>
                 </div>
               </div>
             </Card>

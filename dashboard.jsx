@@ -361,46 +361,31 @@ function executeAquaTool(name, args) {
   }
 }
 
-// Call Google Gemini 2.0 Flash — native REST API (supports AQ. key format)
-async function callGemini(messages, system, tools = null) {
+// Call Groq — OpenAI-compatible API, Llama 3.3 70B
+async function callGroq(messages, system, tools = null) {
   const apiKey = window.AQUAMIND_AI_KEY || localStorage.getItem("aqua:ai_key");
   if (!apiKey) return null;
   try {
-    // Convert to Gemini native content format
-    const contents = messages.map((m) => {
-      // Already Gemini-native (has parts array from a previous function-call round)
-      if (m.parts) return { role: m.role, parts: m.parts };
-      // Standard message → text part
-      const role = m.role === "assistant" ? "model" : "user";
-      return { role, parts: [{ text: typeof m.content === "string" ? m.content : JSON.stringify(m.content) }] };
+    const formatted = messages.map((m) => {
+      if (m.role === "tool" || m.tool_calls !== undefined) return m;
+      const role = m.role === "assistant" ? "assistant" : "user";
+      return { role, content: typeof m.content === "string" ? m.content : JSON.stringify(m.content) };
     });
-
     const body = {
-      systemInstruction: { parts: [{ text: system }] },
-      contents,
-      generationConfig: { maxOutputTokens: 600 },
+      model: "llama-3.3-70b-versatile",
+      messages: [{ role: "system", content: system }, ...formatted],
+      max_tokens: 600,
     };
-    if (tools && tools.length) {
-      body.tools = [{
-        functionDeclarations: tools.map((t) => ({
-          name: t.function.name,
-          description: t.function.description,
-          parameters: t.function.parameters,
-        })),
-      }];
-    }
+    if (tools && tools.length) { body.tools = tools; body.tool_choice = "auto"; }
 
-    const resp = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-        body: JSON.stringify(body),
-      }
-    );
+    const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+      body: JSON.stringify(body),
+    });
     if (!resp.ok) {
       const err = await resp.text().catch(() => "");
-      console.error("[AquaBuddy] Gemini error", resp.status, err.slice(0, 400));
+      console.error("[AquaBuddy] Groq error", resp.status, err.slice(0, 400));
       return { _error: resp.status, _msg: err.slice(0, 200) };
     }
     return await resp.json();
@@ -424,42 +409,33 @@ async function callAquaBuddy(userMessage, mode = "personalized", history = []) {
     { role: "user", content: userMessage },
   ];
 
-  // --- Google Gemini (native API) ---
-  const geminiData = await callGemini(messages, system, AQUA_TOOLS);
-  if (geminiData && geminiData._error) {
-    // API call failed — surface the error rather than silently falling back
-    const code = geminiData._error;
-    if (code === 401 || code === 403) return T("⚠ API key inválida o sin permisos. Configúrala en Ajustes → Cuenta → Aqua Buddy.", "⚠ Invalid API key or no permissions. Set it in Settings → Account → Aqua Buddy.");
-    // 429 (rate limit) or 5xx — fall through to local knowledge base silently
+  // --- Groq (Llama 3.3 70B, OpenAI-compatible) ---
+  const groqData = await callGroq(messages, system, AQUA_TOOLS);
+  if (groqData && groqData._error) {
+    const code = groqData._error;
+    if (code === 401 || code === 403) return T("⚠ API key de Groq inválida. Configúrala en Ajustes → Cuenta → Aqua Buddy.", "⚠ Invalid Groq API key. Set it in Settings → Account → Aqua Buddy.");
+    // 429 or 5xx — fall through to local silently
   }
-  if (geminiData) {
-    const candidate = geminiData.candidates?.[0];
-    const parts = candidate?.content?.parts || [];
-
-    // Handle function calls
-    const funcParts = parts.filter((p) => p.functionCall);
-    if (funcParts.length > 0) {
-      const toolResultParts = funcParts.map((p) => ({
-        functionResponse: {
-          name: p.functionCall.name,
-          response: { result: executeAquaTool(p.functionCall.name, p.functionCall.args || {}) },
-        },
-      }));
-
-      // Follow-up: let Gemini narrate the completed actions
+  if (groqData) {
+    const msg = groqData.choices?.[0]?.message;
+    if (msg?.tool_calls?.length > 0) {
+      const toolResults = msg.tool_calls.map((tc) => {
+        let args = {};
+        try { args = JSON.parse(tc.function.arguments); } catch (_) {}
+        return { role: "tool", tool_call_id: tc.id, content: String(executeAquaTool(tc.function.name, args)) };
+      });
+      // Follow-up: let model narrate completed actions
       const followMessages = [
         ...messages,
-        { role: "model", parts },
-        { role: "user", parts: toolResultParts },
+        { role: "assistant", content: null, tool_calls: msg.tool_calls },
+        ...toolResults,
       ];
-      const follow = await callGemini(followMessages, system);
-      const followParts = follow?.candidates?.[0]?.content?.parts || [];
-      const followText = followParts.filter((p) => p.text).map((p) => p.text).join("").trim();
+      const follow = await callGroq(followMessages, system);
+      const followText = follow?.choices?.[0]?.message?.content?.trim();
       if (followText) return followText;
-      return toolResultParts.map((p) => p.functionResponse.response.result).join("\n");
+      return toolResults.map((r) => r.content).join("\n");
     }
-
-    const text = parts.filter((p) => p.text).map((p) => p.text).join("").trim();
+    const text = msg?.content?.trim();
     if (text) return text;
   }
 
@@ -1328,5 +1304,5 @@ Object.assign(window, {
   Dashboard, AlertCard, AquaBotWidget, RoutinesTimeline, RoutineItem,
   ReefStatusHero, WaterParamsCard, LightingScheduleCard, LivestockInventory, GalleryStrip,
   TankVitalsStrip, PARAM_ICON, callAquaBot, callAquaBuddy, localAquaBuddy, localAquaBot, alertCTAAction, applyAquaCommand,
-  AQUA_TOOLS, executeAquaTool, callGemini, buildAquaBuddyPrompt,
+  AQUA_TOOLS, executeAquaTool, callGroq, buildAquaBuddyPrompt,
 });
