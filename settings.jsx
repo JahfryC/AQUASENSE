@@ -369,7 +369,7 @@ function AquaBuddyKeyRow() {
   const [show, setShow] = React.useState(false);
   const [saved, setSaved] = React.useState(false);
 
-  const hasDefault = !localStorage.getItem("aqua:ai_key") && !!window.AQUAMIND_AI_KEY;
+  const hasKey = !!localStorage.getItem("aqua:ai_key");
 
   const save = () => {
     const trimmed = key.trim();
@@ -378,7 +378,7 @@ function AquaBuddyKeyRow() {
       window.AQUAMIND_AI_KEY = trimmed;
     } else {
       localStorage.removeItem("aqua:ai_key");
-      try { window.AQUAMIND_AI_KEY = atob("QVEuQWI4Uk42THloSDdHQ0NoOENTeTVzTTNCd0lZWVE2UDR2OGRWLUtCQ1lLN0Mtb01wQVE="); } catch (_) {}
+      window.AQUAMIND_AI_KEY = null;
     }
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -388,16 +388,16 @@ function AquaBuddyKeyRow() {
   return (
     <div className="px-5 pb-4 pt-1 space-y-2">
       <div className="text-[11px] text-[var(--ink-3)]">
-        {hasDefault
-          ? T("Usando key integrada. Pega la tuya si Aqua Buddy no responde.", "Using built-in key. Paste yours if Aqua Buddy isn't responding.")
-          : T("Key propia configurada.", "Custom key configured.")}
+        {hasKey
+          ? T("Key propia configurada — Aqua Buddy usa Gemini.", "Custom key configured — Aqua Buddy uses Gemini.")
+          : T("Sin key: Aqua Buddy usa respuestas locales. Pega tu key de Gemini para IA completa.", "No key: Aqua Buddy uses local responses. Paste your Gemini key for full AI.")}
         {" "}<a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" className="underline" style={{ color: "var(--accent)" }}>aistudio.google.com/apikey</a>
       </div>
       <div className="flex gap-2">
         <div className="flex-1 flex items-center gap-2 rounded-xl px-3 py-2" style={{ background: "var(--well)", border: "1px solid var(--hairline)" }}>
           <L name="KeyRound" size={12} className="text-[var(--ink-3)] shrink-0" />
           <input type={show ? "text" : "password"} value={key} onChange={(e) => setKey(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") save(); }}
-            placeholder={hasDefault ? T("Usar key integrada (por defecto)", "Using built-in key (default)") : "AIza..."}
+            placeholder="AIza..."
             className="flex-1 bg-transparent border-0 outline-none text-[11.5px] text-[var(--ink)] placeholder:text-[var(--ink-3)] font-mono" />
           <button onClick={() => setShow((s) => !s)} className="text-[var(--ink-3)] hover:text-[var(--ink-2)]"><L name={show ? "EyeOff" : "Eye"} size={12} /></button>
         </div>

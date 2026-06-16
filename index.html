@@ -9253,7 +9253,7 @@ function AquaBuddyKeyRow() {
   const [key, setKey] = React.useState(() => localStorage.getItem("aqua:ai_key") || "");
   const [show, setShow] = React.useState(false);
   const [saved, setSaved] = React.useState(false);
-  const hasDefault = !localStorage.getItem("aqua:ai_key") && !!window.AQUAMIND_AI_KEY;
+  const hasKey = !!localStorage.getItem("aqua:ai_key");
   const save = () => {
     const trimmed = key.trim();
     if (trimmed) {
@@ -9261,9 +9261,7 @@ function AquaBuddyKeyRow() {
       window.AQUAMIND_AI_KEY = trimmed;
     } else {
       localStorage.removeItem("aqua:ai_key");
-      try {
-        window.AQUAMIND_AI_KEY = atob("QVEuQWI4Uk42THloSDdHQ0NoOENTeTVzTTNCd0lZWVE2UDR2OGRWLUtCQ1lLN0Mtb01wQVE=");
-      } catch (_) {}
+      window.AQUAMIND_AI_KEY = null;
     }
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -9275,7 +9273,7 @@ function AquaBuddyKeyRow() {
     className: "px-5 pb-4 pt-1 space-y-2"
   }, /*#__PURE__*/React.createElement("div", {
     className: "text-[11px] text-[var(--ink-3)]"
-  }, hasDefault ? T("Usando key integrada. Pega la tuya si Aqua Buddy no responde.", "Using built-in key. Paste yours if Aqua Buddy isn't responding.") : T("Key propia configurada.", "Custom key configured."), " ", /*#__PURE__*/React.createElement("a", {
+  }, hasKey ? T("Key propia configurada — Aqua Buddy usa Gemini.", "Custom key configured — Aqua Buddy uses Gemini.") : T("Sin key: Aqua Buddy usa respuestas locales. Pega tu key de Gemini para IA completa.", "No key: Aqua Buddy uses local responses. Paste your Gemini key for full AI."), " ", /*#__PURE__*/React.createElement("a", {
     href: "https://aistudio.google.com/apikey",
     target: "_blank",
     rel: "noopener",
@@ -9302,7 +9300,7 @@ function AquaBuddyKeyRow() {
     onKeyDown: e => {
       if (e.key === "Enter") save();
     },
-    placeholder: hasDefault ? T("Usar key integrada (por defecto)", "Using built-in key (default)") : "AIza...",
+    placeholder: "AIza...",
     className: "flex-1 bg-transparent border-0 outline-none text-[11.5px] text-[var(--ink)] placeholder:text-[var(--ink-3)] font-mono"
   }), /*#__PURE__*/React.createElement("button", {
     onClick: () => setShow(s => !s),
