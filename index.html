@@ -4009,6 +4009,36 @@ const TANK_DB = [
   h: 21,
   t: "freshwater"
 }];
+function FieldInput({
+  label,
+  value,
+  onChange,
+  placeholder,
+  ftype = "text",
+  unit,
+  icon
+}) {
+  return /*#__PURE__*/React.createElement("label", {
+    className: "block"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1"
+  }, label), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2.5 focus-within:ring-1 focus-within:ring-[var(--accent-border)] transition-all"
+  }, icon && /*#__PURE__*/React.createElement(L, {
+    name: icon,
+    size: 13,
+    className: "text-[var(--ink-3)] shrink-0"
+  }), /*#__PURE__*/React.createElement("input", {
+    type: ftype,
+    inputMode: ftype === "number" ? "decimal" : undefined,
+    value: value,
+    onChange: e => onChange(e.target.value),
+    placeholder: placeholder,
+    className: "flex-1 bg-transparent border-0 outline-none text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)]"
+  }), unit && /*#__PURE__*/React.createElement("span", {
+    className: "text-[10.5px] text-[var(--ink-3)] shrink-0"
+  }, unit)));
+}
 function AddTankModal({
   onClose,
   onAdded
@@ -4118,34 +4148,6 @@ function AddTankModal({
     icon: "Minus",
     desc: T("Sin sistema de filtración", "No filtration system")
   }];
-  const FieldInput = ({
-    label,
-    value,
-    onChange,
-    placeholder,
-    ftype = "text",
-    unit,
-    icon
-  }) => /*#__PURE__*/React.createElement("label", {
-    className: "block"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1"
-  }, label), /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2 bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2.5 focus-within:ring-1 focus-within:ring-[var(--accent-border)] transition-all"
-  }, icon && /*#__PURE__*/React.createElement(L, {
-    name: icon,
-    size: 13,
-    className: "text-[var(--ink-3)] shrink-0"
-  }), /*#__PURE__*/React.createElement("input", {
-    type: ftype,
-    inputMode: ftype === "number" ? "decimal" : undefined,
-    value: value,
-    onChange: e => onChange(e.target.value),
-    placeholder: placeholder,
-    className: "flex-1 bg-transparent border-0 outline-none text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)]"
-  }), unit && /*#__PURE__*/React.createElement("span", {
-    className: "text-[10.5px] text-[var(--ink-3)] shrink-0"
-  }, unit)));
   return ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
     className: "fixed inset-0 z-50 flex items-center justify-center p-4 bg-[var(--scrim)] backdrop-blur",
     onClick: onClose

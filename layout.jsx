@@ -195,6 +195,23 @@ const TANK_DB = [
   { n:"Planted 75G",             br:"Generic",           vol:75,   l:48, w:18, h:21, t:"freshwater" },
 ];
 
+function FieldInput({ label, value, onChange, placeholder, ftype = "text", unit, icon }) {
+  return (
+    <label className="block">
+      <div className="text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1">{label}</div>
+      <div className="flex items-center gap-2 bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2.5 focus-within:ring-1 focus-within:ring-[var(--accent-border)] transition-all">
+        {icon && <L name={icon} size={13} className="text-[var(--ink-3)] shrink-0" />}
+        <input
+          type={ftype} inputMode={ftype === "number" ? "decimal" : undefined}
+          value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
+          className="flex-1 bg-transparent border-0 outline-none text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)]"
+        />
+        {unit && <span className="text-[10.5px] text-[var(--ink-3)] shrink-0">{unit}</span>}
+      </div>
+    </label>
+  );
+}
+
 function AddTankModal({ onClose, onAdded }) {
   const [step, setStep] = React.useState("search"); // "search" | "fill"
   const [query, setQuery] = React.useState("");
@@ -272,21 +289,6 @@ function AddTankModal({ onClose, onAdded }) {
     { id: "canister", label: T("Canister","Canister"), icon: "Filter", desc: T("Filtro canister externo","External canister filter") },
     { id: "none",     label: T("Ninguno","None"), icon: "Minus",   desc: T("Sin sistema de filtración","No filtration system") },
   ];
-
-  const FieldInput = ({ label, value, onChange, placeholder, ftype = "text", unit, icon }) => (
-    <label className="block">
-      <div className="text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1">{label}</div>
-      <div className="flex items-center gap-2 bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2.5 focus-within:ring-1 focus-within:ring-[var(--accent-border)] transition-all">
-        {icon && <L name={icon} size={13} className="text-[var(--ink-3)] shrink-0" />}
-        <input
-          type={ftype} inputMode={ftype === "number" ? "decimal" : undefined}
-          value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
-          className="flex-1 bg-transparent border-0 outline-none text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)]"
-        />
-        {unit && <span className="text-[10.5px] text-[var(--ink-3)] shrink-0">{unit}</span>}
-      </div>
-    </label>
-  );
 
   return ReactDOM.createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[var(--scrim)] backdrop-blur" onClick={onClose}>
