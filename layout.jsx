@@ -212,11 +212,19 @@ function FieldInput({ label, value, onChange, placeholder, ftype = "text", unit,
   );
 }
 
+const TYPE_META = {
+  reef:       { label: () => T("Reef","Reef"),           icon: "Shell",   bg: "rgba(13,148,136,0.1)",  border: "rgba(13,148,136,0.25)",  color: "var(--accent)" },
+  saltwater:  { label: () => T("Marino","Saltwater"),    icon: "Waves",   bg: "rgba(59,130,246,0.1)",  border: "rgba(59,130,246,0.25)",  color: "#3B82F6" },
+  freshwater: { label: () => T("Dulce","Freshwater"),    icon: "Droplet", bg: "rgba(22,163,74,0.1)",   border: "rgba(22,163,74,0.25)",   color: "#16a34a" },
+  planted:    { label: () => T("Plantado","Planted"),    icon: "Leaf",    bg: "rgba(101,163,13,0.1)",  border: "rgba(101,163,13,0.25)",  color: "#65a30d" },
+};
+
 function AddTankModal({ onClose, onAdded }) {
   const [step, setStep] = React.useState("search"); // "search" | "fill"
   const [query, setQuery] = React.useState("");
   const [results, setResults] = React.useState([]);
   const [searching, setSearching] = React.useState(false);
+  const [aiSearching, setAiSearching] = React.useState(false);
 
   // Form fields
   const [name,       setName]       = React.useState("");
@@ -251,12 +259,49 @@ function AddTankModal({ onClose, onAdded }) {
     return () => clearTimeout(t);
   }, [query]);
 
+  const searchWithAI = async () => {
+    const apiKey = window.AQUAMIND_AI_KEY || localStorage.getItem("aqua:ai_key");
+    if (!apiKey) {
+      window.toast?.(T("Agrega tu key de Groq en Ajustes para buscar con IA", "Add your Groq key in Settings to search with AI"), { tone: "warn", icon: "Key" });
+      return;
+    }
+    setAiSearching(true);
+    try {
+      const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model: "llama-3.3-70b-versatile",
+          messages: [
+            { role: "system", content: "You are a database of aquarium tanks. Return ONLY a JSON object — no markdown, no explanation. If the tank is unknown, return {\"notFound\":true}." },
+            { role: "user", content: `Aquarium tank specs for: "${query.trim()}"\nReturn: {"n":"full name","br":"brand","vol":gallons_number,"t":"reef|saltwater|freshwater|planted","filtration":"sump|aio|canister|none"}` },
+          ],
+          max_tokens: 120,
+          temperature: 0.1,
+        }),
+      });
+      const data = await resp.json();
+      const raw = data.choices?.[0]?.message?.content?.trim() || "";
+      const jsonStr = raw.replace(/```json|```/g, "").trim();
+      const parsed = JSON.parse(jsonStr);
+      if (parsed.notFound) {
+        window.toast?.(T("Tanque no encontrado en IA — intenta con el nombre exacto del modelo", "Tank not found by AI — try the exact model name"), { tone: "warn", icon: "SearchX" });
+      } else {
+        fillFrom(parsed);
+      }
+    } catch (e) {
+      window.toast?.(T("Error buscando con IA — verifica tu key de Groq", "AI search error — check your Groq key"), { tone: "warn", icon: "AlertTriangle" });
+    }
+    setAiSearching(false);
+  };
+
   const fillFrom = (row) => {
     setName(row.n);
     setBrand(row.br);
     setType(row.t === "freshwater" ? "freshwater" : row.t === "planted" ? "planted" : "reef");
-    setDisplayVol(String(row.vol));
-    setTotalVol(String(row.vol));
+    setDisplayVol(row.vol ? String(row.vol) : "");
+    setTotalVol(row.vol ? String(row.vol) : "");
+    if (row.filtration) setFiltration(row.filtration);
     setStep("fill");
   };
 
@@ -341,7 +386,15 @@ function AddTankModal({ onClose, onAdded }) {
               {query.trim() && results.length === 0 && !searching && (
                 <div className="text-center py-5">
                   <L name="SearchX" size={22} className="text-[var(--ink-3)] mx-auto mb-2" />
-                  <div className="text-[12.5px] text-[var(--ink-2)]">{T("No encontrado — añade manualmente", "Not found — add manually")}</div>
+                  <div className="text-[12.5px] text-[var(--ink-2)] mb-3">{T("No está en la base de datos local", "Not in local database")}</div>
+                  <button onClick={searchWithAI} disabled={aiSearching}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-[12.5px] font-semibold text-white disabled:opacity-60 transition-all"
+                    style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-strong))" }}>
+                    {aiSearching
+                      ? <><L name="Loader2" size={13} className="animate-spin" /> {T("Buscando…","Searching…")}</>
+                      : <><L name="Sparkles" size={13} /> {T("Buscar con IA","Search with AI")}</>}
+                  </button>
+                  <div className="text-[10.5px] text-[var(--ink-3)] mt-2">{T("Usa Groq para buscar dimensiones y tipo","Uses Groq to find specs and type")}</div>
                 </div>
               )}
               {!query.trim() && (
@@ -350,22 +403,25 @@ function AddTankModal({ onClose, onAdded }) {
                 </div>
               )}
               <div className="space-y-1 mt-1">
-                {results.map((row, i) => (
-                  <button key={i} onClick={() => fillFrom(row)}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[var(--hover)] transition-colors text-left group">
-                    <div className="grid place-items-center w-8 h-8 rounded-lg shrink-0" style={{
-                      background: row.t === "freshwater" ? "rgba(22,163,74,0.1)" : "rgba(13,148,136,0.1)",
-                      border: row.t === "freshwater" ? "1px solid rgba(22,163,74,0.25)" : "1px solid rgba(13,148,136,0.25)",
-                    }}>
-                      <L name={row.t === "freshwater" ? "Droplet" : "Waves"} size={13} style={{ color: row.t === "freshwater" ? "#16a34a" : "var(--accent)" }} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[12.5px] font-medium text-[var(--ink)] truncate">{row.n}</div>
-                      <div className="text-[10.5px] text-[var(--ink-3)]">{row.br} · {row.vol} gal</div>
-                    </div>
-                    <L name="ChevronRight" size={13} className="text-[var(--ink-3)] group-hover:text-[var(--accent)] transition-colors shrink-0" />
-                  </button>
-                ))}
+                {results.map((row, i) => {
+                  const tm = TYPE_META[row.t] || TYPE_META.reef;
+                  return (
+                    <button key={i} onClick={() => fillFrom(row)}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[var(--hover)] transition-colors text-left group">
+                      <div className="grid place-items-center w-8 h-8 rounded-lg shrink-0" style={{ background: tm.bg, border: `1px solid ${tm.border}` }}>
+                        <L name={tm.icon} size={13} style={{ color: tm.color }} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[12.5px] font-medium text-[var(--ink)] truncate">{row.n}</div>
+                        <div className="text-[10.5px] text-[var(--ink-3)]">
+                          {row.br} · {row.vol} gal ·{" "}
+                          <span style={{ color: tm.color }}>{tm.label()}</span>
+                        </div>
+                      </div>
+                      <L name="ChevronRight" size={13} className="text-[var(--ink-3)] group-hover:text-[var(--accent)] transition-colors shrink-0" />
+                    </button>
+                  );
+                })}
               </div>
             </div>
             <div className="px-5 py-3 border-t border-[var(--hairline)] shrink-0">
