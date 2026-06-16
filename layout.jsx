@@ -202,14 +202,12 @@ function AddTankModal({ onClose, onAdded }) {
   const [searching, setSearching] = React.useState(false);
 
   // Form fields
-  const [name, setName]         = React.useState("");
-  const [type, setType]         = React.useState("saltwater");
+  const [name,       setName]       = React.useState("");
+  const [type,       setType]       = React.useState("reef");
+  const [brand,      setBrand]      = React.useState("");
   const [displayVol, setDisplayVol] = React.useState("");
-  const [totalVol, setTotalVol] = React.useState("");
-  const [brand, setBrand]       = React.useState("");
-  const [length, setLength]     = React.useState("");
-  const [width, setWidth]       = React.useState("");
-  const [height, setHeight]     = React.useState("");
+  const [totalVol,   setTotalVol]   = React.useState("");
+  const [filtration, setFiltration] = React.useState("sump");
   const searchRef = React.useRef(null);
   const nameRef   = React.useRef(null);
   useEscape(onClose);
@@ -239,12 +237,9 @@ function AddTankModal({ onClose, onAdded }) {
   const fillFrom = (row) => {
     setName(row.n);
     setBrand(row.br);
-    setType(row.t === "freshwater" ? "freshwater" : "saltwater");
+    setType(row.t === "freshwater" ? "freshwater" : row.t === "planted" ? "planted" : "reef");
     setDisplayVol(String(row.vol));
     setTotalVol(String(row.vol));
-    setLength(row.l ? String(row.l) : "");
-    setWidth(row.w ? String(row.w) : "");
-    setHeight(row.h ? String(row.h) : "");
     setStep("fill");
   };
 
@@ -257,9 +252,7 @@ function AddTankModal({ onClose, onAdded }) {
       displayVolume: displayVol ? +displayVol : 0,
       realVolume: totalVol ? +totalVol : displayVol ? +displayVol : 0,
       brand: brand.trim(),
-      length: length ? +length : null,
-      width: width ? +width : null,
-      height: height ? +height : null,
+      filtration,
     });
     window.toast?.(T(`Tanque "${tank.name}" añadido`, `Tank "${tank.name}" added`), { icon: "Waves" });
     onAdded?.();
@@ -267,23 +260,27 @@ function AddTankModal({ onClose, onAdded }) {
   };
 
   const typeOpts = [
-    { id: "saltwater",  label: T("Marino","Saltwater"),   icon: "Waves" },
-    { id: "freshwater", label: T("Dulce","Freshwater"),   icon: "Droplet" },
-    { id: "reef",       label: T("Reef","Reef"),          icon: "Shell" },
-    { id: "planted",    label: T("Plantado","Planted"),   icon: "Leaf" },
+    { id: "reef",       label: T("Reef","Reef"),           icon: "Shell" },
+    { id: "saltwater",  label: T("Marino","Saltwater"),    icon: "Waves" },
+    { id: "freshwater", label: T("Dulce","Freshwater"),    icon: "Droplet" },
+    { id: "planted",    label: T("Plantado","Planted"),    icon: "Leaf" },
   ];
 
-  const FieldInput = ({ label, value, onChange, placeholder, type: ftype = "text", unit, children }) => (
+  const filtrationOpts = [
+    { id: "sump",     label: "Sump",          icon: "Layers",      desc: T("Filtro externo bajo el tanque","External sump below tank") },
+    { id: "aio",      label: "AIO",           icon: "Box",         desc: T("All-in-One · filtro integrado","All-in-One · built-in filter") },
+    { id: "canister", label: T("Canister","Canister"), icon: "Filter", desc: T("Filtro canister externo","External canister filter") },
+    { id: "none",     label: T("Ninguno","None"), icon: "Minus",   desc: T("Sin sistema de filtración","No filtration system") },
+  ];
+
+  const FieldInput = ({ label, value, onChange, placeholder, ftype = "text", unit, icon }) => (
     <label className="block">
       <div className="text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1">{label}</div>
-      <div className="flex items-center gap-2 bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2 focus-within:ring-1 focus-within:ring-[var(--accent-border)] transition-all">
-        {children}
+      <div className="flex items-center gap-2 bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2.5 focus-within:ring-1 focus-within:ring-[var(--accent-border)] transition-all">
+        {icon && <L name={icon} size={13} className="text-[var(--ink-3)] shrink-0" />}
         <input
-          type={ftype}
-          inputMode={ftype === "number" ? "decimal" : undefined}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
+          type={ftype} inputMode={ftype === "number" ? "decimal" : undefined}
+          value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
           className="flex-1 bg-transparent border-0 outline-none text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)]"
         />
         {unit && <span className="text-[10.5px] text-[var(--ink-3)] shrink-0">{unit}</span>}
@@ -292,10 +289,10 @@ function AddTankModal({ onClose, onAdded }) {
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[var(--scrim)] backdrop-blur" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[var(--scrim)] backdrop-blur" onClick={onClose}>
       <div
-        className="w-full sm:max-w-lg glass-strong rounded-t-3xl sm:rounded-3xl overflow-hidden max-h-[96dvh] flex flex-col"
-        style={{ boxShadow: "var(--glass-shadow)" }}
+        className="w-full sm:max-w-md glass-strong rounded-3xl overflow-hidden flex flex-col"
+        style={{ boxShadow: "var(--glass-shadow)", maxHeight: "90dvh" }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -311,10 +308,10 @@ function AddTankModal({ onClose, onAdded }) {
             </div>
             <div>
               <div className="text-[14px] font-semibold text-[var(--ink)]">
-                {step === "search" ? T("Buscar tanque", "Search tank") : T("Detalles del tanque", "Tank details")}
+                {step === "search" ? T("Buscar tanque", "Search tank") : T("Configurar tanque", "Set up tank")}
               </div>
               <div className="text-[10.5px] text-[var(--ink-3)]">
-                {step === "search" ? T("Base de datos de acuarios", "Aquarium database") : T("Edita y confirma los datos", "Edit and confirm")}
+                {step === "search" ? T("Base de datos de acuarios", "Aquarium database") : T("Marca, galones, filtración y tipo", "Brand, gallons, filtration & type")}
               </div>
             </div>
           </div>
@@ -331,41 +328,29 @@ function AddTankModal({ onClose, onAdded }) {
                   : <L name="Search" size={15} className="text-[var(--ink-3)] shrink-0" />}
                 <input
                   ref={searchRef}
-                  type="text"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
+                  type="text" value={query} onChange={(e) => setQuery(e.target.value)}
                   placeholder={T("ej. Red Sea Reefer 250, Waterbox 75, ADA 60…", "e.g. Red Sea Reefer 250, Waterbox 75, ADA 60…")}
                   className="flex-1 bg-transparent border-0 outline-none text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)]"
                 />
-                {query && (
-                  <button onClick={() => setQuery("")} className="shrink-0 text-[var(--ink-3)] hover:text-[var(--ink-2)]">
-                    <L name="X" size={13} />
-                  </button>
-                )}
+                {query && <button onClick={() => setQuery("")} className="shrink-0 text-[var(--ink-3)] hover:text-[var(--ink-2)]"><L name="X" size={13} /></button>}
               </div>
             </div>
-
-            {/* Results */}
-            <div className="flex-1 overflow-y-auto px-5 pb-4 min-h-[160px]">
+            <div className="flex-1 overflow-y-auto px-5 pb-4 min-h-[140px]">
               {query.trim() && results.length === 0 && !searching && (
-                <div className="text-center py-6">
+                <div className="text-center py-5">
                   <L name="SearchX" size={22} className="text-[var(--ink-3)] mx-auto mb-2" />
-                  <div className="text-[12.5px] text-[var(--ink-2)]">{T("No encontrado en la base de datos", "Not found in database")}</div>
-                  <div className="text-[11px] text-[var(--ink-3)] mt-1">{T("Puedes añadirlo manualmente abajo", "You can add it manually below")}</div>
+                  <div className="text-[12.5px] text-[var(--ink-2)]">{T("No encontrado — añade manualmente", "Not found — add manually")}</div>
                 </div>
               )}
               {!query.trim() && (
                 <div className="text-[11px] text-[var(--ink-3)] pt-2 pb-1">
-                  {T("Marcas en la base de datos:", "Brands in database:")} Aqueon · Red Sea · Waterbox · Fluval · IM · ADA · JBJ · Coralife · SC Aquariums · Landen…
+                  {T("Marcas:", "Brands:")} Red Sea · Waterbox · Fluval · IM · ADA · Aqueon · JBJ · Coralife…
                 </div>
               )}
               <div className="space-y-1 mt-1">
                 {results.map((row, i) => (
-                  <button
-                    key={i}
-                    onClick={() => fillFrom(row)}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[var(--hover)] transition-colors text-left group"
-                  >
+                  <button key={i} onClick={() => fillFrom(row)}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[var(--hover)] transition-colors text-left group">
                     <div className="grid place-items-center w-8 h-8 rounded-lg shrink-0" style={{
                       background: row.t === "freshwater" ? "rgba(22,163,74,0.1)" : "rgba(13,148,136,0.1)",
                       border: row.t === "freshwater" ? "1px solid rgba(22,163,74,0.25)" : "1px solid rgba(13,148,136,0.25)",
@@ -374,112 +359,91 @@ function AddTankModal({ onClose, onAdded }) {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-[12.5px] font-medium text-[var(--ink)] truncate">{row.n}</div>
-                      <div className="text-[10.5px] text-[var(--ink-3)]">
-                        {row.br} · {row.vol}g{row.l ? ` · ${row.l}×${row.w}×${row.h}"` : ""}
-                      </div>
+                      <div className="text-[10.5px] text-[var(--ink-3)]">{row.br} · {row.vol} gal</div>
                     </div>
                     <L name="ChevronRight" size={13} className="text-[var(--ink-3)] group-hover:text-[var(--accent)] transition-colors shrink-0" />
                   </button>
                 ))}
               </div>
             </div>
-
             <div className="px-5 py-3 border-t border-[var(--hairline)] shrink-0">
-              <button
-                onClick={() => setStep("fill")}
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-[12.5px] font-medium text-[var(--ink-2)] hover:text-[var(--ink)] hover:bg-[var(--hover)] transition-colors"
-              >
+              <button onClick={() => setStep("fill")}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-[12.5px] font-medium text-[var(--ink-2)] hover:text-[var(--ink)] hover:bg-[var(--hover)] transition-colors">
                 <L name="PenLine" size={13} /> {T("Añadir manualmente", "Add manually")}
               </button>
             </div>
           </div>
         )}
 
-        {/* STEP 2 — Fill form */}
+        {/* STEP 2 — Configure */}
         {step === "fill" && (
           <>
-            <div className="flex-1 overflow-y-auto px-5 pt-4 pb-2 space-y-3">
+            <div className="flex-1 overflow-y-auto px-5 pt-4 pb-2 space-y-4">
               {/* Name */}
-              <FieldInput label={T("Nombre *","Name *")} value={name} onChange={setName} placeholder={T("ej. Reef 50G","e.g. Reef 50G")}>
-                <L name="Droplet" size={13} className="text-[var(--ink-3)] shrink-0" />
-              </FieldInput>
-              <input ref={nameRef} style={{ position:"absolute", opacity:0, pointerEvents:"none", height:0 }} tabIndex={-1} />
+              <div>
+                <div className="text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1">{T("Nombre del tanque *","Tank name *")}</div>
+                <div className="flex items-center gap-2 bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2.5 focus-within:ring-1 focus-within:ring-[var(--accent-border)] transition-all">
+                  <L name="Waves" size={13} className="text-[var(--ink-3)] shrink-0" />
+                  <input ref={nameRef} value={name} onChange={(e) => setName(e.target.value)}
+                    placeholder={T("ej. Mi Reef 50G","e.g. My Reef 50G")}
+                    className="flex-1 bg-transparent border-0 outline-none text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)]" />
+                </div>
+              </div>
 
               {/* Type */}
               <div>
-                <div className="text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1">{T("Tipo","Type")}</div>
+                <div className="text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1.5">{T("Tipo de tanque","Tank type")}</div>
                 <div className="grid grid-cols-4 gap-1.5">
                   {typeOpts.map((opt) => (
-                    <button
-                      key={opt.id}
-                      onClick={() => setType(opt.id)}
-                      className={`flex flex-col items-center gap-1 rounded-xl px-2 py-2 text-[11px] font-medium border transition-all ${type === opt.id ? "" : "border-[var(--hairline)] text-[var(--ink-3)] hover:border-[var(--hairline-strong)]"}`}
-                      style={type === opt.id ? { background:"var(--accent-soft)", border:"1px solid var(--accent-border)", color:"var(--accent)" } : {}}
-                    >
-                      <L name={opt.icon} size={14} />
+                    <button key={opt.id} onClick={() => setType(opt.id)}
+                      className="flex flex-col items-center gap-1 rounded-xl px-2 py-2.5 text-[11px] font-medium border transition-all"
+                      style={type === opt.id
+                        ? { background:"var(--accent-soft)", border:"1px solid var(--accent-border)", color:"var(--accent)" }
+                        : { border:"1px solid var(--hairline)", color:"var(--ink-3)" }}>
+                      <L name={opt.icon} size={15} />
                       {opt.label}
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Brand */}
-              <FieldInput label={T("Marca","Brand")} value={brand} onChange={setBrand} placeholder={T("ej. Red Sea, Aqueon","e.g. Red Sea, Aqueon")}>
-                <L name="Tag" size={13} className="text-[var(--ink-3)] shrink-0" />
-              </FieldInput>
-
-              {/* Volumes */}
-              <div className="grid grid-cols-2 gap-3">
-                <FieldInput label={T("Volumen display","Display volume")} value={displayVol} onChange={setDisplayVol} placeholder="40" ftype="number" unit="gal">
-                  <L name="Container" size={13} className="text-[var(--ink-3)] shrink-0" />
-                </FieldInput>
-                <FieldInput label={T("Vol. total (c/sump)","Total vol. (w/sump)")} value={totalVol} onChange={setTotalVol} placeholder="55" ftype="number" unit="gal">
-                  <L name="Layers" size={13} className="text-[var(--ink-3)] shrink-0" />
-                </FieldInput>
-              </div>
-
-              {/* Dimensions */}
+              {/* Filtration */}
               <div>
-                <div className="text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1">{T("Dimensiones (pulgadas)","Dimensions (inches)")}</div>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { label: T("Largo","Length"), val: length, set: setLength, ph: "48" },
-                    { label: T("Ancho","Width"),  val: width,  set: setWidth,  ph: "18" },
-                    { label: T("Alto","Height"),  val: height, set: setHeight, ph: "21" },
-                  ].map(({ label, val, set, ph }) => (
-                    <label key={label} className="block">
-                      <div className="text-[9.5px] text-[var(--ink-3)] uppercase tracking-wider mb-0.5">{label}</div>
-                      <div className="flex items-center gap-1 bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-2 py-2 focus-within:ring-1 focus-within:ring-[var(--accent-border)] transition-all">
-                        <input
-                          type="number"
-                          inputMode="decimal"
-                          value={val}
-                          onChange={(e) => set(e.target.value)}
-                          placeholder={ph}
-                          className="flex-1 bg-transparent border-0 outline-none text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)] w-0 min-w-0"
-                        />
-                        <span className="text-[9.5px] text-[var(--ink-3)] shrink-0">"</span>
+                <div className="text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1.5">{T("Sistema de filtración","Filtration system")}</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {filtrationOpts.map((opt) => (
+                    <button key={opt.id} onClick={() => setFiltration(opt.id)}
+                      className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left border transition-all"
+                      style={filtration === opt.id
+                        ? { background:"var(--accent-soft)", border:"1px solid var(--accent-border)" }
+                        : { background:"var(--well)", border:"1px solid var(--hairline)" }}>
+                      <L name={opt.icon} size={14} style={{ color: filtration === opt.id ? "var(--accent)" : "var(--ink-3)" }} />
+                      <div>
+                        <div className="text-[12px] font-semibold" style={{ color: filtration === opt.id ? "var(--accent)" : "var(--ink)" }}>{opt.label}</div>
+                        <div className="text-[9.5px] leading-tight" style={{ color: "var(--ink-3)" }}>{opt.desc}</div>
                       </div>
-                    </label>
+                    </button>
                   ))}
                 </div>
+              </div>
+
+              {/* Brand + Gallons */}
+              <FieldInput label={T("Marca","Brand")} value={brand} onChange={setBrand} placeholder={T("ej. Red Sea, Aqueon, Waterbox","e.g. Red Sea, Aqueon, Waterbox")} icon="Tag" />
+              <div className="grid grid-cols-2 gap-3">
+                <FieldInput label={T("Galones display","Display gal.")} value={displayVol} onChange={setDisplayVol} placeholder="50" ftype="number" unit="gal" icon="Container" />
+                <FieldInput label={filtration === "sump" ? T("Total c/sump","Total w/sump") : T("Vol. total","Total vol.")} value={totalVol} onChange={setTotalVol} placeholder="70" ftype="number" unit="gal" icon="Layers" />
               </div>
             </div>
 
             <div className="px-5 py-4 border-t border-[var(--hairline)] shrink-0 flex gap-2">
-              <button
-                onClick={onClose}
+              <button onClick={onClose}
                 className="flex-1 rounded-full py-2.5 text-[13px] font-medium text-[var(--ink-2)] hover:text-[var(--ink)] transition-colors"
-                style={{ background:"var(--well)", border:"1px solid var(--hairline)" }}
-              >
+                style={{ background:"var(--well)", border:"1px solid var(--hairline)" }}>
                 {T("Cancelar","Cancel")}
               </button>
-              <button
-                onClick={save}
-                disabled={!name.trim()}
+              <button onClick={save} disabled={!name.trim()}
                 className="flex-1 rounded-full py-2.5 text-[13px] font-semibold text-white disabled:opacity-40 transition-all active:scale-[0.99]"
-                style={{ background:"linear-gradient(135deg, var(--accent), var(--accent-strong))" }}
-              >
+                style={{ background:"linear-gradient(135deg, var(--accent), var(--accent-strong))" }}>
                 {T("Agregar tanque","Add tank")}
               </button>
             </div>
@@ -489,6 +453,7 @@ function AddTankModal({ onClose, onAdded }) {
     </div>
   );
 }
+
 
 function TankSelector() {
   const { CURRENT_PARAMETERS } = window.AQUA;
