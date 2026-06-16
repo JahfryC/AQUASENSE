@@ -500,14 +500,14 @@ function AddInhabitantModal({ onClose }) {
     { id: "cuc",    label: "CUC",              icon: "Bug" },
   ];
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[var(--scrim)] backdrop-blur" onClick={onClose}>
+  return ReactDOM.createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[var(--scrim)] backdrop-blur" onClick={onClose}>
       <Card
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-label={T("Agregar habitante", "Add inhabitant")}
-        className="w-full max-w-md glass-strong rounded-t-3xl sm:rounded-3xl overflow-y-auto max-h-[92dvh]"
+        className="w-full max-w-md glass-strong rounded-3xl overflow-y-auto max-h-[90dvh]"
       >
         <div className="flex items-center justify-between p-4 border-b border-[var(--hairline)]">
           <div className="flex items-center gap-2.5">
@@ -639,7 +639,8 @@ function AddInhabitantModal({ onClose }) {
           </Button>
         </div>
       </Card>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -877,8 +878,8 @@ function LightFixtureModal({ onClose }) {
 
   const spectrumColor = { reef: "var(--accent)", planted: "#16a34a", both: "#7C3AED" };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[var(--scrim)] backdrop-blur" onClick={onClose}>
+  return ReactDOM.createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[var(--scrim)] backdrop-blur" onClick={onClose}>
       <div
         className="w-full sm:max-w-lg glass-strong rounded-t-3xl sm:rounded-3xl overflow-hidden max-h-[96dvh] flex flex-col"
         style={{ boxShadow: "var(--glass-shadow)" }}
@@ -1067,7 +1068,8 @@ function LightFixtureModal({ onClose }) {
           </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -1545,9 +1547,9 @@ function AddSupplementModal({ onClose, editItem }) {
 
   const schedOpts = [T("Diario","Daily"), T("2x día","2x day"), T("Semanal","Weekly"), T("Quincenal","Biweekly"), T("Mensual","Monthly")];
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(6px)" }} onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="w-full sm:max-w-md glass rounded-t-3xl sm:rounded-3xl p-5 space-y-4" style={{ maxHeight: "90dvh", overflowY: "auto" }}>
+  return ReactDOM.createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(6px)" }} onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="w-full sm:max-w-md glass rounded-3xl p-5 space-y-4" style={{ maxHeight: "90dvh", overflowY: "auto" }}>
         <div className="flex items-center gap-3">
           <button onClick={onClose} className="p-1.5 rounded-xl hover:bg-[var(--hover)]"><L name="ArrowLeft" size={16} /></button>
           <h2 className="text-[16px] font-semibold text-[var(--ink)]">{editItem ? T("Editar suplemento","Edit supplement") : T("Agregar suplemento","Add supplement")}</h2>
@@ -1596,7 +1598,8 @@ function AddSupplementModal({ onClose, editItem }) {
           {editItem ? T("Guardar cambios","Save changes") : T("Agregar suplemento","Add supplement")}
         </button>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

@@ -4146,7 +4146,7 @@ function AddTankModal({
   }), unit && /*#__PURE__*/React.createElement("span", {
     className: "text-[10.5px] text-[var(--ink-3)] shrink-0"
   }, unit)));
-  return /*#__PURE__*/React.createElement("div", {
+  return ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
     className: "fixed inset-0 z-50 flex items-center justify-center p-4 bg-[var(--scrim)] backdrop-blur",
     onClick: onClose
   }, /*#__PURE__*/React.createElement("div", {
@@ -4369,7 +4369,7 @@ function AddTankModal({
     style: {
       background: "linear-gradient(135deg, var(--accent), var(--accent-strong))"
     }
-  }, T("Agregar tanque", "Add tank"))))));
+  }, T("Agregar tanque", "Add tank")))))), document.body);
 }
 function TankSelector() {
   const {
@@ -7152,15 +7152,15 @@ function AddInhabitantModal({
     label: "CUC",
     icon: "Bug"
   }];
-  return /*#__PURE__*/React.createElement("div", {
-    className: "fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[var(--scrim)] backdrop-blur",
+  return ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 z-50 flex items-center justify-center p-4 bg-[var(--scrim)] backdrop-blur",
     onClick: onClose
   }, /*#__PURE__*/React.createElement(Card, {
     onClick: e => e.stopPropagation(),
     role: "dialog",
     "aria-modal": "true",
     "aria-label": T("Agregar habitante", "Add inhabitant"),
-    className: "w-full max-w-md glass-strong rounded-t-3xl sm:rounded-3xl overflow-y-auto max-h-[92dvh]"
+    className: "w-full max-w-md glass-strong rounded-3xl overflow-y-auto max-h-[90dvh]"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-between p-4 border-b border-[var(--hairline)]"
   }, /*#__PURE__*/React.createElement("div", {
@@ -7316,7 +7316,7 @@ function AddInhabitantModal({
     loading: saving,
     disabled: !name.trim(),
     onClick: save
-  }, T("Agregar", "Add")))));
+  }, T("Agregar", "Add"))))), document.body);
 }
 function InhabitantsPage() {
   const {
@@ -7993,8 +7993,8 @@ function LightFixtureModal({
     planted: "#16a34a",
     both: "#7C3AED"
   };
-  return /*#__PURE__*/React.createElement("div", {
-    className: "fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[var(--scrim)] backdrop-blur",
+  return ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 z-50 flex items-center justify-center p-4 bg-[var(--scrim)] backdrop-blur",
     onClick: onClose
   }, /*#__PURE__*/React.createElement("div", {
     className: "w-full sm:max-w-lg glass-strong rounded-t-3xl sm:rounded-3xl overflow-hidden max-h-[96dvh] flex flex-col",
@@ -8209,7 +8209,7 @@ function LightFixtureModal({
     style: {
       background: "linear-gradient(135deg, var(--accent), var(--accent-strong))"
     }
-  }, T("Guardar lámpara", "Save fixture"))))));
+  }, T("Guardar lámpara", "Save fixture")))))), document.body);
 }
 function LightingPage() {
   const {
@@ -8904,15 +8904,15 @@ function AddSupplementModal({
     onClose();
   };
   const schedOpts = [T("Diario", "Daily"), T("2x día", "2x day"), T("Semanal", "Weekly"), T("Quincenal", "Biweekly"), T("Mensual", "Monthly")];
-  return /*#__PURE__*/React.createElement("div", {
-    className: "fixed inset-0 z-50 flex items-end sm:items-center justify-center",
+  return ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 z-50 flex items-center justify-center p-4",
     style: {
       background: "rgba(0,0,0,0.45)",
       backdropFilter: "blur(6px)"
     },
     onClick: e => e.target === e.currentTarget && onClose()
   }, /*#__PURE__*/React.createElement("div", {
-    className: "w-full sm:max-w-md glass rounded-t-3xl sm:rounded-3xl p-5 space-y-4",
+    className: "w-full sm:max-w-md glass rounded-3xl p-5 space-y-4",
     style: {
       maxHeight: "90dvh",
       overflowY: "auto"
@@ -9001,7 +9001,7 @@ function AddSupplementModal({
     style: {
       background: "linear-gradient(135deg, var(--accent), var(--accent-strong))"
     }
-  }, editItem ? T("Guardar cambios", "Save changes") : T("Agregar suplemento", "Add supplement"))));
+  }, editItem ? T("Guardar cambios", "Save changes") : T("Agregar suplemento", "Add supplement")))), document.body);
 }
 function SupplementCard({
   item,

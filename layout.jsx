@@ -288,7 +288,7 @@ function AddTankModal({ onClose, onAdded }) {
     </label>
   );
 
-  return (
+  return ReactDOM.createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[var(--scrim)] backdrop-blur" onClick={onClose}>
       <div
         className="w-full sm:max-w-md glass-strong rounded-3xl overflow-hidden flex flex-col"
@@ -450,7 +450,8 @@ function AddTankModal({ onClose, onAdded }) {
           </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
