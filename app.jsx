@@ -154,6 +154,7 @@ function App() {
       case "inhabitants": return <InhabitantsPage onNavigate={navigate} />;
       case "lighting":    return <LightingPage onNavigate={navigate} />;
       case "routines":    return <RoutinesPage onNavigate={navigate} routinesDone={routinesDone} onToggleRoutine={toggleRoutine} />;
+      case "supplements": return <SupplementsPage />;
       case "ai":          return <AquaBotPage />;
       case "alerts":      return <AlertsPage onNavigate={navigate} alerts={alerts} onDismissAlert={dismissAlert} />;
       default:            return <SettingsPage session={session} onSignOut={signOut} tweaks={t} setTweak={setTweak} />;

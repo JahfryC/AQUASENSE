@@ -1,12 +1,13 @@
 // Layout: Sidebar, Header, MobileTabBar, Logo — Liquid Glass edition
 const NAV_ITEMS = () => [
-  { id: "dashboard",   label: T("Inicio", "Home"),           icon: "Home" },
-  { id: "parameters",  label: T("Bitácora", "Logbook"),      icon: "NotebookPen" },
-  { id: "lighting",    label: T("Iluminación", "Lighting"),  icon: "SunMedium" },
-  { id: "inhabitants", label: T("Habitantes", "Livestock"),  icon: "Fish" },
-  { id: "routines",    label: T("Rutinas", "Routines"),      icon: "CalendarCheck" },
-  { id: "ai",          label: T("Asistente IA", "AI Assistant"), icon: "Sparkles" },
-  { id: "alerts",      label: T("Alertas", "Alerts"),        icon: "Bell" },
+  { id: "dashboard",   label: T("Inicio", "Home"),                   icon: "Home" },
+  { id: "parameters",  label: T("Bitácora", "Logbook"),              icon: "NotebookPen" },
+  { id: "lighting",    label: T("Iluminación", "Lighting"),          icon: "SunMedium" },
+  { id: "inhabitants", label: T("Habitantes", "Livestock"),          icon: "Fish" },
+  { id: "supplements", label: T("Suplementos", "Supplements"),       icon: "FlaskConical" },
+  { id: "routines",    label: T("Rutinas", "Routines"),              icon: "CalendarCheck" },
+  { id: "ai",          label: T("Asistente IA", "AI Assistant"),     icon: "Sparkles" },
+  { id: "alerts",      label: T("Alertas", "Alerts"),                icon: "Bell" },
 ];
 
 function Logo({ size = 36 }) {
@@ -649,11 +650,11 @@ function Header({ activePage, onNavigate, alertCount }) {
 
 // ---- Mobile tab bar ----
 const MOBILE_TABS = () => [
-  { id: "dashboard",   label: T("Inicio", "Home"),     icon: "Home" },
-  { id: "parameters",  label: T("Bitácora", "Logbook"),icon: "NotebookPen" },
-  { id: "inhabitants", label: T("Vida", "Livestock"),  icon: "Fish" },
-  { id: "ai",          label: "IA",                    icon: "Sparkles" },
-  { id: "alerts",      label: T("Alertas", "Alerts"),  icon: "Bell" },
+  { id: "dashboard",   label: T("Inicio", "Home"),         icon: "Home" },
+  { id: "parameters",  label: T("Bitácora", "Logbook"),    icon: "NotebookPen" },
+  { id: "supplements", label: T("Suplementos", "Suppl."),  icon: "FlaskConical" },
+  { id: "inhabitants", label: T("Vida", "Livestock"),      icon: "Fish" },
+  { id: "ai",          label: "IA",                        icon: "Sparkles" },
 ];
 
 function MobileTabBar({ activePage, onNavigate }) {

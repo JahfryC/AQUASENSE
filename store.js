@@ -18,6 +18,7 @@ window.AquaStore = (() => {
     customInhabitants: [],     // [{ kind, item }]
     inhabitantUpdates: {},     // { id: { status, note } }
     customTanks: [],           // tanks added by the user
+    supplements: [],           // [{ id, name, category, schedule, amount, unit, note }]
     lightingWeek: null,
     lightFixture: null,        // { name, brand, wattage, type }
     photos: {},                // { slotId: dataURL }
@@ -182,6 +183,22 @@ window.AquaStore = (() => {
       if (ud.activeTankId === id) this.setActiveTank("tank-001");
       touch();
       window.dispatchEvent(new CustomEvent("aqua:tanks:changed", {}));
+    },
+
+    // ---- suplementos / comida ----
+    addSupplement(s) {
+      const item = { id: "sup-" + Date.now(), ...s };
+      ud.supplements = [...(ud.supplements || []), item];
+      touch();
+      return item;
+    },
+    removeSupplement(id) {
+      ud.supplements = (ud.supplements || []).filter((s) => s.id !== id);
+      touch();
+    },
+    updateSupplement(id, patch) {
+      ud.supplements = (ud.supplements || []).map((s) => s.id === id ? { ...s, ...patch } : s);
+      touch();
     },
 
     // ---- sincronización nube → local (last-write-wins por updatedAt) ----

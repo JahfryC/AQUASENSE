@@ -251,7 +251,7 @@ function ParameterDetailRow({ paramKey, param, onAskAI, onLog }) {
 
 function ParametersPage({ onNavigate }) {
   const { CURRENT_PARAMETERS } = window.AQUA;
-  const order = ["ph", "kh", "phosphate", "calcium", "magnesium", "nitrate", "temperature", "salinity", "ammonia", "nitrite"];
+  const order = ["ph", "kh", "phosphate", "calcium", "nitrate", "temperature", "salinity", "ammonia", "nitrite"];
   // null = closed · "all" = every parameter · paramKey = just that one
   const [logTarget, setLogTarget] = useState(null);
 
@@ -1375,7 +1375,6 @@ function AquaBotPage() {
     ["KH", `${params.kh?.value} dKH (${params.kh?.status})`],
     ["PO₄", `${params.phosphate?.value} ppm (${params.phosphate?.status})`],
     ["Ca", `${params.calcium?.value} mg/L`],
-    ["Mg", `${params.magnesium?.value} mg/L`],
     ["Temp", `${params.temperature?.value}°F`],
     [T("Volumen real", "Real volume"), `${TANK_CONFIG.realVolume} gal`],
   ];
@@ -1520,4 +1519,181 @@ function AlertsPage({ onNavigate, alerts, onDismissAlert }) {
   );
 }
 
-Object.assign(window, { ParametersPage, InhabitantsPage, LightingPage, RoutinesPage, AquaBotPage, AlertsPage, expand30, LogReadingModal, exportParamsCSV });
+// ========================= SUPPLEMENTS PAGE =========================
+const SUP_CATEGORIES = [
+  { id: "fish_food",   label: () => T("Comida Peces",   "Fish Food"),   icon: "Fish",       color: "#60A5FA" },
+  { id: "coral_food",  label: () => T("Comida Corales", "Coral Food"),  icon: "Flower2",    color: "#F87171" },
+  { id: "additive",    label: () => T("Aditivo / Supl.", "Additive"),   icon: "FlaskConical", color: "#0E9F6E" },
+];
+
+function AddSupplementModal({ onClose, editItem }) {
+  const S = window.AquaStore;
+  const [name,     setName]     = React.useState(editItem?.name     || "");
+  const [cat,      setCat]      = React.useState(editItem?.category || "fish_food");
+  const [schedule, setSchedule] = React.useState(editItem?.schedule || T("Diario","Daily"));
+  const [amount,   setAmount]   = React.useState(editItem?.amount   || "");
+  const [unit,     setUnit]     = React.useState(editItem?.unit     || "");
+  const [note,     setNote]     = React.useState(editItem?.note     || "");
+
+  const save = () => {
+    if (!name.trim()) return;
+    const data = { name: name.trim(), category: cat, schedule, amount: amount.trim(), unit: unit.trim(), note: note.trim() };
+    if (editItem) S.updateSupplement(editItem.id, data);
+    else S.addSupplement(data);
+    onClose();
+  };
+
+  const schedOpts = [T("Diario","Daily"), T("2x día","2x day"), T("Semanal","Weekly"), T("Quincenal","Biweekly"), T("Mensual","Monthly")];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(6px)" }} onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="w-full sm:max-w-md glass rounded-t-3xl sm:rounded-3xl p-5 space-y-4" style={{ maxHeight: "90dvh", overflowY: "auto" }}>
+        <div className="flex items-center gap-3">
+          <button onClick={onClose} className="p-1.5 rounded-xl hover:bg-[var(--hover)]"><L name="ArrowLeft" size={16} /></button>
+          <h2 className="text-[16px] font-semibold text-[var(--ink)]">{editItem ? T("Editar suplemento","Edit supplement") : T("Agregar suplemento","Add supplement")}</h2>
+        </div>
+
+        {/* Category */}
+        <div className="grid grid-cols-3 gap-2">
+          {SUP_CATEGORIES.map((c) => (
+            <button key={c.id} onClick={() => setCat(c.id)} className="flex flex-col items-center gap-1.5 p-2.5 rounded-2xl border transition-all text-center" style={{ background: cat === c.id ? `${c.color}20` : "var(--well)", borderColor: cat === c.id ? c.color : "var(--hairline)" }}>
+              <L name={c.icon} size={18} style={{ color: c.color }} />
+              <span className="text-[10.5px] font-medium leading-tight" style={{ color: cat === c.id ? c.color : "var(--ink-2)" }}>{c.label()}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="space-y-3">
+          <div>
+            <label className="text-[11px] text-[var(--ink-3)] uppercase tracking-wider mb-1 block">{T("Nombre","Name")}</label>
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder={T("Ej: Mysis, Coral Frenzy, Kalkwasser…","E.g. Mysis, Coral Frenzy, Kalkwasser…")} className="w-full glass-strong rounded-xl px-3 py-2.5 text-[13px] text-[var(--ink)] border border-[var(--hairline)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-border)]" />
+          </div>
+          <div>
+            <label className="text-[11px] text-[var(--ink-3)] uppercase tracking-wider mb-1 block">{T("Frecuencia","Frequency")}</label>
+            <div className="flex flex-wrap gap-1.5">
+              {schedOpts.map((o) => (
+                <button key={o} onClick={() => setSchedule(o)} className="px-3 py-1.5 rounded-full text-[11.5px] transition-all" style={{ background: schedule === o ? "var(--accent)" : "var(--well)", color: schedule === o ? "#fff" : "var(--ink-2)", border: "1px solid " + (schedule === o ? "var(--accent)" : "var(--hairline)") }}>{o}</button>
+              ))}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[11px] text-[var(--ink-3)] uppercase tracking-wider mb-1 block">{T("Cantidad","Amount")}</label>
+              <input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="5" className="w-full glass-strong rounded-xl px-3 py-2.5 text-[13px] text-[var(--ink)] border border-[var(--hairline)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-border)]" />
+            </div>
+            <div>
+              <label className="text-[11px] text-[var(--ink-3)] uppercase tracking-wider mb-1 block">{T("Unidad","Unit")}</label>
+              <input value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="ml, g, pinch…" className="w-full glass-strong rounded-xl px-3 py-2.5 text-[13px] text-[var(--ink)] border border-[var(--hairline)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-border)]" />
+            </div>
+          </div>
+          <div>
+            <label className="text-[11px] text-[var(--ink-3)] uppercase tracking-wider mb-1 block">{T("Nota","Note")}</label>
+            <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder={T("Instrucciones, marca, observaciones…","Instructions, brand, observations…")} className="w-full glass-strong rounded-xl px-3 py-2.5 text-[13px] text-[var(--ink)] border border-[var(--hairline)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-border)] resize-none" />
+          </div>
+        </div>
+
+        <button onClick={save} disabled={!name.trim()} className="w-full py-3 rounded-2xl font-semibold text-[13.5px] text-white transition-all disabled:opacity-40" style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-strong))" }}>
+          {editItem ? T("Guardar cambios","Save changes") : T("Agregar suplemento","Add supplement")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SupplementCard({ item, onEdit, onRemove, onLog }) {
+  const cat = SUP_CATEGORIES.find((c) => c.id === item.category) || SUP_CATEGORIES[0];
+  const lastUsed = item.lastUsed ? new Date(item.lastUsed).toLocaleDateString() : T("Nunca","Never");
+  return (
+    <Card hover className="p-4">
+      <div className="flex items-start gap-3">
+        <div className="grid place-items-center w-10 h-10 rounded-2xl shrink-0" style={{ background: `${cat.color}18`, border: `1px solid ${cat.color}40` }}>
+          <L name={cat.icon} size={18} style={{ color: cat.color }} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <div className="text-[13.5px] font-semibold text-[var(--ink)] leading-snug">{item.name}</div>
+              <div className="text-[11px] text-[var(--ink-3)] mt-0.5">{cat.label()} · {item.schedule}{item.amount ? ` · ${item.amount}${item.unit ? " " + item.unit : ""}` : ""}</div>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              <button onClick={() => onLog(item)} className="p-1.5 rounded-lg hover:bg-[var(--hover)] text-[var(--ink-3)] hover:text-[var(--accent)] transition-colors"><L name="CheckCircle2" size={14} /></button>
+              <button onClick={() => onEdit(item)} className="p-1.5 rounded-lg hover:bg-[var(--hover)] text-[var(--ink-3)] transition-colors"><L name="Pencil" size={14} /></button>
+              <button onClick={() => onRemove(item.id)} className="p-1.5 rounded-lg hover:bg-[var(--hover)] text-[var(--ink-3)] hover:text-red-400 transition-colors"><L name="Trash2" size={14} /></button>
+            </div>
+          </div>
+          {item.note && <div className="text-[11px] text-[var(--ink-2)] mt-1.5 leading-relaxed">{item.note}</div>}
+          <div className="text-[10px] text-[var(--ink-3)] mt-1.5">{T("Última dosis:","Last dose:")} {lastUsed}</div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function SupplementsPage() {
+  const S = window.AquaStore;
+  const [, forceUpdate] = React.useReducer((x) => x + 1, 0);
+  const [modal, setModal] = React.useState(null); // null | "add" | item (edit)
+  const supplements = S.ud.supplements || [];
+
+  React.useEffect(() => {
+    const fn = () => forceUpdate();
+    window.addEventListener("aqua:data", fn);
+    return () => window.removeEventListener("aqua:data", fn);
+  }, []);
+
+  const logDose = (item) => {
+    S.updateSupplement(item.id, { lastUsed: new Date().toISOString() });
+    window.toast?.(T(`Dosis registrada: ${item.name}`, `Dose logged: ${item.name}`), { icon: "CheckCircle2" });
+  };
+
+  const grouped = SUP_CATEGORIES.map((cat) => ({
+    cat,
+    items: supplements.filter((s) => s.category === cat.id),
+  })).filter((g) => g.items.length > 0);
+
+  return (
+    <div className="px-4 lg:px-6 py-5 lg:py-6 space-y-5">
+      <div className="flex items-end justify-between flex-wrap gap-3">
+        <div>
+          <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--ink-3)] mb-1">{T("Alimentación & Suplementos","Feeding & Supplements")}</div>
+          <h1 className="text-[20px] lg:text-[22px] font-medium text-[var(--ink)] tracking-tight">{T("Suplementos","Supplements")}</h1>
+        </div>
+        <Button variant="primary" icon="Plus" onClick={() => setModal("add")}>{T("Agregar","Add")}</Button>
+      </div>
+
+      {supplements.length === 0 ? (
+        <Card className="p-8 text-center">
+          <div className="grid place-items-center w-14 h-14 rounded-3xl mx-auto mb-3" style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)" }}>
+            <L name="FlaskConical" size={24} style={{ color: "var(--accent)" }} />
+          </div>
+          <div className="text-[14px] font-semibold text-[var(--ink)] mb-1">{T("Sin suplementos aún","No supplements yet")}</div>
+          <div className="text-[12px] text-[var(--ink-2)] mb-4">{T("Agrega la comida de tus peces, corales y aditivos dosificados.","Add fish food, coral food and dosed additives.")}</div>
+          <Button variant="primary" icon="Plus" onClick={() => setModal("add")}>{T("Agregar suplemento","Add supplement")}</Button>
+        </Card>
+      ) : (
+        <div className="space-y-5">
+          {grouped.map(({ cat, items }) => (
+            <div key={cat.id}>
+              <div className="flex items-center gap-2 mb-2.5">
+                <L name={cat.icon} size={14} style={{ color: cat.color }} />
+                <span className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: cat.color }}>{cat.label()}</span>
+                <span className="text-[11px] text-[var(--ink-3)]">· {items.length}</span>
+              </div>
+              <div className="space-y-2.5">
+                {items.map((item) => (
+                  <SupplementCard key={item.id} item={item} onEdit={(it) => setModal(it)} onRemove={(id) => { S.removeSupplement(id); forceUpdate(); }} onLog={logDose} />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {(modal === "add" || (modal && typeof modal === "object")) && (
+        <AddSupplementModal editItem={modal === "add" ? null : modal} onClose={() => setModal(null)} />
+      )}
+    </div>
+  );
+}
+
+Object.assign(window, { ParametersPage, InhabitantsPage, LightingPage, RoutinesPage, AquaBotPage, AlertsPage, SupplementsPage, expand30, LogReadingModal, exportParamsCSV });

@@ -175,8 +175,8 @@ function localAquaBuddy(q) {
     "Magnesium should be 1250–1350 mg/L. If low, supplement gradually with magnesium chloride or sulfate. Regular water changes with well-mixed saltwater help keep it stable."
   );
   return T(
-    "Soy Aqua Buddy, tu asistente de acuario. Puedo ayudarte con parámetros, registrar lecturas, crear rutinas o responder preguntas sobre tu reef. Configura tu API key de Google Gemini (gratis en aistudio.google.com/apikey) en Ajustes → Aqua Buddy para respuestas IA en tiempo real.",
-    "I'm Aqua Buddy, your aquarium assistant. I can help with parameters, log readings, create routines or answer questions about your reef. Add your free Google Gemini API key (from aistudio.google.com/apikey) in Settings → Aqua Buddy for real-time AI responses."
+    "Soy Aqua Buddy, tu asistente de acuario. Puedo ayudarte con parámetros, registrar lecturas, crear rutinas o responder preguntas sobre tu reef. Agrega tu key de Groq gratis (console.groq.com/keys) en Ajustes → Aqua Buddy para respuestas IA en tiempo real.",
+    "I'm Aqua Buddy, your aquarium assistant. I can help with parameters, log readings, create routines or answer questions about your reef. Add your free Groq key (console.groq.com/keys) in Settings → Aqua Buddy for real-time AI responses."
   );
 }
 
@@ -435,7 +435,7 @@ async function callAquaBuddy(userMessage, mode = "personalized", history = []) {
       if (followText) return followText;
       return toolResults.map((r) => r.content).join("\n");
     }
-    const text = msg?.content?.trim();
+    const text = msg?.content?.replace(/<function\([^)]*\)=[^]*?<\/function>/g, "").trim();
     if (text) return text;
   }
 
@@ -517,13 +517,7 @@ function ReefStatusHero({ onNavigate }) {
             <L name="Droplet" size={16} style={{ color: "#2DD4BF" }} />
           </div>
         </div>
-        {isNewTank && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <button onClick={() => onNavigate("settings")} className="flex items-center gap-2 px-4 py-2 rounded-full text-[12.5px] font-medium text-white transition-all hover:brightness-110" style={{ background: "rgba(13,148,136,0.7)", border: "1px solid rgba(255,255,255,0.25)", backdropFilter: "blur(8px)" }}>
-              <L name="Settings" size={14} /> {T("Configurar mi tanque", "Set up my tank")}
-            </button>
-          </div>
-        )}
+        <HeroPhotoSlot />
       </div>
 
       {/* Quick update / ask AI */}
@@ -562,6 +556,30 @@ function ReefStatusHero({ onNavigate }) {
         )}
       </div>
     </Card>
+  );
+}
+
+// ---- Hero photo slot for tank banner ----
+function HeroPhotoSlot() {
+  const fileRef = React.useRef(null);
+  const [, forceUpdate] = React.useReducer((x) => x + 1, 0);
+  const photo = window.AquaStore?.getPhoto?.("tank-hero");
+
+  const handleFile = (e) => {
+    const f = e.target.files?.[0]; if (!f) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => { window.AquaStore?.setPhoto("tank-hero", ev.target.result); forceUpdate(); e.target.value = ""; };
+    reader.readAsDataURL(f);
+  };
+
+  return (
+    <>
+      {photo && <img src={photo} alt="" className="absolute inset-0 w-full h-full object-cover" style={{ borderRadius: "inherit", opacity: 0.55 }} />}
+      <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+      <button onClick={() => fileRef.current?.click()} className="absolute bottom-3 right-3 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-medium text-white transition-all hover:brightness-110" style={{ background: "rgba(13,148,136,0.7)", border: "1px solid rgba(255,255,255,0.25)", backdropFilter: "blur(8px)" }}>
+        <L name="Camera" size={12} /> {photo ? T("Cambiar foto","Change photo") : T("Agregar foto","Add photo")}
+      </button>
+    </>
   );
 }
 

@@ -1474,6 +1474,7 @@ window.AquaStore = (() => {
     customInhabitants: [],     // [{ kind, item }]
     inhabitantUpdates: {},     // { id: { status, note } }
     customTanks: [],           // tanks added by the user
+    supplements: [],           // [{ id, name, category, schedule, amount, unit, note }]
     lightingWeek: null,
     lightFixture: null,        // { name, brand, wattage, type }
     photos: {},                // { slotId: dataURL }
@@ -1638,6 +1639,22 @@ window.AquaStore = (() => {
       if (ud.activeTankId === id) this.setActiveTank("tank-001");
       touch();
       window.dispatchEvent(new CustomEvent("aqua:tanks:changed", {}));
+    },
+
+    // ---- suplementos / comida ----
+    addSupplement(s) {
+      const item = { id: "sup-" + Date.now(), ...s };
+      ud.supplements = [...(ud.supplements || []), item];
+      touch();
+      return item;
+    },
+    removeSupplement(id) {
+      ud.supplements = (ud.supplements || []).filter((s) => s.id !== id);
+      touch();
+    },
+    updateSupplement(id, patch) {
+      ud.supplements = (ud.supplements || []).map((s) => s.id === id ? { ...s, ...patch } : s);
+      touch();
     },
 
     // ---- sincronización nube → local (last-write-wins por updatedAt) ----
@@ -3247,6 +3264,10 @@ const NAV_ITEMS = () => [{
   label: T("Habitantes", "Livestock"),
   icon: "Fish"
 }, {
+  id: "supplements",
+  label: T("Suplementos", "Supplements"),
+  icon: "FlaskConical"
+}, {
   id: "routines",
   label: T("Rutinas", "Routines"),
   icon: "CalendarCheck"
@@ -4546,6 +4567,10 @@ const MOBILE_TABS = () => [{
   label: T("Bitácora", "Logbook"),
   icon: "NotebookPen"
 }, {
+  id: "supplements",
+  label: T("Suplementos", "Suppl."),
+  icon: "FlaskConical"
+}, {
   id: "inhabitants",
   label: T("Vida", "Livestock"),
   icon: "Fish"
@@ -4553,10 +4578,6 @@ const MOBILE_TABS = () => [{
   id: "ai",
   label: "IA",
   icon: "Sparkles"
-}, {
-  id: "alerts",
-  label: T("Alertas", "Alerts"),
-  icon: "Bell"
 }];
 function MobileTabBar({
   activePage,
@@ -4797,7 +4818,7 @@ function localAquaBuddy(q) {
   if (/cambio|water change|agua|rodi/.test(m)) return T("Para un cambio de agua: prepara RODI + sal de calidad a la gravedad específica y temperatura de tu tanque (1.025 SG, 78°F para marina), luego cambia el 10–25% semanalmente o cada dos semanas.", "For a water change: prepare RODI + quality salt at your tank's specific gravity and temperature (1.025 SG, 78°F for saltwater), then change 10–25% weekly or biweekly.");
   if (/\bph\b/.test(m)) return T("El pH ideal en reef es 8.1–8.3. Suele bajar de noche — eso es normal. Mejor aireación y agitación superficial ayudan. Si el KH está bajo, corrige primero la alcalinidad y el pH subirá solo.", "The ideal reef pH is 8.1–8.3. It naturally drops at night — that's normal. Better aeration and surface agitation help. If KH is low, fix alkalinity first and pH will follow.");
   if (/magnesio|magnesium|mg\b/.test(m)) return T("El magnesio debe estar en 1250–1350 mg/L. Si está bajo, suplementa gradualmente con cloruro o sulfato de magnesio. Los cambios de agua regulares con agua bien mezclada ayudan a mantenerlo estable.", "Magnesium should be 1250–1350 mg/L. If low, supplement gradually with magnesium chloride or sulfate. Regular water changes with well-mixed saltwater help keep it stable.");
-  return T("Soy Aqua Buddy, tu asistente de acuario. Puedo ayudarte con parámetros, registrar lecturas, crear rutinas o responder preguntas sobre tu reef. Configura tu API key de Google Gemini (gratis en aistudio.google.com/apikey) en Ajustes → Aqua Buddy para respuestas IA en tiempo real.", "I'm Aqua Buddy, your aquarium assistant. I can help with parameters, log readings, create routines or answer questions about your reef. Add your free Google Gemini API key (from aistudio.google.com/apikey) in Settings → Aqua Buddy for real-time AI responses.");
+  return T("Soy Aqua Buddy, tu asistente de acuario. Puedo ayudarte con parámetros, registrar lecturas, crear rutinas o responder preguntas sobre tu reef. Agrega tu key de Groq gratis (console.groq.com/keys) en Ajustes → Aqua Buddy para respuestas IA en tiempo real.", "I'm Aqua Buddy, your aquarium assistant. I can help with parameters, log readings, create routines or answer questions about your reef. Add your free Groq key (console.groq.com/keys) in Settings → Aqua Buddy for real-time AI responses.");
 }
 
 // Build a rich system prompt from live tank data for Aqua Buddy
@@ -5127,7 +5148,7 @@ async function callAquaBuddy(userMessage, mode = "personalized", history = []) {
       if (followText) return followText;
       return toolResults.map(r => r.content).join("\n");
     }
-    const text = msg?.content?.trim();
+    const text = msg?.content?.replace(/<function\([^)]*\)=[^]*?<\/function>/g, "").trim();
     if (text) return text;
   }
 
@@ -5260,20 +5281,7 @@ function ReefStatusHero({
     style: {
       color: "#2DD4BF"
     }
-  }))), isNewTank && /*#__PURE__*/React.createElement("div", {
-    className: "absolute inset-0 flex items-center justify-center"
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: () => onNavigate("settings"),
-    className: "flex items-center gap-2 px-4 py-2 rounded-full text-[12.5px] font-medium text-white transition-all hover:brightness-110",
-    style: {
-      background: "rgba(13,148,136,0.7)",
-      border: "1px solid rgba(255,255,255,0.25)",
-      backdropFilter: "blur(8px)"
-    }
-  }, /*#__PURE__*/React.createElement(L, {
-    name: "Settings",
-    size: 14
-  }), " ", T("Configurar mi tanque", "Set up my tank")))), /*#__PURE__*/React.createElement("div", {
+  }))), /*#__PURE__*/React.createElement(HeroPhotoSlot, null)), /*#__PURE__*/React.createElement("div", {
     className: "px-5 pt-4 pb-5"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-between mb-2.5"
@@ -5324,6 +5332,50 @@ function ReefStatusHero({
     name: "Sparkles",
     size: 11
   }), " Aqua Buddy"), /*#__PURE__*/React.createElement("div", null, loading ? T("Analizando tu tanque…", "Analyzing your tank…") : reply))));
+}
+
+// ---- Hero photo slot for tank banner ----
+function HeroPhotoSlot() {
+  const fileRef = React.useRef(null);
+  const [, forceUpdate] = React.useReducer(x => x + 1, 0);
+  const photo = window.AquaStore?.getPhoto?.("tank-hero");
+  const handleFile = e => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      window.AquaStore?.setPhoto("tank-hero", ev.target.result);
+      forceUpdate();
+      e.target.value = "";
+    };
+    reader.readAsDataURL(f);
+  };
+  return /*#__PURE__*/React.createElement(React.Fragment, null, photo && /*#__PURE__*/React.createElement("img", {
+    src: photo,
+    alt: "",
+    className: "absolute inset-0 w-full h-full object-cover",
+    style: {
+      borderRadius: "inherit",
+      opacity: 0.55
+    }
+  }), /*#__PURE__*/React.createElement("input", {
+    ref: fileRef,
+    type: "file",
+    accept: "image/*",
+    className: "hidden",
+    onChange: handleFile
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: () => fileRef.current?.click(),
+    className: "absolute bottom-3 right-3 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-medium text-white transition-all hover:brightness-110",
+    style: {
+      background: "rgba(13,148,136,0.7)",
+      border: "1px solid rgba(255,255,255,0.25)",
+      backdropFilter: "blur(8px)"
+    }
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "Camera",
+    size: 12
+  }), " ", photo ? T("Cambiar foto", "Change photo") : T("Agregar foto", "Add photo")));
 }
 
 // ---- Tank vitals strip ----
@@ -6769,7 +6821,7 @@ function ParametersPage({
   const {
     CURRENT_PARAMETERS
   } = window.AQUA;
-  const order = ["ph", "kh", "phosphate", "calcium", "magnesium", "nitrate", "temperature", "salinity", "ammonia", "nitrite"];
+  const order = ["ph", "kh", "phosphate", "calcium", "nitrate", "temperature", "salinity", "ammonia", "nitrite"];
   // null = closed · "all" = every parameter · paramKey = just that one
   const [logTarget, setLogTarget] = useState(null);
   return /*#__PURE__*/React.createElement("div", {
@@ -8626,7 +8678,7 @@ function AquaBotPage() {
     CURRENT_PARAMETERS
   } = window.AQUA;
   const params = CURRENT_PARAMETERS;
-  const contextRows = [["pH", `${params.ph?.value} (${params.ph?.status})`], ["KH", `${params.kh?.value} dKH (${params.kh?.status})`], ["PO₄", `${params.phosphate?.value} ppm (${params.phosphate?.status})`], ["Ca", `${params.calcium?.value} mg/L`], ["Mg", `${params.magnesium?.value} mg/L`], ["Temp", `${params.temperature?.value}°F`], [T("Volumen real", "Real volume"), `${TANK_CONFIG.realVolume} gal`]];
+  const contextRows = [["pH", `${params.ph?.value} (${params.ph?.status})`], ["KH", `${params.kh?.value} dKH (${params.kh?.status})`], ["PO₄", `${params.phosphate?.value} ppm (${params.phosphate?.status})`], ["Ca", `${params.calcium?.value} mg/L`], ["Temp", `${params.temperature?.value}°F`], [T("Volumen real", "Real volume"), `${TANK_CONFIG.realVolume} gal`]];
   return /*#__PURE__*/React.createElement("div", {
     className: "px-4 lg:px-6 py-5 lg:py-6 flex flex-col gap-4",
     style: {
@@ -8811,6 +8863,301 @@ function AlertsPage({
     onCTA: () => alertCTAAction(a, navigate, dismiss)
   }))));
 }
+
+// ========================= SUPPLEMENTS PAGE =========================
+const SUP_CATEGORIES = [{
+  id: "fish_food",
+  label: () => T("Comida Peces", "Fish Food"),
+  icon: "Fish",
+  color: "#60A5FA"
+}, {
+  id: "coral_food",
+  label: () => T("Comida Corales", "Coral Food"),
+  icon: "Flower2",
+  color: "#F87171"
+}, {
+  id: "additive",
+  label: () => T("Aditivo / Supl.", "Additive"),
+  icon: "FlaskConical",
+  color: "#0E9F6E"
+}];
+function AddSupplementModal({
+  onClose,
+  editItem
+}) {
+  const S = window.AquaStore;
+  const [name, setName] = React.useState(editItem?.name || "");
+  const [cat, setCat] = React.useState(editItem?.category || "fish_food");
+  const [schedule, setSchedule] = React.useState(editItem?.schedule || T("Diario", "Daily"));
+  const [amount, setAmount] = React.useState(editItem?.amount || "");
+  const [unit, setUnit] = React.useState(editItem?.unit || "");
+  const [note, setNote] = React.useState(editItem?.note || "");
+  const save = () => {
+    if (!name.trim()) return;
+    const data = {
+      name: name.trim(),
+      category: cat,
+      schedule,
+      amount: amount.trim(),
+      unit: unit.trim(),
+      note: note.trim()
+    };
+    if (editItem) S.updateSupplement(editItem.id, data);else S.addSupplement(data);
+    onClose();
+  };
+  const schedOpts = [T("Diario", "Daily"), T("2x día", "2x day"), T("Semanal", "Weekly"), T("Quincenal", "Biweekly"), T("Mensual", "Monthly")];
+  return /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 z-50 flex items-end sm:items-center justify-center",
+    style: {
+      background: "rgba(0,0,0,0.45)",
+      backdropFilter: "blur(6px)"
+    },
+    onClick: e => e.target === e.currentTarget && onClose()
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-full sm:max-w-md glass rounded-t-3xl sm:rounded-3xl p-5 space-y-4",
+    style: {
+      maxHeight: "90dvh",
+      overflowY: "auto"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    className: "p-1.5 rounded-xl hover:bg-[var(--hover)]"
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "ArrowLeft",
+    size: 16
+  })), /*#__PURE__*/React.createElement("h2", {
+    className: "text-[16px] font-semibold text-[var(--ink)]"
+  }, editItem ? T("Editar suplemento", "Edit supplement") : T("Agregar suplemento", "Add supplement"))), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-3 gap-2"
+  }, SUP_CATEGORIES.map(c => /*#__PURE__*/React.createElement("button", {
+    key: c.id,
+    onClick: () => setCat(c.id),
+    className: "flex flex-col items-center gap-1.5 p-2.5 rounded-2xl border transition-all text-center",
+    style: {
+      background: cat === c.id ? `${c.color}20` : "var(--well)",
+      borderColor: cat === c.id ? c.color : "var(--hairline)"
+    }
+  }, /*#__PURE__*/React.createElement(L, {
+    name: c.icon,
+    size: 18,
+    style: {
+      color: c.color
+    }
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "text-[10.5px] font-medium leading-tight",
+    style: {
+      color: cat === c.id ? c.color : "var(--ink-2)"
+    }
+  }, c.label())))), /*#__PURE__*/React.createElement("div", {
+    className: "space-y-3"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] text-[var(--ink-3)] uppercase tracking-wider mb-1 block"
+  }, T("Nombre", "Name")), /*#__PURE__*/React.createElement("input", {
+    value: name,
+    onChange: e => setName(e.target.value),
+    placeholder: T("Ej: Mysis, Coral Frenzy, Kalkwasser…", "E.g. Mysis, Coral Frenzy, Kalkwasser…"),
+    className: "w-full glass-strong rounded-xl px-3 py-2.5 text-[13px] text-[var(--ink)] border border-[var(--hairline)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-border)]"
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] text-[var(--ink-3)] uppercase tracking-wider mb-1 block"
+  }, T("Frecuencia", "Frequency")), /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-wrap gap-1.5"
+  }, schedOpts.map(o => /*#__PURE__*/React.createElement("button", {
+    key: o,
+    onClick: () => setSchedule(o),
+    className: "px-3 py-1.5 rounded-full text-[11.5px] transition-all",
+    style: {
+      background: schedule === o ? "var(--accent)" : "var(--well)",
+      color: schedule === o ? "#fff" : "var(--ink-2)",
+      border: "1px solid " + (schedule === o ? "var(--accent)" : "var(--hairline)")
+    }
+  }, o)))), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-3"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] text-[var(--ink-3)] uppercase tracking-wider mb-1 block"
+  }, T("Cantidad", "Amount")), /*#__PURE__*/React.createElement("input", {
+    value: amount,
+    onChange: e => setAmount(e.target.value),
+    placeholder: "5",
+    className: "w-full glass-strong rounded-xl px-3 py-2.5 text-[13px] text-[var(--ink)] border border-[var(--hairline)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-border)]"
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] text-[var(--ink-3)] uppercase tracking-wider mb-1 block"
+  }, T("Unidad", "Unit")), /*#__PURE__*/React.createElement("input", {
+    value: unit,
+    onChange: e => setUnit(e.target.value),
+    placeholder: "ml, g, pinch\u2026",
+    className: "w-full glass-strong rounded-xl px-3 py-2.5 text-[13px] text-[var(--ink)] border border-[var(--hairline)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-border)]"
+  }))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "text-[11px] text-[var(--ink-3)] uppercase tracking-wider mb-1 block"
+  }, T("Nota", "Note")), /*#__PURE__*/React.createElement("textarea", {
+    value: note,
+    onChange: e => setNote(e.target.value),
+    rows: 2,
+    placeholder: T("Instrucciones, marca, observaciones…", "Instructions, brand, observations…"),
+    className: "w-full glass-strong rounded-xl px-3 py-2.5 text-[13px] text-[var(--ink)] border border-[var(--hairline)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-border)] resize-none"
+  }))), /*#__PURE__*/React.createElement("button", {
+    onClick: save,
+    disabled: !name.trim(),
+    className: "w-full py-3 rounded-2xl font-semibold text-[13.5px] text-white transition-all disabled:opacity-40",
+    style: {
+      background: "linear-gradient(135deg, var(--accent), var(--accent-strong))"
+    }
+  }, editItem ? T("Guardar cambios", "Save changes") : T("Agregar suplemento", "Add supplement"))));
+}
+function SupplementCard({
+  item,
+  onEdit,
+  onRemove,
+  onLog
+}) {
+  const cat = SUP_CATEGORIES.find(c => c.id === item.category) || SUP_CATEGORIES[0];
+  const lastUsed = item.lastUsed ? new Date(item.lastUsed).toLocaleDateString() : T("Nunca", "Never");
+  return /*#__PURE__*/React.createElement(Card, {
+    hover: true,
+    className: "p-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-start gap-3"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "grid place-items-center w-10 h-10 rounded-2xl shrink-0",
+    style: {
+      background: `${cat.color}18`,
+      border: `1px solid ${cat.color}40`
+    }
+  }, /*#__PURE__*/React.createElement(L, {
+    name: cat.icon,
+    size: 18,
+    style: {
+      color: cat.color
+    }
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 min-w-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-start justify-between gap-2"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "text-[13.5px] font-semibold text-[var(--ink)] leading-snug"
+  }, item.name), /*#__PURE__*/React.createElement("div", {
+    className: "text-[11px] text-[var(--ink-3)] mt-0.5"
+  }, cat.label(), " \xB7 ", item.schedule, item.amount ? ` · ${item.amount}${item.unit ? " " + item.unit : ""}` : "")), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-1 shrink-0"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => onLog(item),
+    className: "p-1.5 rounded-lg hover:bg-[var(--hover)] text-[var(--ink-3)] hover:text-[var(--accent)] transition-colors"
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "CheckCircle2",
+    size: 14
+  })), /*#__PURE__*/React.createElement("button", {
+    onClick: () => onEdit(item),
+    className: "p-1.5 rounded-lg hover:bg-[var(--hover)] text-[var(--ink-3)] transition-colors"
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "Pencil",
+    size: 14
+  })), /*#__PURE__*/React.createElement("button", {
+    onClick: () => onRemove(item.id),
+    className: "p-1.5 rounded-lg hover:bg-[var(--hover)] text-[var(--ink-3)] hover:text-red-400 transition-colors"
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "Trash2",
+    size: 14
+  })))), item.note && /*#__PURE__*/React.createElement("div", {
+    className: "text-[11px] text-[var(--ink-2)] mt-1.5 leading-relaxed"
+  }, item.note), /*#__PURE__*/React.createElement("div", {
+    className: "text-[10px] text-[var(--ink-3)] mt-1.5"
+  }, T("Última dosis:", "Last dose:"), " ", lastUsed))));
+}
+function SupplementsPage() {
+  const S = window.AquaStore;
+  const [, forceUpdate] = React.useReducer(x => x + 1, 0);
+  const [modal, setModal] = React.useState(null); // null | "add" | item (edit)
+  const supplements = S.ud.supplements || [];
+  React.useEffect(() => {
+    const fn = () => forceUpdate();
+    window.addEventListener("aqua:data", fn);
+    return () => window.removeEventListener("aqua:data", fn);
+  }, []);
+  const logDose = item => {
+    S.updateSupplement(item.id, {
+      lastUsed: new Date().toISOString()
+    });
+    window.toast?.(T(`Dosis registrada: ${item.name}`, `Dose logged: ${item.name}`), {
+      icon: "CheckCircle2"
+    });
+  };
+  const grouped = SUP_CATEGORIES.map(cat => ({
+    cat,
+    items: supplements.filter(s => s.category === cat.id)
+  })).filter(g => g.items.length > 0);
+  return /*#__PURE__*/React.createElement("div", {
+    className: "px-4 lg:px-6 py-5 lg:py-6 space-y-5"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-end justify-between flex-wrap gap-3"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "text-[10px] uppercase tracking-[0.12em] text-[var(--ink-3)] mb-1"
+  }, T("Alimentación & Suplementos", "Feeding & Supplements")), /*#__PURE__*/React.createElement("h1", {
+    className: "text-[20px] lg:text-[22px] font-medium text-[var(--ink)] tracking-tight"
+  }, T("Suplementos", "Supplements"))), /*#__PURE__*/React.createElement(Button, {
+    variant: "primary",
+    icon: "Plus",
+    onClick: () => setModal("add")
+  }, T("Agregar", "Add"))), supplements.length === 0 ? /*#__PURE__*/React.createElement(Card, {
+    className: "p-8 text-center"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "grid place-items-center w-14 h-14 rounded-3xl mx-auto mb-3",
+    style: {
+      background: "var(--accent-soft)",
+      border: "1px solid var(--accent-border)"
+    }
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "FlaskConical",
+    size: 24,
+    style: {
+      color: "var(--accent)"
+    }
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "text-[14px] font-semibold text-[var(--ink)] mb-1"
+  }, T("Sin suplementos aún", "No supplements yet")), /*#__PURE__*/React.createElement("div", {
+    className: "text-[12px] text-[var(--ink-2)] mb-4"
+  }, T("Agrega la comida de tus peces, corales y aditivos dosificados.", "Add fish food, coral food and dosed additives.")), /*#__PURE__*/React.createElement(Button, {
+    variant: "primary",
+    icon: "Plus",
+    onClick: () => setModal("add")
+  }, T("Agregar suplemento", "Add supplement"))) : /*#__PURE__*/React.createElement("div", {
+    className: "space-y-5"
+  }, grouped.map(({
+    cat,
+    items
+  }) => /*#__PURE__*/React.createElement("div", {
+    key: cat.id
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 mb-2.5"
+  }, /*#__PURE__*/React.createElement(L, {
+    name: cat.icon,
+    size: 14,
+    style: {
+      color: cat.color
+    }
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "text-[12px] font-semibold uppercase tracking-wider",
+    style: {
+      color: cat.color
+    }
+  }, cat.label()), /*#__PURE__*/React.createElement("span", {
+    className: "text-[11px] text-[var(--ink-3)]"
+  }, "\xB7 ", items.length)), /*#__PURE__*/React.createElement("div", {
+    className: "space-y-2.5"
+  }, items.map(item => /*#__PURE__*/React.createElement(SupplementCard, {
+    key: item.id,
+    item: item,
+    onEdit: it => setModal(it),
+    onRemove: id => {
+      S.removeSupplement(id);
+      forceUpdate();
+    },
+    onLog: logDose
+  })))))), (modal === "add" || modal && typeof modal === "object") && /*#__PURE__*/React.createElement(AddSupplementModal, {
+    editItem: modal === "add" ? null : modal,
+    onClose: () => setModal(null)
+  }));
+}
 Object.assign(window, {
   ParametersPage,
   InhabitantsPage,
@@ -8818,6 +9165,7 @@ Object.assign(window, {
   RoutinesPage,
   AquaBotPage,
   AlertsPage,
+  SupplementsPage,
   expand30,
   LogReadingModal,
   exportParamsCSV
@@ -10642,6 +10990,8 @@ function App() {
           routinesDone: routinesDone,
           onToggleRoutine: toggleRoutine
         });
+      case "supplements":
+        return /*#__PURE__*/React.createElement(SupplementsPage, null);
       case "ai":
         return /*#__PURE__*/React.createElement(AquaBotPage, null);
       case "alerts":
