@@ -7935,20 +7935,54 @@ const FIXTURE_DB = [
 // Smatfarm
 {
   n: "Smatfarm G5 95W",
-  par: 330,
+  par: 410,
   br: "Smatfarm",
   w: 95,
   type: "led",
   spectrum: "reef",
-  desc: "Reef LED · 6-channel"
+  desc: "Reef LED · 6-channel · community PAR data"
 }, {
   n: "Smatfarm G3 Pro 165W",
-  par: 480,
+  par: 520,
   br: "Smatfarm",
   w: 165,
   type: "led",
   spectrum: "reef",
   desc: "Reef LED · full spectrum"
+},
+// Noopsyche (same factory family as Smatfarm black-box LEDs)
+{
+  n: "Noopsyche K7 Pro II 95W",
+  par: 400,
+  br: "Noopsyche",
+  w: 95,
+  type: "led",
+  spectrum: "reef",
+  desc: "Reef LED · community PAR data"
+}, {
+  n: "Noopsyche K7 Pro III",
+  par: 460,
+  br: "Noopsyche",
+  w: 100,
+  type: "led",
+  spectrum: "reef",
+  desc: "Reef LED · community PAR data"
+}, {
+  n: "Noopsyche K7 Pro V3",
+  par: 480,
+  br: "Noopsyche",
+  w: 120,
+  type: "led",
+  spectrum: "reef",
+  desc: "Reef LED · WRGB"
+}, {
+  n: "Noopsyche K7 Pro IV",
+  par: 520,
+  br: "Noopsyche",
+  w: 130,
+  type: "led",
+  spectrum: "reef",
+  desc: "Reef LED · latest gen"
 },
 // Maxspect
 {
@@ -8658,10 +8692,13 @@ function LightFixtureModal({
 
 // ---------------------------- PAR CALCULATOR ----------------------------
 // Model: DB `par` = peak PAR (µmol/m²/s) at ~12" (30 cm) of water depth with the
-// fixture mounted ~8" (20 cm) above the surface at 100% intensity (typical
-// manufacturer / BRS numbers). Mount height applies an air-side falloff
-// normalized to that reference; in the water column PAR roughly halves every
-// ~11" (28 cm) for blue-heavy reef LEDs. Estimates only — a PAR meter wins.
+// fixture mounted ~8" (20 cm) above the surface at 100% intensity. Values come
+// from manufacturer data and community PAR maps (Reef2Reef / BRS-style Apogee
+// measurements). Vertical decay: PAR halves roughly every 12" of water — this
+// matches published depth charts for blue-heavy reef LEDs. Lateral decay uses
+// a cos³ optic profile (~120° lens), which reproduces the ~55-60% of center
+// PAR that community maps show at 12" off-axis. Calibrating with one real
+// PAR-meter reading replaces the reference value with your actual number.
 
 const PAR_ZONES_REEF = [{
   min: 0,
@@ -8746,10 +8783,31 @@ function estimateBasePar(fx) {
   const perW = fx.type === "t5" ? 1.0 : fx.type === "mh" ? 1.8 : fx.type === "hybrid" ? 2.2 : fx.spectrum === "reef" ? 3.4 : 2.4;
   return Math.round(w * perW);
 }
+const PAR_HALF_DEPTH = 12; // inches of water for PAR to halve (BRS depth charts)
+const PAR_MOUNT_EXP = 1.4; // air-side falloff exponent vs the 8" reference mount
+
+function parMountFactor(mountIn) {
+  return Math.pow((8 + 12) / (mountIn + 12), PAR_MOUNT_EXP);
+}
 function parAtDepth(basePar, intensityPct, mountIn, depthIn) {
-  const mountF = Math.pow((8 + 12) / (mountIn + 12), 1.2);
-  const p12 = basePar * (intensityPct / 100) * mountF;
-  return Math.max(0, Math.round(p12 * Math.pow(0.5, (depthIn - 12) / 11)));
+  const p12 = basePar * (intensityPct / 100) * parMountFactor(mountIn);
+  return Math.max(0, Math.round(p12 * Math.pow(0.5, (depthIn - 12) / PAR_HALF_DEPTH)));
+}
+
+// PAR at a point off the fixture's vertical axis: center PAR at that depth,
+// reduced by a cos³ optic profile over the total optical distance.
+function parAtPoint(basePar, intensityPct, mountIn, depthIn, radialIn) {
+  const center = parAtDepth(basePar, intensityPct, mountIn, depthIn);
+  const L = mountIn + depthIn;
+  const lateral = Math.pow(L / Math.sqrt(L * L + radialIn * radialIn), 3);
+  return Math.max(0, Math.round(center * lateral));
+}
+
+// Invert the model from one real PAR-meter reading → reference base PAR
+function solveBaseParFromReading(measuredPar, depthIn, intensityPct, mountIn) {
+  const decay = Math.pow(0.5, (depthIn - 12) / PAR_HALF_DEPTH);
+  const denom = intensityPct / 100 * parMountFactor(mountIn) * decay;
+  return denom > 0 ? Math.round(measuredPar / denom) : null;
 }
 function parZoneFor(par, zones) {
   return zones.find(z => par >= z.min && par < z.max) || zones[zones.length - 1];
@@ -8758,10 +8816,9 @@ function parZoneFor(par, zones) {
 // Depth range (inches below surface) where PAR falls inside a zone band.
 // PAR decreases monotonically with depth, so invert the decay curve.
 function depthRangeForZone(zone, basePar, intensityPct, mountIn, tankDepth) {
-  const mountF = Math.pow((8 + 12) / (mountIn + 12), 1.2);
-  const p12 = basePar * (intensityPct / 100) * mountF;
+  const p12 = basePar * (intensityPct / 100) * parMountFactor(mountIn);
   if (p12 <= 0) return null;
-  const depthAtPar = target => 12 + 11 * Math.log2(p12 / target);
+  const depthAtPar = target => 12 + PAR_HALF_DEPTH * Math.log2(p12 / target);
   let dMin = zone.max >= 9999 ? -99 : depthAtPar(zone.max); // shallower bound (higher PAR)
   let dMax = zone.min <= 0 ? tankDepth : depthAtPar(zone.min);
   dMin = Math.max(0, dMin);
@@ -8886,6 +8943,38 @@ function ParCalculatorCard({
   useEffect(() => {
     setAiPar(null);
   }, [fixture?.name]);
+
+  // Top-down map level + real-reading calibration
+  const [mapLevel, setMapLevel] = useState("alta");
+  const [calOpen, setCalOpen] = useState(false);
+  const [calPar, setCalPar] = useState("");
+  const [calDepth, setCalDepth] = useState("");
+  const applyCalibration = () => {
+    const measured = +calPar;
+    const dCm = +calDepth;
+    if (!measured || measured <= 0 || !dCm || dCm <= 0) {
+      window.toast?.(T("Ingresa el PAR medido y la profundidad en cm", "Enter the measured PAR and depth in cm"), {
+        tone: "warn",
+        icon: "Gauge"
+      });
+      return;
+    }
+    const dIn = dCm / 2.54;
+    const solved = solveBaseParFromReading(measured, dIn, intensity, mount);
+    if (!solved || solved <= 0) return;
+    setAiPar(solved);
+    window.AquaStore?.setLightFixture({
+      ...fixture,
+      par: solved,
+      calibrated: true
+    });
+    setCalOpen(false);
+    setCalPar("");
+    setCalDepth("");
+    window.toast?.(T(`Calibrado: referencia ajustada a ${solved} µmol con tu medición`, `Calibrated: reference set to ${solved} µmol from your reading`), {
+      icon: "Gauge"
+    });
+  };
   const fetchParAI = async () => {
     const apiKey = window.AQUAMIND_AI_KEY || localStorage.getItem("aqua:ai_key");
     if (!apiKey) {
@@ -9065,8 +9154,11 @@ function ParCalculatorCard({
   }), /*#__PURE__*/React.createElement("span", {
     className: "truncate"
   }, fixture.name), fixture.par || aiPar ? /*#__PURE__*/React.createElement("span", {
-    className: "text-[var(--ink-3)] shrink-0"
-  }, "\xB7 ", T("datos del modelo", "model data")) : /*#__PURE__*/React.createElement("button", {
+    className: "shrink-0",
+    style: {
+      color: fixture.calibrated ? "var(--accent)" : "var(--ink-3)"
+    }
+  }, "\xB7 ", fixture.calibrated ? T("calibrada con tu medición", "calibrated with your reading") : T("datos del modelo", "model data")) : /*#__PURE__*/React.createElement("button", {
     onClick: fetchParAI,
     disabled: aiBusy,
     className: "shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-semibold disabled:opacity-60 transition-all",
@@ -9253,7 +9345,168 @@ function ParCalculatorCard({
     name: "Info",
     size: 11,
     className: "shrink-0 mt-0.5"
-  }), T("Estimación basada en datos típicos del fabricante en el centro del tanque. Un medidor PAR real siempre da el valor exacto.", "Estimate based on typical manufacturer data at tank center. A real PAR meter always gives the exact value.")))));
+  }), T("Estimación basada en datos de fabricantes y mediciones de la comunidad (Reef2Reef). Un medidor PAR real siempre da el valor exacto.", "Estimate based on manufacturer data and community measurements (Reef2Reef). A real PAR meter always gives the exact value.")))), (() => {
+    const gl = tankDims?.l || 24; // footprint length (in)
+    const gw = tankDims?.w || Math.min(18, gl); // footprint width (in)
+    const levels = [{
+      id: "alta",
+      name: T("Zona alta", "Top zone"),
+      d: Math.max(2, Math.round(depth * 0.25))
+    }, {
+      id: "media",
+      name: T("Zona media", "Mid zone"),
+      d: Math.max(3, Math.round(depth * 0.55))
+    }, {
+      id: "baja",
+      name: T("Zona baja", "Bottom zone"),
+      d: Math.max(4, depth - 2)
+    }];
+    const level = levels.find(l => l.id === mapLevel) || levels[0];
+    const N = 6;
+    const cellsFor = dz => {
+      const out = [];
+      for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+        const cx = (i + 0.5) / N * gl - gl / 2;
+        const cy = (j + 0.5) / N * gw - gw / 2;
+        out.push(parAtPoint(basePar, intensity, mount, dz, Math.hypot(cx, cy)));
+      }
+      return out;
+    };
+    const cells = cellsFor(level.d);
+    const avgOf = arr => Math.round(arr.reduce((a, b) => a + b, 0) / arr.length);
+    return /*#__PURE__*/React.createElement("div", {
+      className: "mt-5 pt-4 border-t border-[var(--hairline)]"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center justify-between flex-wrap gap-2 mb-1"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "text-[10px] uppercase tracking-[0.12em] text-[var(--ink-3)]"
+    }, T("Vista superior · mapa PAR", "Top-down view · PAR map"), /*#__PURE__*/React.createElement("span", {
+      className: "normal-case ml-1.5"
+    }, "(", gl, "\xD7", gw, " in \xB7 ", toCm(gl), "\xD7", toCm(gw), " cm \xB7 ", T("lámpara centrada", "fixture centered"), ")")), /*#__PURE__*/React.createElement("div", {
+      className: "flex p-0.5 rounded-lg",
+      style: {
+        background: "var(--well)",
+        border: "1px solid var(--hairline)"
+      }
+    }, levels.map(lv => /*#__PURE__*/React.createElement("button", {
+      key: lv.id,
+      onClick: () => setMapLevel(lv.id),
+      className: "px-2.5 py-1 rounded-md text-[10.5px] font-medium transition-all",
+      style: mapLevel === lv.id ? {
+        background: "var(--surface-strong)",
+        color: "var(--accent)",
+        boxShadow: "0 1px 4px rgba(0,0,0,0.08)"
+      } : {
+        color: "var(--ink-3)"
+      }
+    }, lv.name)))), /*#__PURE__*/React.createElement("div", {
+      className: "grid grid-cols-3 gap-1.5 mb-3"
+    }, levels.map(lv => {
+      const a = avgOf(cellsFor(lv.d));
+      const z = parZoneFor(a, zones);
+      const active = mapLevel === lv.id;
+      return /*#__PURE__*/React.createElement("button", {
+        key: lv.id,
+        onClick: () => setMapLevel(lv.id),
+        className: "rounded-xl px-2 py-1.5 text-left transition-all",
+        style: {
+          background: `${z.color}${active ? "1F" : "0D"}`,
+          border: `1px solid ${z.color}${active ? "60" : "25"}`
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "text-[9px] uppercase tracking-wider text-[var(--ink-3)]"
+      }, lv.name, " \xB7 ", toCm(lv.d), " cm"), /*#__PURE__*/React.createElement("div", {
+        className: "text-[14px] font-semibold tabular-nums leading-tight",
+        style: {
+          fontFamily: "var(--font-mono)",
+          color: z.color
+        }
+      }, a, " ", /*#__PURE__*/React.createElement("span", {
+        className: "text-[9px] font-normal"
+      }, "\xB5mol")), /*#__PURE__*/React.createElement("div", {
+        className: "text-[9px] font-medium",
+        style: {
+          color: z.color
+        }
+      }, z.label()));
+    })), /*#__PURE__*/React.createElement("div", {
+      className: "grid gap-[3px] mx-auto",
+      style: {
+        gridTemplateColumns: `repeat(${N}, 1fr)`,
+        maxWidth: 420,
+        aspectRatio: `${gl} / ${gw}`
+      }
+    }, cells.map((p, idx) => {
+      const z = parZoneFor(p, zones);
+      return /*#__PURE__*/React.createElement("div", {
+        key: idx,
+        className: "rounded-[5px] grid place-items-center min-h-[26px]",
+        style: {
+          background: `${z.color}26`,
+          border: `1px solid ${z.color}45`
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        className: "text-[10px] font-semibold tabular-nums",
+        style: {
+          fontFamily: "var(--font-mono)",
+          color: z.color
+        }
+      }, p));
+    })), /*#__PURE__*/React.createElement("div", {
+      className: "text-[9.5px] text-[var(--ink-3)] text-center mt-1.5"
+    }, T(`PAR a ${toCm(level.d)} cm (${level.d} in) bajo la superficie · frente del tanque abajo`, `PAR at ${toCm(level.d)} cm (${level.d} in) below the surface · tank front at bottom`)));
+  })(), /*#__PURE__*/React.createElement("div", {
+    className: "mt-4 pt-3 border-t border-[var(--hairline)]"
+  }, !calOpen ? /*#__PURE__*/React.createElement("button", {
+    onClick: () => setCalOpen(true),
+    className: "flex items-center gap-1.5 text-[11px] font-medium text-[var(--accent)] hover:opacity-80 transition-opacity"
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "Gauge",
+    size: 12
+  }), fixture.calibrated ? T("Recalibrar con otra medición real", "Recalibrate with another real reading") : T("¿Tienes un medidor PAR? Calibra con tu medición real", "Have a PAR meter? Calibrate with your real reading")) : /*#__PURE__*/React.createElement("div", {
+    className: "rounded-xl p-3",
+    style: {
+      background: "var(--well)",
+      border: "1px solid var(--hairline)"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-[11px] font-semibold text-[var(--ink)] mb-0.5"
+  }, T("Calibrar con medición real", "Calibrate with a real reading")), /*#__PURE__*/React.createElement("div", {
+    className: "text-[10px] text-[var(--ink-2)] mb-2"
+  }, T("Mide el PAR en el centro del tanque con tu intensidad y montaje actuales, y dime a qué profundidad mediste. Ajusto todo el mapa a tu número.", "Measure PAR at tank center with your current intensity and mount, and tell me the depth. The whole map recalibrates to your number.")), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-end gap-2 flex-wrap"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "block"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-[9px] uppercase tracking-wider text-[var(--ink-3)] mb-0.5"
+  }, T("PAR medido", "Measured PAR")), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    inputMode: "numeric",
+    value: calPar,
+    onChange: e => setCalPar(e.target.value),
+    placeholder: "230",
+    className: "w-24 bg-[var(--surface-strong)] border border-[var(--hairline)] rounded-lg px-2.5 py-1.5 text-[12px] text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-border)]"
+  })), /*#__PURE__*/React.createElement("label", {
+    className: "block"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-[9px] uppercase tracking-wider text-[var(--ink-3)] mb-0.5"
+  }, T("Profundidad (cm)", "Depth (cm)")), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    inputMode: "numeric",
+    value: calDepth,
+    onChange: e => setCalDepth(e.target.value),
+    placeholder: String(toCm(depth / 2)),
+    className: "w-24 bg-[var(--surface-strong)] border border-[var(--hairline)] rounded-lg px-2.5 py-1.5 text-[12px] text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-border)]"
+  })), /*#__PURE__*/React.createElement("button", {
+    onClick: applyCalibration,
+    className: "px-3.5 py-1.5 rounded-full text-[11.5px] font-semibold text-white transition-all active:scale-[0.98]",
+    style: {
+      background: "linear-gradient(135deg, var(--accent), var(--accent-strong))"
+    }
+  }, T("Calibrar", "Calibrate")), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setCalOpen(false),
+    className: "px-2 py-1.5 text-[11px] text-[var(--ink-3)] hover:text-[var(--ink-2)]"
+  }, T("Cancelar", "Cancel"))))));
 }
 function LightingPage() {
   const {
