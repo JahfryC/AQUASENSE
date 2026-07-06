@@ -263,7 +263,11 @@ function AddTankModal({ onClose, onAdded }) {
 
   // Live search
   React.useEffect(() => {
-    const q = query.trim().toLowerCase();
+    // Normalize: "31g"/"31 gal" → "31"; drop filler words that never appear in DB names
+    const q = query.trim().toLowerCase()
+      .replace(/(\d+)\s*(g|gal|gallons|galones)\b/g, "$1")
+      .replace(/\b(tank|aquarium|acuario|tanque|pecera|the|de|el|la)\b/g, " ")
+      .replace(/\s+/g, " ").trim();
     if (!q) { setResults([]); return; }
     setSearching(true);
     const t = setTimeout(() => {

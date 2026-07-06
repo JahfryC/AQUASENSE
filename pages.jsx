@@ -813,6 +813,7 @@ function LightFixtureModal({ onClose }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
+  const [aiSearching, setAiSearching] = useState(false);
   // Form fields
   const [name, setName]       = useState(existing.name || "");
   const [brand, setBrand]     = useState(existing.brand || "");
@@ -831,7 +832,10 @@ function LightFixtureModal({ onClose }) {
 
   // Live search
   useEffect(() => {
-    const q = query.trim().toLowerCase();
+    // Drop filler words that never appear in DB entries so "smatfarm 95w light" still matches
+    const q = query.trim().toLowerCase()
+      .replace(/\b(light|lamp|luz|lampara|lámpara|fixture|the|de|el|la)\b/g, " ")
+      .replace(/\s+/g, " ").trim();
     if (!q) { setResults([]); return; }
     setSearching(true);
     const t = setTimeout(() => {
@@ -848,13 +852,50 @@ function LightFixtureModal({ onClose }) {
 
   const fillFrom = (row) => {
     setName(row.n);
-    setBrand(row.br);
-    setWattage(String(row.w));
-    setType(row.type);
-    setSpectrum(row.spectrum);
+    setBrand(row.br || "");
+    setWattage(row.w ? String(row.w) : "");
+    setType(["led", "t5", "mh", "hybrid"].includes(row.type) ? row.type : "led");
+    setSpectrum(["reef", "planted", "both"].includes(row.spectrum) ? row.spectrum : "reef");
     setDesc(row.desc || "");
     setParDb(row.par || null);
     setStep("fill");
+  };
+
+  const searchWithAI = async () => {
+    const apiKey = window.AQUAMIND_AI_KEY || localStorage.getItem("aqua:ai_key");
+    if (!apiKey) {
+      window.toast?.(T("Agrega tu key de Groq en Ajustes para buscar con IA", "Add your Groq key in Settings to search with AI"), { tone: "warn", icon: "Key" });
+      return;
+    }
+    setAiSearching(true);
+    try {
+      const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model: "llama-3.3-70b-versatile",
+          messages: [
+            { role: "system", content: "You are a database of aquarium light fixtures with PAR data. Return ONLY a JSON object — no markdown, no explanation. If the fixture is unknown, return {\"notFound\":true}." },
+            { role: "user", content: `Aquarium light fixture specs for: "${query.trim()}"\nReturn: {"n":"full model name","br":"brand","w":watts_number,"type":"led|t5|mh|hybrid","spectrum":"reef|planted|both","par":typical_peak_PAR_number_at_30cm_water_depth_at_100_percent_intensity,"desc":"one short line"}` },
+          ],
+          max_tokens: 160,
+          temperature: 0.1,
+        }),
+      });
+      const data = await resp.json();
+      const raw = data.choices?.[0]?.message?.content?.trim() || "";
+      const jsonStr = raw.replace(/```json|```/g, "").trim();
+      const parsed = JSON.parse(jsonStr);
+      if (parsed.notFound || !parsed.n) {
+        window.toast?.(T("Lámpara no encontrada por IA — intenta con el nombre exacto del modelo", "Fixture not found by AI — try the exact model name"), { tone: "warn", icon: "SearchX" });
+      } else {
+        fillFrom(parsed);
+        window.toast?.(T("Datos encontrados con IA — revisa y confirma", "Specs found with AI — review and confirm"), { icon: "Sparkles" });
+      }
+    } catch (e) {
+      window.toast?.(T("Error buscando con IA — verifica tu key de Groq", "AI search error — check your Groq key"), { tone: "warn", icon: "AlertTriangle" });
+    }
+    setAiSearching(false);
   };
 
   const save = () => {
@@ -934,9 +975,17 @@ function LightFixtureModal({ onClose }) {
 
             <div className="flex-1 overflow-y-auto px-5 pb-3 min-h-[160px]">
               {query.trim() && results.length === 0 && !searching && (
-                <div className="text-center py-6">
+                <div className="text-center py-5">
                   <L name="SearchX" size={22} className="text-[var(--ink-3)] mx-auto mb-2" />
-                  <div className="text-[12.5px] text-[var(--ink-2)]">{T("No encontrado — añádela manualmente", "Not found — add it manually")}</div>
+                  <div className="text-[12.5px] text-[var(--ink-2)] mb-3">{T("No está en la base de datos local", "Not in local database")}</div>
+                  <button onClick={searchWithAI} disabled={aiSearching}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-[12.5px] font-semibold text-white disabled:opacity-60 transition-all"
+                    style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-strong))" }}>
+                    {aiSearching
+                      ? <><L name="Loader2" size={13} className="animate-spin" /> {T("Buscando…","Searching…")}</>
+                      : <><L name="Sparkles" size={13} /> {T("Buscar con IA","Search with AI")}</>}
+                  </button>
+                  <div className="text-[10.5px] text-[var(--ink-3)] mt-2">{T("Usa Groq para buscar watts, espectro y PAR típico","Uses Groq to find watts, spectrum and typical PAR")}</div>
                 </div>
               )}
               {!query.trim() && (
@@ -1173,7 +1222,49 @@ function ParCalculatorCard({ fixture, onConfigure }) {
     localStorage.setItem("aqua:parcalc", JSON.stringify({ i: intensity, m: mount, d: depth }));
   }, [intensity, mount, depth]);
 
-  const basePar = estimateBasePar(fixture);
+  // AI-fetched PAR for manual fixtures that lack model data
+  const [aiPar, setAiPar]   = useState(null);
+  const [aiBusy, setAiBusy] = useState(false);
+  useEffect(() => { setAiPar(null); }, [fixture?.name]);
+
+  const fetchParAI = async () => {
+    const apiKey = window.AQUAMIND_AI_KEY || localStorage.getItem("aqua:ai_key");
+    if (!apiKey) {
+      window.toast?.(T("Agrega tu key de Groq en Ajustes para usar la IA", "Add your Groq key in Settings to use AI"), { tone: "warn", icon: "Key" });
+      return;
+    }
+    setAiBusy(true);
+    try {
+      const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model: "llama-3.3-70b-versatile",
+          messages: [
+            { role: "system", content: "You are a database of aquarium light fixtures with PAR data. Return ONLY a JSON object — no markdown. If unknown, return {\"notFound\":true}." },
+            { role: "user", content: `Typical peak PAR for the aquarium light "${[fixture.brand, fixture.name].filter(Boolean).join(" ")}" at 30cm water depth at 100% intensity.\nReturn: {"par":number}` },
+          ],
+          max_tokens: 60,
+          temperature: 0.1,
+        }),
+      });
+      const data = await resp.json();
+      const raw = data.choices?.[0]?.message?.content?.trim() || "";
+      const parsed = JSON.parse(raw.replace(/```json|```/g, "").trim());
+      if (parsed.par && parsed.par > 0) {
+        setAiPar(parsed.par);
+        window.AquaStore?.setLightFixture({ ...fixture, par: parsed.par });
+        window.toast?.(T(`PAR de referencia encontrado: ${parsed.par} µmol — guardado en tu lámpara`, `Reference PAR found: ${parsed.par} µmol — saved to your fixture`), { icon: "Sparkles" });
+      } else {
+        window.toast?.(T("La IA no tiene datos de esta lámpara — se usa el estimado por watts", "AI has no data for this fixture — using the wattage estimate"), { tone: "warn", icon: "SearchX" });
+      }
+    } catch (e) {
+      window.toast?.(T("Error consultando la IA — verifica tu key de Groq", "AI request error — check your Groq key"), { tone: "warn", icon: "AlertTriangle" });
+    }
+    setAiBusy(false);
+  };
+
+  const basePar = aiPar || estimateBasePar(fixture);
   const zones = fixture?.spectrum === "planted" ? PAR_ZONES_PLANTED : PAR_ZONES_REEF;
 
   // ---- no fixture / no data states ----
@@ -1257,7 +1348,14 @@ function ParCalculatorCard({ fixture, onConfigure }) {
       <div className="flex items-center gap-2 mb-4 text-[11.5px] text-[var(--ink-2)]">
         <L name="Lamp" size={13} className="text-[var(--accent)] shrink-0" />
         <span className="truncate">{fixture.name}</span>
-        <span className="text-[var(--ink-3)]">· {fixture.par ? T("datos del modelo", "model data") : T("estimado por watts", "estimated from watts")}</span>
+        {(fixture.par || aiPar)
+          ? <span className="text-[var(--ink-3)] shrink-0">· {T("datos del modelo", "model data")}</span>
+          : <button onClick={fetchParAI} disabled={aiBusy}
+              className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-semibold disabled:opacity-60 transition-all"
+              style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)", color: "var(--accent)" }}>
+              <L name={aiBusy ? "Loader2" : "Sparkles"} size={10} className={aiBusy ? "animate-spin" : ""} />
+              {aiBusy ? T("Buscando…", "Searching…") : T("PAR real con IA", "Real PAR via AI")}
+            </button>}
         <button onClick={onConfigure} className="ml-auto shrink-0 text-[var(--ink-3)] hover:text-[var(--accent)] transition-colors"><L name="Edit3" size={13} /></button>
       </div>
 
