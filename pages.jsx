@@ -755,7 +755,8 @@ const FIXTURE_DB = [
   { n:"Orphek Atlantik V4", par:550,      br:"Orphek",            w:200, type:"led", spectrum:"reef",    desc:"Reef puck · up to 150 gal" },
   { n:"Orphek Atlantik Compact", par:420, br:"Orphek",            w:115, type:"led", spectrum:"reef",    desc:"Reef puck · 50–90 gal" },
   // Smatfarm
-  { n:"Smatfarm G5 95W", par:410,         br:"Smatfarm",          w:95,  type:"led", spectrum:"reef",    desc:"Reef LED · 6-channel · community PAR data" },
+  // profile: [depth_in, PAR] pairs at 100% intensity — seller/community depth chart
+  { n:"Smatfarm G5 95W", par:410, profile:[[0,800],[3,500],[6,350],[9,250],[24,80]], br:"Smatfarm", w:95, type:"led", spectrum:"reef", desc:"Reef LED · 6-channel · measured PAR curve" },
   { n:"Smatfarm G3 Pro 165W", par:520,    br:"Smatfarm",          w:165, type:"led", spectrum:"reef",    desc:"Reef LED · full spectrum" },
   // Noopsyche (same factory family as Smatfarm black-box LEDs)
   { n:"Noopsyche K7 Pro II 95W", par:400,  br:"Noopsyche",         w:95,  type:"led", spectrum:"reef",    desc:"Reef LED · community PAR data" },
@@ -1178,16 +1179,40 @@ function parAtDepth(basePar, intensityPct, mountIn, depthIn) {
   return Math.max(0, Math.round(p12 * Math.pow(0.5, (depthIn - 12) / PAR_HALF_DEPTH)));
 }
 
-// PAR at a point off the fixture's vertical axis: center PAR at that depth,
-// reduced by a cos³ optic profile over the total optical distance.
-function parAtPoint(basePar, intensityPct, mountIn, depthIn, radialIn) {
-  const center = parAtDepth(basePar, intensityPct, mountIn, depthIn);
-  const L = mountIn + depthIn;
-  const lateral = Math.pow(L / Math.sqrt(L * L + radialIn * radialIn), 3);
-  return Math.max(0, Math.round(center * lateral));
+// Log-linear interpolation over a measured PAR curve: [[depth_in, par], …]
+// sorted by depth, taken at 100% intensity at the reference 8" mount.
+// Beyond the last point the last segment's exponential slope continues.
+function interpParProfile(profile, d) {
+  const pts = profile;
+  if (d <= pts[0][0]) return pts[0][1];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [d0, p0] = pts[i], [d1, p1] = pts[i + 1];
+    if (d <= d1) return p0 * Math.pow(p1 / p0, (d - d0) / (d1 - d0));
+  }
+  const [dA, pA] = pts[pts.length - 2], [dB, pB] = pts[pts.length - 1];
+  const k = Math.log(pB / pA) / (dB - dA);
+  return pB * Math.exp(k * (d - dB));
 }
 
-// Invert the model from one real PAR-meter reading → reference base PAR
+// Unified model: a measured per-fixture depth curve wins over the generic
+// single-anchor decay. Lateral spread is a cos³ optic profile either way.
+function makeParModel({ profile, basePar, intensityPct, mountIn }) {
+  const I = intensityPct / 100;
+  const mountF = parMountFactor(mountIn);
+  const centerAt = (d) => {
+    if (profile && profile.length >= 2) {
+      return Math.max(0, Math.round(interpParProfile(profile, d) * I * mountF));
+    }
+    return parAtDepth(basePar || 0, intensityPct, mountIn, d);
+  };
+  const pointAt = (d, r) => {
+    const L = mountIn + d;
+    return Math.max(0, Math.round(centerAt(d) * Math.pow(L / Math.sqrt(L * L + r * r), 3)));
+  };
+  return { centerAt, pointAt };
+}
+
+// Invert the generic model from one real PAR-meter reading → reference base PAR
 function solveBaseParFromReading(measuredPar, depthIn, intensityPct, mountIn) {
   const decay = Math.pow(0.5, (depthIn - 12) / PAR_HALF_DEPTH);
   const denom = (intensityPct / 100) * parMountFactor(mountIn) * decay;
@@ -1199,16 +1224,14 @@ function parZoneFor(par, zones) {
 }
 
 // Depth range (inches below surface) where PAR falls inside a zone band.
-// PAR decreases monotonically with depth, so invert the decay curve.
-function depthRangeForZone(zone, basePar, intensityPct, mountIn, tankDepth) {
-  const p12 = basePar * (intensityPct / 100) * parMountFactor(mountIn);
-  if (p12 <= 0) return null;
-  const depthAtPar = (target) => 12 + PAR_HALF_DEPTH * Math.log2(p12 / target);
-  let dMin = zone.max >= 9999 ? -99 : depthAtPar(zone.max); // shallower bound (higher PAR)
-  let dMax = zone.min <= 0 ? tankDepth : depthAtPar(zone.min);
-  dMin = Math.max(0, dMin);
-  dMax = Math.min(tankDepth, dMax);
-  if (dMax <= dMin + 0.2) return null;
+// Numeric scan so it works with any center-PAR curve (generic or measured).
+function depthRangeForZone(zone, centerAt, tankDepth) {
+  let dMin = null, dMax = null;
+  for (let d = 0; d <= tankDepth; d += 0.25) {
+    const p = centerAt(d);
+    if (p >= zone.min && p < zone.max) { if (dMin === null) dMin = d; dMax = d; }
+  }
+  if (dMin === null || dMax - dMin < 0.4) return null;
   return [Math.round(dMin), Math.round(dMax)];
 }
 
@@ -1289,7 +1312,15 @@ function ParCalculatorCard({ fixture, onConfigure }) {
   // AI-fetched PAR for manual fixtures that lack model data
   const [aiPar, setAiPar]   = useState(null);
   const [aiBusy, setAiBusy] = useState(false);
-  useEffect(() => { setAiPar(null); }, [fixture?.name]);
+  const [profileOv, setProfileOv] = useState(null);
+  useEffect(() => { setAiPar(null); setProfileOv(null); }, [fixture?.name]);
+
+  // Measured depth curve: calibrated override, saved on the fixture, or from
+  // the local DB by model name (older saved fixtures lack the profile field)
+  const dbProfileRow = (typeof FIXTURE_DB !== "undefined" && fixture?.name)
+    ? FIXTURE_DB.find((r) => r.n.toLowerCase() === fixture.name.toLowerCase())
+    : null;
+  const resolvedProfile = profileOv || fixture?.profile || dbProfileRow?.profile || null;
 
   // Top-down map level + real-reading calibration
   const [mapLevel, setMapLevel] = useState("alta");
@@ -1305,6 +1336,18 @@ function ParCalculatorCard({ fixture, onConfigure }) {
       return;
     }
     const dIn = dCm / 2.54;
+    if (resolvedProfile && resolvedProfile.length >= 2) {
+      // Scale the whole measured curve so it passes through the real reading
+      const predicted = interpParProfile(resolvedProfile, dIn) * (intensity / 100) * parMountFactor(mount);
+      if (predicted <= 0) return;
+      const k = measured / predicted;
+      const scaled = resolvedProfile.map(([d, p]) => [d, Math.round(p * k)]);
+      setProfileOv(scaled);
+      window.AquaStore?.setLightFixture({ ...fixture, profile: scaled, par: scaled[0][1], calibrated: true });
+      setCalOpen(false); setCalPar(""); setCalDepth("");
+      window.toast?.(T(`Calibrado: curva ajustada un ${Math.round((k - 1) * 100)}% con tu medición`, `Calibrated: curve scaled ${Math.round((k - 1) * 100)}% to your reading`), { icon: "Gauge" });
+      return;
+    }
     const solved = solveBaseParFromReading(measured, dIn, intensity, mount);
     if (!solved || solved <= 0) return;
     setAiPar(solved);
@@ -1382,7 +1425,8 @@ function ParCalculatorCard({ fixture, onConfigure }) {
     );
   }
 
-  const parAt = (d) => parAtDepth(basePar, intensity, mount, d);
+  const model = makeParModel({ profile: resolvedProfile, basePar, intensityPct: intensity, mountIn: mount });
+  const parAt = model.centerAt;
   const surface = parAt(2);
   const middle  = parAt(depth / 2);
   const bottom  = parAt(Math.max(2, depth - 2));
@@ -1415,7 +1459,7 @@ function ParCalculatorCard({ fixture, onConfigure }) {
 
   // Placement guide rows (only zones present in this tank at these settings)
   const guide = zones
-    .map((z) => ({ z, range: depthRangeForZone(z, basePar, intensity, mount, depth) }))
+    .map((z) => ({ z, range: depthRangeForZone(z, parAt, depth) }))
     .filter((g) => g.range);
 
   return (
@@ -1436,7 +1480,11 @@ function ParCalculatorCard({ fixture, onConfigure }) {
         <span className="truncate">{fixture.name}</span>
         {(fixture.par || aiPar)
           ? <span className="shrink-0" style={{ color: fixture.calibrated ? "var(--accent)" : "var(--ink-3)" }}>
-              · {fixture.calibrated ? T("calibrada con tu medición", "calibrated with your reading") : T("datos del modelo", "model data")}
+              · {fixture.calibrated
+                    ? T("calibrada con tu medición", "calibrated with your reading")
+                    : resolvedProfile
+                      ? T("curva PAR medida", "measured PAR curve")
+                      : T("datos del modelo", "model data")}
             </span>
           : <button onClick={fetchParAI} disabled={aiBusy}
               className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-semibold disabled:opacity-60 transition-all"
@@ -1552,7 +1600,7 @@ function ParCalculatorCard({ fixture, onConfigure }) {
           for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
             const cx = ((i + 0.5) / N) * gl - gl / 2;
             const cy = ((j + 0.5) / N) * gw - gw / 2;
-            out.push(parAtPoint(basePar, intensity, mount, dz, Math.hypot(cx, cy)));
+            out.push(model.pointAt(dz, Math.hypot(cx, cy)));
           }
           return out;
         };
