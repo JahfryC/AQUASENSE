@@ -18,6 +18,72 @@ function GoogleG({ size = 18 }) {
   );
 }
 
+// ---------- Recovery: set new password (arrives from reset email link) ----------
+function RecoveryPasswordModal({ onDone }) {
+  const [pw, setPw] = React.useState("");
+  const [pw2, setPw2] = React.useState("");
+  const [show, setShow] = React.useState(false);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState("");
+
+  const save = async (e) => {
+    e.preventDefault();
+    if (pw.length < 6) { setError(T("Minimo 6 caracteres.", "At least 6 characters.")); return; }
+    if (pw !== pw2) { setError(T("Las contrasenas no coinciden.", "Passwords don't match.")); return; }
+    setError(""); setLoading(true);
+    try {
+      await window.CLOUD.updatePassword(pw);
+      window.__aquaRecovery = false;
+      history.replaceState(null, "", location.pathname + location.search);
+      window.toast?.(T("Contrasena actualizada — ya puedes usarla para entrar", "Password updated — you can now sign in with it"), { icon: "ShieldCheck" });
+      onDone();
+    } catch (err) {
+      setError(err.message || T("No se pudo actualizar. Pide un nuevo enlace de recuperacion.", "Couldn't update. Request a new recovery link."));
+    }
+    setLoading(false);
+  };
+
+  return ReactDOM.createPortal(
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-[var(--scrim)] backdrop-blur">
+      <form onSubmit={save} className="w-full max-w-[380px] glass-strong rounded-3xl p-6" style={{ boxShadow: "var(--glass-shadow)" }}>
+        <div className="flex items-center gap-2.5 mb-1">
+          <div className="grid place-items-center w-9 h-9 rounded-xl" style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)" }}>
+            <L name="KeyRound" size={15} style={{ color: "var(--accent)" }} />
+          </div>
+          <div className="text-[15px] font-semibold text-[var(--ink)]">{T("Nueva contrasena", "New password")}</div>
+        </div>
+        <p className="text-[11.5px] text-[var(--ink-2)] mb-4">{T("Llegaste desde el enlace de recuperacion. Define tu nueva contrasena.", "You arrived from the recovery link. Set your new password.")}</p>
+        <div className="space-y-2.5">
+          <div className="flex items-center gap-2 bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2.5">
+            <L name="Lock" size={14} className="text-[var(--ink-3)] shrink-0" />
+            <input type={show ? "text" : "password"} value={pw} onChange={(e) => setPw(e.target.value)} autoFocus
+              placeholder={T("Nueva contrasena", "New password")}
+              className="flex-1 bg-transparent border-0 outline-none text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)]" />
+            <button type="button" onClick={() => setShow(!show)} className="text-[var(--ink-3)] hover:text-[var(--ink-2)]"><L name={show ? "EyeOff" : "Eye"} size={14} /></button>
+          </div>
+          <div className="flex items-center gap-2 bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2.5">
+            <L name="Lock" size={14} className="text-[var(--ink-3)] shrink-0" />
+            <input type={show ? "text" : "password"} value={pw2} onChange={(e) => setPw2(e.target.value)}
+              placeholder={T("Repite la contrasena", "Repeat password")}
+              className="flex-1 bg-transparent border-0 outline-none text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)]" />
+          </div>
+        </div>
+        {error && <div className="mt-3 text-[11.5px] text-[#DC4458]">{error}</div>}
+        <button type="submit" disabled={loading}
+          className="mt-4 w-full rounded-full py-2.5 text-[13px] font-semibold text-white disabled:opacity-50 transition-all active:scale-[0.99]"
+          style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-strong))" }}>
+          {loading ? T("Guardando…", "Saving…") : T("Guardar contrasena", "Save password")}
+        </button>
+        <button type="button" onClick={() => { window.__aquaRecovery = false; onDone(); }}
+          className="mt-2 w-full text-[11.5px] text-[var(--ink-3)] hover:text-[var(--ink-2)] transition-colors">
+          {T("Cancelar", "Cancel")}
+        </button>
+      </form>
+    </div>,
+    document.body
+  );
+}
+
 // ---------- Login screen — Supabase email/password ----------
 function LoginScreen({ onSignIn, isNew = false }) {
   const [mode, setMode] = React.useState("signin"); // "signin" | "signup" | "reset"
@@ -59,9 +125,15 @@ function LoginScreen({ onSignIn, isNew = false }) {
         setInfo(T("Revisa tu email — te enviamos el enlace de recuperacion.", "Check your email — we sent the recovery link."));
         setMode("signin");
       } else if (mode === "signup") {
-        const u = await window.CLOUD.signUp(email.trim(), password);
+        const { user: u, session } = await window.CLOUD.signUp(email.trim(), password);
         if (u && !u.identities?.length) {
-          setInfo(T("Revisa tu email para confirmar tu cuenta.", "Check your email to confirm your account."));
+          // Supabase returns a user with no identities when the email is already registered
+          setError(T("Ya tienes cuenta con ese email. Inicia sesion.", "That email already has an account. Sign in instead."));
+          setMode("signin");
+        } else if (u && !session) {
+          // Email confirmation required — no session yet, so don't fake one
+          setInfo(T("Cuenta creada. Revisa tu email y haz clic en el enlace de confirmacion, luego inicia sesion aqui.", "Account created. Check your email, click the confirmation link, then sign in here."));
+          setMode("signin");
         } else if (u) {
           // Auto-confirmed: wipe all old data so new account starts truly fresh,
           // save session, then reload (onboarding will trigger on clean load)
@@ -76,9 +148,12 @@ function LoginScreen({ onSignIn, isNew = false }) {
       }
     } catch (err) {
       const msg = err.message || "";
-      if (msg.includes("Invalid login")) setError(T("Email o contrasena incorrectos.", "Incorrect email or password."));
-      else if (msg.includes("Email not confirmed")) setError(T("Confirma tu email antes de iniciar sesion.", "Please confirm your email before signing in."));
+      const low = msg.toLowerCase();
+      if (low.includes("rate limit")) setError(T("Limite de emails alcanzado (plan gratuito de Supabase, ~4 por hora). Espera 30-60 min e intenta de nuevo — tu cuenta puede que ya este creada, prueba iniciar sesion.", "Email rate limit reached (Supabase free tier, ~4 per hour). Wait 30-60 min and try again — your account may already exist, try signing in."));
+      else if (msg.includes("Invalid login")) setError(T("Email o contrasena incorrectos.", "Incorrect email or password."));
+      else if (msg.includes("Email not confirmed")) setError(T("Confirma tu email antes de iniciar sesion. Revisa tu bandeja (y spam).", "Please confirm your email before signing in. Check your inbox (and spam)."));
       else if (msg.includes("User already registered")) setError(T("Ya tienes cuenta. Inicia sesion.", "Account already exists. Sign in instead."));
+      else if (low.includes("failed to fetch") || low.includes("network")) setError(T("Sin conexion con el servidor. Revisa tu internet o intenta en unos minutos (el proyecto puede estar despertando).", "Can't reach the server. Check your connection or retry in a few minutes (the project may be waking up)."));
       else setError(msg || T("Algo salio mal. Intenta de nuevo.", "Something went wrong. Please try again."));
     }
     setLoading(false);
@@ -933,4 +1008,4 @@ function SettingsPage({ session, onSignOut, tweaks, setTweak }) {
   );
 }
 
-Object.assign(window, { LoginScreen, SettingsPage, GoogleG, downloadICS });
+Object.assign(window, { LoginScreen, SettingsPage, GoogleG, downloadICS, RecoveryPasswordModal });

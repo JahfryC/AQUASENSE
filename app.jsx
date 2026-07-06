@@ -95,6 +95,17 @@ function App() {
   // ---- onboarding check ----
   const [onboarded, setOnboarded] = React.useState(() => !!localStorage.getItem("aqua:onboarded"));
 
+  // ---- password recovery (user clicked the reset link in their email) ----
+  const [recovery, setRecovery] = React.useState(() =>
+    window.__aquaRecovery === true || /type=recovery/.test(location.hash)
+  );
+  React.useEffect(() => {
+    const fn = () => setRecovery(true);
+    window.addEventListener("aqua:recovery", fn);
+    return () => window.removeEventListener("aqua:recovery", fn);
+  }, []);
+  const recoveryModal = recovery ? <RecoveryPasswordModal onDone={() => setRecovery(false)} /> : null;
+
   // tweaksPanel must be defined before any early return that uses it
   const tweaksPanel = (
     <TweaksPanel>
@@ -126,6 +137,7 @@ function App() {
     return (
       <div key={t.lang}>
         <LoginScreen onSignIn={signIn} isNew={!onboarded} />
+        {recoveryModal}
         <ToastHost />
         {tweaksPanel}
       </div>
@@ -176,6 +188,7 @@ function App() {
         </main>
       </div>
       <MobileTabBar activePage={activePage} onNavigate={navigate} />
+      {recoveryModal}
       <ToastHost />
       {tweaksPanel}
     </div>

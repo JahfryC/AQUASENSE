@@ -196,7 +196,7 @@ function ParameterDetailRow({ paramKey, param, onAskAI, onLog }) {
                 <h3 className="text-[15px] font-medium text-[var(--ink)]">{param.label}</h3>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <StatusPill status={param.status} />
               <Button size="sm" variant="secondary" icon="Plus" onClick={() => onLog(paramKey)}>{T("Registrar lectura","Log reading")}</Button>
               <Button size="sm" variant="primary" icon="Sparkles" onClick={() => onAskAI(paramKey, param)}>{T("Preguntar a Aqua Buddy","Ask Aqua Buddy")}</Button>
@@ -727,83 +727,83 @@ function InhabitantsPage() {
 // Fixture database — popular reef & planted lights
 const FIXTURE_DB = [
   // Aqua Illumination (AI)
-  { n:"AI Prime 16 HD",          br:"Aqua Illumination", w:55,  type:"led", spectrum:"reef",    desc:"Reef nano puck · up to 20 gal" },
-  { n:"AI Hydra 26 HD",          br:"Aqua Illumination", w:100, type:"led", spectrum:"reef",    desc:"Reef puck · up to 50 gal" },
-  { n:"AI Hydra 32 HD",          br:"Aqua Illumination", w:130, type:"led", spectrum:"reef",    desc:"Reef puck · up to 65 gal" },
-  { n:"AI Hydra 52 HD",          br:"Aqua Illumination", w:185, type:"led", spectrum:"reef",    desc:"Reef puck · up to 100 gal" },
-  { n:"AI Hydra 64 HD",          br:"Aqua Illumination", w:215, type:"led", spectrum:"reef",    desc:"Reef puck · up to 130 gal" },
-  { n:"AI Blade Grow 24\"",      br:"Aqua Illumination", w:55,  type:"led", spectrum:"planted", desc:"Freshwater bar" },
-  { n:"AI Blade Grow 36\"",      br:"Aqua Illumination", w:80,  type:"led", spectrum:"planted", desc:"Freshwater bar" },
-  { n:"AI Blade Grow 48\"",      br:"Aqua Illumination", w:100, type:"led", spectrum:"planted", desc:"Freshwater bar" },
+  { n:"AI Prime 16 HD", par:220,          br:"Aqua Illumination", w:55,  type:"led", spectrum:"reef",    desc:"Reef nano puck · up to 20 gal" },
+  { n:"AI Hydra 26 HD", par:350,          br:"Aqua Illumination", w:100, type:"led", spectrum:"reef",    desc:"Reef puck · up to 50 gal" },
+  { n:"AI Hydra 32 HD", par:420,          br:"Aqua Illumination", w:130, type:"led", spectrum:"reef",    desc:"Reef puck · up to 65 gal" },
+  { n:"AI Hydra 52 HD", par:500,          br:"Aqua Illumination", w:185, type:"led", spectrum:"reef",    desc:"Reef puck · up to 100 gal" },
+  { n:"AI Hydra 64 HD", par:560,          br:"Aqua Illumination", w:215, type:"led", spectrum:"reef",    desc:"Reef puck · up to 130 gal" },
+  { n:"AI Blade Grow 24\"", par:150,      br:"Aqua Illumination", w:55,  type:"led", spectrum:"planted", desc:"Freshwater bar" },
+  { n:"AI Blade Grow 36\"", par:160,      br:"Aqua Illumination", w:80,  type:"led", spectrum:"planted", desc:"Freshwater bar" },
+  { n:"AI Blade Grow 48\"", par:170,      br:"Aqua Illumination", w:100, type:"led", spectrum:"planted", desc:"Freshwater bar" },
   // Kessil
-  { n:"Kessil A80 Tuna Blue",    br:"Kessil",            w:15,  type:"led", spectrum:"reef",    desc:"Nano reef · up to 10 gal" },
-  { n:"Kessil A160WE Tuna Blue", br:"Kessil",            w:40,  type:"led", spectrum:"reef",    desc:"Compact reef · up to 40 gal" },
-  { n:"Kessil A360X Tuna Blue",  br:"Kessil",            w:90,  type:"led", spectrum:"reef",    desc:"Full-reef puck · up to 100 gal" },
-  { n:"Kessil AP700",            br:"Kessil",            w:185, type:"led", spectrum:"reef",    desc:"Bar LED · 36–60\" tanks" },
-  { n:"Kessil AP9X",             br:"Kessil",            w:250, type:"led", spectrum:"reef",    desc:"Top-end bar · 48–72\" tanks" },
-  { n:"Kessil H80 Tuna Sun",     br:"Kessil",            w:15,  type:"led", spectrum:"planted", desc:"Freshwater nano" },
-  { n:"Kessil H160 Tuna Sun",    br:"Kessil",            w:40,  type:"led", spectrum:"planted", desc:"Freshwater compact" },
-  { n:"Kessil H380 Tuna Sun",    br:"Kessil",            w:90,  type:"led", spectrum:"planted", desc:"Freshwater full-size" },
+  { n:"Kessil A80 Tuna Blue", par:130,    br:"Kessil",            w:15,  type:"led", spectrum:"reef",    desc:"Nano reef · up to 10 gal" },
+  { n:"Kessil A160WE Tuna Blue", par:250, br:"Kessil",            w:40,  type:"led", spectrum:"reef",    desc:"Compact reef · up to 40 gal" },
+  { n:"Kessil A360X Tuna Blue", par:420,  br:"Kessil",            w:90,  type:"led", spectrum:"reef",    desc:"Full-reef puck · up to 100 gal" },
+  { n:"Kessil AP700", par:520,            br:"Kessil",            w:185, type:"led", spectrum:"reef",    desc:"Bar LED · 36–60\" tanks" },
+  { n:"Kessil AP9X", par:600,             br:"Kessil",            w:250, type:"led", spectrum:"reef",    desc:"Top-end bar · 48–72\" tanks" },
+  { n:"Kessil H80 Tuna Sun", par:120,     br:"Kessil",            w:15,  type:"led", spectrum:"planted", desc:"Freshwater nano" },
+  { n:"Kessil H160 Tuna Sun", par:220,    br:"Kessil",            w:40,  type:"led", spectrum:"planted", desc:"Freshwater compact" },
+  { n:"Kessil H380 Tuna Sun", par:380,    br:"Kessil",            w:90,  type:"led", spectrum:"planted", desc:"Freshwater full-size" },
   // EcoTech Radion
-  { n:"Radion XR15 G5 Blue",     br:"EcoTech Marine",    w:110, type:"led", spectrum:"reef",    desc:"Reef puck · up to 50 gal" },
-  { n:"Radion XR15 G5 Pro",      br:"EcoTech Marine",    w:130, type:"led", spectrum:"reef",    desc:"Reef puck · full spectrum" },
-  { n:"Radion XR30 G5 Blue",     br:"EcoTech Marine",    w:185, type:"led", spectrum:"reef",    desc:"Reef puck · up to 100 gal" },
-  { n:"Radion XR30 G5 Pro",      br:"EcoTech Marine",    w:210, type:"led", spectrum:"reef",    desc:"Reef puck · premium spectrum" },
+  { n:"Radion XR15 G5 Blue", par:400,     br:"EcoTech Marine",    w:110, type:"led", spectrum:"reef",    desc:"Reef puck · up to 50 gal" },
+  { n:"Radion XR15 G5 Pro", par:420,      br:"EcoTech Marine",    w:130, type:"led", spectrum:"reef",    desc:"Reef puck · full spectrum" },
+  { n:"Radion XR30 G5 Blue", par:520,     br:"EcoTech Marine",    w:185, type:"led", spectrum:"reef",    desc:"Reef puck · up to 100 gal" },
+  { n:"Radion XR30 G5 Pro", par:550,      br:"EcoTech Marine",    w:210, type:"led", spectrum:"reef",    desc:"Reef puck · premium spectrum" },
   // Orphek
-  { n:"Orphek OR3 75W Blue Plus",br:"Orphek",            w:75,  type:"led", spectrum:"reef",    desc:"Reef bar · 36\"" },
-  { n:"Orphek OR3 100W Sky Blue",br:"Orphek",            w:100, type:"led", spectrum:"reef",    desc:"Reef bar · 48\"" },
-  { n:"Orphek Atlantik V4",      br:"Orphek",            w:200, type:"led", spectrum:"reef",    desc:"Reef puck · up to 150 gal" },
-  { n:"Orphek Atlantik Compact", br:"Orphek",            w:115, type:"led", spectrum:"reef",    desc:"Reef puck · 50–90 gal" },
+  { n:"Orphek OR3 75W Blue Plus", par:240,br:"Orphek",            w:75,  type:"led", spectrum:"reef",    desc:"Reef bar · 36\"" },
+  { n:"Orphek OR3 100W Sky Blue", par:280,br:"Orphek",            w:100, type:"led", spectrum:"reef",    desc:"Reef bar · 48\"" },
+  { n:"Orphek Atlantik V4", par:550,      br:"Orphek",            w:200, type:"led", spectrum:"reef",    desc:"Reef puck · up to 150 gal" },
+  { n:"Orphek Atlantik Compact", par:420, br:"Orphek",            w:115, type:"led", spectrum:"reef",    desc:"Reef puck · 50–90 gal" },
   // Smatfarm
-  { n:"Smatfarm G5 95W",         br:"Smatfarm",          w:95,  type:"led", spectrum:"reef",    desc:"Reef LED · 6-channel" },
-  { n:"Smatfarm G3 Pro 165W",    br:"Smatfarm",          w:165, type:"led", spectrum:"reef",    desc:"Reef LED · full spectrum" },
+  { n:"Smatfarm G5 95W", par:330,         br:"Smatfarm",          w:95,  type:"led", spectrum:"reef",    desc:"Reef LED · 6-channel" },
+  { n:"Smatfarm G3 Pro 165W", par:480,    br:"Smatfarm",          w:165, type:"led", spectrum:"reef",    desc:"Reef LED · full spectrum" },
   // Maxspect
-  { n:"Maxspect Ethereal 130W",  br:"Maxspect",          w:130, type:"led", spectrum:"reef",    desc:"Reef bar · 36\"" },
-  { n:"Maxspect Ethereal 260W",  br:"Maxspect",          w:260, type:"led", spectrum:"reef",    desc:"Reef bar · 72\"" },
-  { n:"Maxspect Razor X 130W",   br:"Maxspect",          w:130, type:"led", spectrum:"reef",    desc:"Thin reef LED" },
+  { n:"Maxspect Ethereal 130W", par:380,  br:"Maxspect",          w:130, type:"led", spectrum:"reef",    desc:"Reef bar · 36\"" },
+  { n:"Maxspect Ethereal 260W", par:420,  br:"Maxspect",          w:260, type:"led", spectrum:"reef",    desc:"Reef bar · 72\"" },
+  { n:"Maxspect Razor X 130W", par:350,   br:"Maxspect",          w:130, type:"led", spectrum:"reef",    desc:"Thin reef LED" },
   // Reef Breeders
-  { n:"Reef Breeders Photon 16", br:"Reef Breeders",     w:70,  type:"led", spectrum:"reef",    desc:"DIY reef · 16\"" },
-  { n:"Reef Breeders Photon 32", br:"Reef Breeders",     w:130, type:"led", spectrum:"reef",    desc:"DIY reef · 32\"" },
-  { n:"Reef Breeders Photon 48", br:"Reef Breeders",     w:185, type:"led", spectrum:"reef",    desc:"DIY reef · 48\"" },
+  { n:"Reef Breeders Photon 16", par:320, br:"Reef Breeders",     w:70,  type:"led", spectrum:"reef",    desc:"DIY reef · 16\"" },
+  { n:"Reef Breeders Photon 32", par:380, br:"Reef Breeders",     w:130, type:"led", spectrum:"reef",    desc:"DIY reef · 32\"" },
+  { n:"Reef Breeders Photon 48", par:420, br:"Reef Breeders",     w:185, type:"led", spectrum:"reef",    desc:"DIY reef · 48\"" },
   // ATI
-  { n:"ATI Powermodule 4×24W",   br:"ATI",               w:96,  type:"hybrid", spectrum:"reef", desc:"T5+LED hybrid · 24\"" },
-  { n:"ATI Powermodule 6×39W",   br:"ATI",               w:234, type:"hybrid", spectrum:"reef", desc:"T5+LED hybrid · 36\"" },
-  { n:"ATI Powermodule 8×54W",   br:"ATI",               w:432, type:"hybrid", spectrum:"reef", desc:"T5+LED hybrid · 48\"" },
+  { n:"ATI Powermodule 4×24W", par:220,   br:"ATI",               w:96,  type:"hybrid", spectrum:"reef", desc:"T5+LED hybrid · 24\"" },
+  { n:"ATI Powermodule 6×39W", par:320,   br:"ATI",               w:234, type:"hybrid", spectrum:"reef", desc:"T5+LED hybrid · 36\"" },
+  { n:"ATI Powermodule 8×54W", par:420,   br:"ATI",               w:432, type:"hybrid", spectrum:"reef", desc:"T5+LED hybrid · 48\"" },
   // Fluval
-  { n:"Fluval Marine 3.0 (32\")",br:"Fluval",            w:32,  type:"led", spectrum:"reef",    desc:"Marine LED · 24–32\"" },
-  { n:"Fluval Marine 3.0 (48\")",br:"Fluval",            w:59,  type:"led", spectrum:"reef",    desc:"Marine LED · 36–48\"" },
-  { n:"Fluval Plant 3.0 (24\")", br:"Fluval",            w:27,  type:"led", spectrum:"planted", desc:"Planted LED · 17–24\"" },
-  { n:"Fluval Plant 3.0 (36\")", br:"Fluval",            w:46,  type:"led", spectrum:"planted", desc:"Planted LED · 25–36\"" },
-  { n:"Fluval Plant 3.0 (48\")", br:"Fluval",            w:59,  type:"led", spectrum:"planted", desc:"Planted LED · 37–48\"" },
+  { n:"Fluval Marine 3.0 (32\")", par:110,br:"Fluval",            w:32,  type:"led", spectrum:"reef",    desc:"Marine LED · 24–32\"" },
+  { n:"Fluval Marine 3.0 (48\")", par:120,br:"Fluval",            w:59,  type:"led", spectrum:"reef",    desc:"Marine LED · 36–48\"" },
+  { n:"Fluval Plant 3.0 (24\")", par:110, br:"Fluval",            w:27,  type:"led", spectrum:"planted", desc:"Planted LED · 17–24\"" },
+  { n:"Fluval Plant 3.0 (36\")", par:115, br:"Fluval",            w:46,  type:"led", spectrum:"planted", desc:"Planted LED · 25–36\"" },
+  { n:"Fluval Plant 3.0 (48\")", par:120, br:"Fluval",            w:59,  type:"led", spectrum:"planted", desc:"Planted LED · 37–48\"" },
   // Finnex
-  { n:"Finnex Planted+ 24/7 ALC 24\"", br:"Finnex",     w:24,  type:"led", spectrum:"planted", desc:"Auto day/night cycle" },
-  { n:"Finnex Planted+ 24/7 ALC 36\"", br:"Finnex",     w:36,  type:"led", spectrum:"planted", desc:"Auto day/night cycle" },
-  { n:"Finnex Planted+ 24/7 ALC 48\"", br:"Finnex",     w:48,  type:"led", spectrum:"planted", desc:"Auto day/night cycle" },
-  { n:"Finnex Ray2 30\"",        br:"Finnex",            w:30,  type:"led", spectrum:"planted", desc:"High-output planted" },
-  { n:"Finnex Ray2 48\"",        br:"Finnex",            w:48,  type:"led", spectrum:"planted", desc:"High-output planted" },
+  { n:"Finnex Planted+ 24/7 ALC 24\"", par:80, br:"Finnex",     w:24,  type:"led", spectrum:"planted", desc:"Auto day/night cycle" },
+  { n:"Finnex Planted+ 24/7 ALC 36\"", par:85, br:"Finnex",     w:36,  type:"led", spectrum:"planted", desc:"Auto day/night cycle" },
+  { n:"Finnex Planted+ 24/7 ALC 48\"", par:90, br:"Finnex",     w:48,  type:"led", spectrum:"planted", desc:"Auto day/night cycle" },
+  { n:"Finnex Ray2 30\"", par:100,        br:"Finnex",            w:30,  type:"led", spectrum:"planted", desc:"High-output planted" },
+  { n:"Finnex Ray2 48\"", par:110,        br:"Finnex",            w:48,  type:"led", spectrum:"planted", desc:"High-output planted" },
   // Current USA
-  { n:"Current USA Orbit Marine Pro 24\"",br:"Current USA",w:32, type:"led",spectrum:"reef",   desc:"Reef · 18–24\"" },
-  { n:"Current USA Orbit Marine Pro 48\"",br:"Current USA",w:64, type:"led",spectrum:"reef",   desc:"Reef · 36–48\"" },
+  { n:"Current USA Orbit Marine Pro 24\"", par:100,br:"Current USA",w:32, type:"led",spectrum:"reef",   desc:"Reef · 18–24\"" },
+  { n:"Current USA Orbit Marine Pro 48\"", par:120,br:"Current USA",w:64, type:"led",spectrum:"reef",   desc:"Reef · 36–48\"" },
   // ADA
-  { n:"ADA Solar RGB",           br:"ADA",               w:52,  type:"led", spectrum:"planted", desc:"High CRI planted" },
-  { n:"ADA Aquasky G 30",        br:"ADA",               w:11,  type:"led", spectrum:"planted", desc:"Nano planted" },
-  { n:"ADA Aquasky G 60",        br:"ADA",               w:22,  type:"led", spectrum:"planted", desc:"60cm planted" },
+  { n:"ADA Solar RGB", par:230,           br:"ADA",               w:52,  type:"led", spectrum:"planted", desc:"High CRI planted" },
+  { n:"ADA Aquasky G 30", par:110,        br:"ADA",               w:11,  type:"led", spectrum:"planted", desc:"Nano planted" },
+  { n:"ADA Aquasky G 60", par:130,        br:"ADA",               w:22,  type:"led", spectrum:"planted", desc:"60cm planted" },
   // Twinstar
-  { n:"Twinstar 450EA",          br:"Twinstar",          w:27,  type:"led", spectrum:"planted", desc:"Planted · 45cm" },
-  { n:"Twinstar 600EA",          br:"Twinstar",          w:38,  type:"led", spectrum:"planted", desc:"Planted · 60cm" },
-  { n:"Twinstar 900EA",          br:"Twinstar",          w:54,  type:"led", spectrum:"planted", desc:"Planted · 90cm" },
-  { n:"Twinstar 1200EA",         br:"Twinstar",          w:72,  type:"led", spectrum:"planted", desc:"Planted · 120cm" },
+  { n:"Twinstar 450EA", par:130,          br:"Twinstar",          w:27,  type:"led", spectrum:"planted", desc:"Planted · 45cm" },
+  { n:"Twinstar 600EA", par:150,          br:"Twinstar",          w:38,  type:"led", spectrum:"planted", desc:"Planted · 60cm" },
+  { n:"Twinstar 900EA", par:170,          br:"Twinstar",          w:54,  type:"led", spectrum:"planted", desc:"Planted · 90cm" },
+  { n:"Twinstar 1200EA", par:180,         br:"Twinstar",          w:72,  type:"led", spectrum:"planted", desc:"Planted · 120cm" },
   // ONF
-  { n:"ONF Flat Nano",           br:"ONF",               w:15,  type:"led", spectrum:"planted", desc:"Nano planted · up to 30cm" },
-  { n:"ONF Flat One",            br:"ONF",               w:30,  type:"led", spectrum:"planted", desc:"Planted · 45–60cm" },
-  { n:"ONF Flat One Plus",       br:"ONF",               w:40,  type:"led", spectrum:"planted", desc:"Planted · 60–90cm" },
+  { n:"ONF Flat Nano", par:110,           br:"ONF",               w:15,  type:"led", spectrum:"planted", desc:"Nano planted · up to 30cm" },
+  { n:"ONF Flat One", par:140,            br:"ONF",               w:30,  type:"led", spectrum:"planted", desc:"Planted · 45–60cm" },
+  { n:"ONF Flat One Plus", par:150,       br:"ONF",               w:40,  type:"led", spectrum:"planted", desc:"Planted · 60–90cm" },
   // Nanobox
-  { n:"Nanobox Duo",             br:"Nanobox",           w:45,  type:"led", spectrum:"reef",    desc:"Reef puck · up to 30 gal" },
-  { n:"Nanobox Duo XL",          br:"Nanobox",           w:90,  type:"led", spectrum:"reef",    desc:"Reef puck · up to 60 gal" },
+  { n:"Nanobox Duo", par:300,             br:"Nanobox",           w:45,  type:"led", spectrum:"reef",    desc:"Reef puck · up to 30 gal" },
+  { n:"Nanobox Duo XL", par:420,          br:"Nanobox",           w:90,  type:"led", spectrum:"reef",    desc:"Reef puck · up to 60 gal" },
   // Generic T5
-  { n:"Tek T5 4×24W HO",        br:"Sunlight Supply",   w:96,  type:"t5",  spectrum:"reef",    desc:"T5 HO fixture · 24\"" },
-  { n:"Tek T5 6×39W HO",        br:"Sunlight Supply",   w:234, type:"t5",  spectrum:"reef",    desc:"T5 HO fixture · 36\"" },
-  { n:"Tek T5 8×54W HO",        br:"Sunlight Supply",   w:432, type:"t5",  spectrum:"reef",    desc:"T5 HO fixture · 48\"" },
+  { n:"Tek T5 4×24W HO", par:200,        br:"Sunlight Supply",   w:96,  type:"t5",  spectrum:"reef",    desc:"T5 HO fixture · 24\"" },
+  { n:"Tek T5 6×39W HO", par:300,        br:"Sunlight Supply",   w:234, type:"t5",  spectrum:"reef",    desc:"T5 HO fixture · 36\"" },
+  { n:"Tek T5 8×54W HO", par:400,        br:"Sunlight Supply",   w:432, type:"t5",  spectrum:"reef",    desc:"T5 HO fixture · 48\"" },
 ];
 
 function LightFixtureModal({ onClose }) {
@@ -820,6 +820,7 @@ function LightFixtureModal({ onClose }) {
   const [type, setType]       = useState(existing.type || "led");
   const [spectrum, setSpectrum] = useState(existing.spectrum || "reef");
   const [desc, setDesc]       = useState(existing.desc || "");
+  const [parDb, setParDb]     = useState(existing.par || null); // PAR ref from DB (null = manual entry)
   const searchRef = useRef(null);
   const nameRef   = useRef(null);
   useEscape(onClose);
@@ -852,13 +853,14 @@ function LightFixtureModal({ onClose }) {
     setType(row.type);
     setSpectrum(row.spectrum);
     setDesc(row.desc || "");
+    setParDb(row.par || null);
     setStep("fill");
   };
 
   const save = () => {
     const n = name.trim();
     if (!n) { nameRef.current?.focus(); return; }
-    S.setLightFixture({ name: n, brand: brand.trim(), wattage: wattage ? +wattage : null, type, spectrum, desc: desc.trim() });
+    S.setLightFixture({ name: n, brand: brand.trim(), wattage: wattage ? +wattage : null, type, spectrum, desc: desc.trim(), par: parDb });
     window.toast?.(T("Lámpara guardada", "Fixture saved"), { icon: "Lamp" });
     window.dispatchEvent(new Event("aqua:data"));
     onClose();
@@ -1073,6 +1075,263 @@ function LightFixtureModal({ onClose }) {
   );
 }
 
+// ---------------------------- PAR CALCULATOR ----------------------------
+// Model: DB `par` = peak PAR (µmol/m²/s) at ~12" (30 cm) of water depth with the
+// fixture mounted ~8" (20 cm) above the surface at 100% intensity (typical
+// manufacturer / BRS numbers). Mount height applies an air-side falloff
+// normalized to that reference; in the water column PAR roughly halves every
+// ~11" (28 cm) for blue-heavy reef LEDs. Estimates only — a PAR meter wins.
+
+const PAR_ZONES_REEF = [
+  { min: 0,   max: 30,   color: "#64748B", label: () => T("Muy bajo", "Very low"),     corals: () => T("Solo peces — sin corales fotosintéticos", "Fish only — no photosynthetic corals") },
+  { min: 30,  max: 60,   color: "#3B82F6", label: () => T("Bajo", "Low"),              corals: () => T("Hongos, Discosoma, zoas de sombra", "Mushrooms, Discosoma, shade zoas") },
+  { min: 60,  max: 110,  color: "#0E9F6E", label: () => T("Moderado", "Moderate"),     corals: () => T("Blandos: Zoanthus, Sinularia · LPS fácil: Duncan, Candy Cane", "Softies: Zoanthus, Sinularia · easy LPS: Duncan, Candy Cane") },
+  { min: 110, max: 160,  color: "#65a30d", label: () => T("Medio-alto", "Medium-high"),corals: () => T("LPS: Euphyllia (hammer/torch), Favia, Acan, Chalice", "LPS: Euphyllia (hammer/torch), Favia, Acans, Chalice") },
+  { min: 160, max: 250,  color: "#d97706", label: () => T("Alto", "High"),             corals: () => T("SPS tolerantes: Montipora, Birdsnest, Stylophora · Almejas", "Forgiving SPS: Montipora, Birdsnest, Stylophora · Clams") },
+  { min: 250, max: 400,  color: "#DC4458", label: () => T("Muy alto", "Very high"),    corals: () => T("SPS exigentes: Acropora", "Demanding SPS: Acropora") },
+  { min: 400, max: 9999, color: "#9F1239", label: () => T("Extremo", "Extreme"),       corals: () => T("Riesgo de fotoinhibición — solo Acro aclimatada", "Photoinhibition risk — acclimated Acros only") },
+];
+const PAR_ZONES_PLANTED = [
+  { min: 0,  max: 15,   color: "#64748B", label: () => T("Muy bajo", "Very low"),   corals: () => T("Solo musgos y plantas de sombra extrema", "Only mosses and extreme-shade plants") },
+  { min: 15, max: 30,   color: "#3B82F6", label: () => T("Bajo", "Low"),            corals: () => T("Anubias, helechos, Cryptocoryne, musgos", "Anubias, ferns, Cryptocoryne, mosses") },
+  { min: 30, max: 50,   color: "#0E9F6E", label: () => T("Medio", "Medium"),        corals: () => T("Mayoría de plantas de tallo, alfombras fáciles", "Most stem plants, easy carpets") },
+  { min: 50, max: 80,   color: "#65a30d", label: () => T("Alto", "High"),           corals: () => T("Alfombras exigentes, plantas rojas — CO₂ recomendado", "Demanding carpets, red plants — CO₂ recommended") },
+  { min: 80, max: 9999, color: "#d97706", label: () => T("Muy alto", "Very high"),  corals: () => T("Riesgo de algas sin CO₂ y fertilización al día", "Algae risk without CO₂ and dialed-in ferts") },
+];
+
+function estimateBasePar(fx) {
+  if (!fx) return null;
+  if (fx.par) return fx.par;
+  const w = fx.wattage || 0;
+  if (!w) return null;
+  // Rough PAR-per-watt at the 12"-depth reference by technology
+  const perW = fx.type === "t5" ? 1.0 : fx.type === "mh" ? 1.8 : fx.type === "hybrid" ? 2.2 : (fx.spectrum === "reef" ? 3.4 : 2.4);
+  return Math.round(w * perW);
+}
+
+function parAtDepth(basePar, intensityPct, mountIn, depthIn) {
+  const mountF = Math.pow((8 + 12) / (mountIn + 12), 1.2);
+  const p12 = basePar * (intensityPct / 100) * mountF;
+  return Math.max(0, Math.round(p12 * Math.pow(0.5, (depthIn - 12) / 11)));
+}
+
+function parZoneFor(par, zones) {
+  return zones.find((z) => par >= z.min && par < z.max) || zones[zones.length - 1];
+}
+
+// Depth range (inches below surface) where PAR falls inside a zone band.
+// PAR decreases monotonically with depth, so invert the decay curve.
+function depthRangeForZone(zone, basePar, intensityPct, mountIn, tankDepth) {
+  const mountF = Math.pow((8 + 12) / (mountIn + 12), 1.2);
+  const p12 = basePar * (intensityPct / 100) * mountF;
+  if (p12 <= 0) return null;
+  const depthAtPar = (target) => 12 + 11 * Math.log2(p12 / target);
+  let dMin = zone.max >= 9999 ? -99 : depthAtPar(zone.max); // shallower bound (higher PAR)
+  let dMax = zone.min <= 0 ? tankDepth : depthAtPar(zone.min);
+  dMin = Math.max(0, dMin);
+  dMax = Math.min(tankDepth, dMax);
+  if (dMax <= dMin + 0.2) return null;
+  return [Math.round(dMin), Math.round(dMax)];
+}
+
+function ParSliderRow({ icon, label, value, unit, min, max, step = 1, onChange }) {
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center gap-1.5 text-[11px] text-[var(--ink-2)]">
+          <L name={icon} size={12} className="text-[var(--ink-3)]" /> {label}
+        </div>
+        <div className="text-[12px] font-medium text-[var(--ink)] tabular-nums" style={{ fontFamily: "var(--font-mono)" }}>
+          {value}{unit}
+        </div>
+      </div>
+      <input
+        type="range" min={min} max={max} step={step} value={value}
+        onChange={(e) => onChange(+e.target.value)}
+        className="w-full"
+        style={{ accentColor: "var(--accent)", height: 22 }}
+      />
+    </div>
+  );
+}
+
+function ParCalculatorCard({ fixture, onConfigure }) {
+  const { LIGHTING_SCHEDULE } = window.AQUA;
+  const week = window.AquaStore?.lightingWeek || 1;
+  const chans = LIGHTING_SCHEDULE[week - 1]?.channels || {};
+  const weekAvg = Object.keys(chans).length
+    ? Math.round(Object.values(chans).reduce((a, b) => a + b, 0) / Object.keys(chans).length)
+    : 70;
+
+  const persisted = useMemo(() => {
+    try { return JSON.parse(localStorage.getItem("aqua:parcalc") || "{}"); } catch (e) { return {}; }
+  }, []);
+  const [intensity, setIntensity] = useState(persisted.i ?? weekAvg);
+  const [mount, setMount]         = useState(persisted.m ?? 8);
+  const [depth, setDepth]         = useState(persisted.d ?? 20);
+  useEffect(() => {
+    localStorage.setItem("aqua:parcalc", JSON.stringify({ i: intensity, m: mount, d: depth }));
+  }, [intensity, mount, depth]);
+
+  const basePar = estimateBasePar(fixture);
+  const zones = fixture?.spectrum === "planted" ? PAR_ZONES_PLANTED : PAR_ZONES_REEF;
+
+  // ---- no fixture / no data states ----
+  if (!fixture) {
+    return (
+      <Card className="p-5">
+        <SectionHeader kicker={T("Estimador", "Estimator")} title={T("Calculadora PAR", "PAR calculator")} />
+        <div className="flex items-center gap-3 py-2">
+          <div className="grid place-items-center w-10 h-10 rounded-xl shrink-0" style={{ background: "var(--well)", border: "1px dashed var(--hairline-strong)" }}>
+            <L name="SunDim" size={16} className="text-[var(--ink-3)]" />
+          </div>
+          <div className="flex-1 text-[12px] text-[var(--ink-2)]">
+            {T("Configura tu lámpara para estimar el PAR en cada zona de tu tanque y saber dónde colocar cada coral.", "Set up your fixture to estimate PAR at every depth of your tank and know where each coral belongs.")}
+          </div>
+          <Button size="sm" variant="primary" icon="Lamp" onClick={onConfigure}>{T("Configurar", "Set up")}</Button>
+        </div>
+      </Card>
+    );
+  }
+  if (!basePar) {
+    return (
+      <Card className="p-5">
+        <SectionHeader kicker={T("Estimador", "Estimator")} title={T("Calculadora PAR", "PAR calculator")} />
+        <div className="text-[12px] text-[var(--ink-2)]">
+          {T("Agrega la potencia (W) de tu lámpara para poder estimar el PAR.", "Add your fixture's wattage so PAR can be estimated.")}
+          {" "}<button onClick={onConfigure} className="text-[var(--accent)] underline underline-offset-2">{T("Editar lámpara", "Edit fixture")}</button>
+        </div>
+      </Card>
+    );
+  }
+
+  const parAt = (d) => parAtDepth(basePar, intensity, mount, d);
+  const surface = parAt(2);
+  const middle  = parAt(depth / 2);
+  const bottom  = parAt(Math.max(2, depth - 2));
+
+  // Average over the water column (1" samples)
+  let sum = 0;
+  for (let d = 1; d <= depth; d++) sum += parAt(d);
+  const avg = Math.round(sum / depth);
+  const avgZone = parZoneFor(avg, zones);
+
+  // Cross-section geometry
+  const W = 300, PAD = 14, LAMP_H = 16, AIR_MAX = 34;
+  const airH = 10 + (mount / 16) * (AIR_MAX - 10);
+  const waterH = 150;
+  const H = PAD + LAMP_H + airH + waterH + 10;
+  const yWater = PAD + LAMP_H + airH;
+  const yOfDepth = (d) => yWater + (d / depth) * waterH;
+  const bands = [];
+  const STEPS = 24;
+  for (let i = 0; i < STEPS; i++) {
+    const d0 = (depth * i) / STEPS, d1 = (depth * (i + 1)) / STEPS;
+    const z = parZoneFor(parAt((d0 + d1) / 2), zones);
+    bands.push({ y: yOfDepth(d0), h: yOfDepth(d1) - yOfDepth(d0), color: z.color });
+  }
+  const markers = [
+    { d: 2,                     par: surface, name: T("Superficie", "Surface") },
+    { d: depth / 2,             par: middle,  name: T("Medio", "Middle") },
+    { d: Math.max(2, depth - 2), par: bottom, name: T("Fondo", "Bottom") },
+  ];
+
+  // Placement guide rows (only zones present in this tank at these settings)
+  const guide = zones
+    .map((z) => ({ z, range: depthRangeForZone(z, basePar, intensity, mount, depth) }))
+    .filter((g) => g.range);
+
+  return (
+    <Card className="p-5">
+      <SectionHeader
+        kicker={T("Estimador", "Estimator")}
+        title={T("Calculadora PAR", "PAR calculator")}
+        action={
+          <div className="text-right">
+            <div className="text-[22px] font-medium tabular-nums leading-none" style={{ fontFamily: "var(--font-mono)", color: avgZone.color }}>{avg}</div>
+            <div className="text-[9px] tracking-wider text-[var(--ink-3)] mt-0.5"><span className="uppercase">{T("PAR promedio", "Avg PAR")}</span> · µmol/m²/s</div>
+          </div>
+        }
+      />
+
+      <div className="flex items-center gap-2 mb-4 text-[11.5px] text-[var(--ink-2)]">
+        <L name="Lamp" size={13} className="text-[var(--accent)] shrink-0" />
+        <span className="truncate">{fixture.name}</span>
+        <span className="text-[var(--ink-3)]">· {fixture.par ? T("datos del modelo", "model data") : T("estimado por watts", "estimated from watts")}</span>
+        <button onClick={onConfigure} className="ml-auto shrink-0 text-[var(--ink-3)] hover:text-[var(--accent)] transition-colors"><L name="Edit3" size={13} /></button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        {/* Left — controls + cross-section */}
+        <div>
+          <div className="space-y-3 mb-4">
+            <ParSliderRow icon="SunMedium" label={T("Intensidad", "Intensity")} value={intensity} unit="%" min={10} max={100} step={5} onChange={setIntensity} />
+            <ParSliderRow icon="MoveVertical" label={T("Altura de montaje sobre el agua", "Mount height above water")} value={mount} unit='"' min={3} max={16} onChange={setMount} />
+            <ParSliderRow icon="Waves" label={T("Profundidad del agua", "Water depth")} value={depth} unit='"' min={8} max={32} onChange={setDepth} />
+          </div>
+
+          <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
+            {/* lamp */}
+            <rect x={W / 2 - 34} y={PAD} width={68} height={LAMP_H} rx={5} fill="var(--well)" stroke="var(--hairline-strong)" />
+            <circle cx={W / 2} cy={PAD + LAMP_H / 2} r={3.5} fill={avgZone.color} />
+            {/* light cone */}
+            <path d={`M${W / 2 - 26},${PAD + LAMP_H} L${PAD + 6},${yWater} L${W - PAD - 6},${yWater} L${W / 2 + 26},${PAD + LAMP_H} Z`} fill={avgZone.color} opacity="0.08" />
+            {/* water: colored PAR bands */}
+            {bands.map((b, i) => (
+              <rect key={i} x={PAD} y={b.y} width={W - PAD * 2} height={b.h + 0.5} fill={b.color} opacity="0.22" />
+            ))}
+            {/* tank walls */}
+            <path d={`M${PAD},${yWater} L${PAD},${yWater + waterH} L${W - PAD},${yWater + waterH} L${W - PAD},${yWater}`} fill="none" stroke="var(--hairline-strong)" strokeWidth="1.5" />
+            <line x1={PAD} x2={W - PAD} y1={yWater} y2={yWater} stroke="var(--accent)" strokeOpacity="0.5" strokeDasharray="5 4" />
+            {/* depth markers */}
+            {markers.map((m, i) => {
+              const y = yOfDepth(m.d);
+              const z = parZoneFor(m.par, zones);
+              return (
+                <g key={i}>
+                  <line x1={PAD + 4} x2={W - 108} y1={y} y2={y} stroke={z.color} strokeOpacity="0.55" strokeDasharray="2 3" />
+                  <text x={W - 102} y={y + 3} fontSize="9.5" fill="var(--ink-2)" fontFamily="DM Mono">{m.name} {Math.round(m.d)}&quot;</text>
+                  <text x={W - PAD} y={y + 3} fontSize="10.5" fontWeight="600" fill={z.color} textAnchor="end" fontFamily="DM Mono">{m.par}</text>
+                </g>
+              );
+            })}
+          </svg>
+        </div>
+
+        {/* Right — placement guide */}
+        <div>
+          <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--ink-3)] mb-2">
+            {fixture.spectrum === "planted" ? T("Guía de plantas por profundidad", "Plant guide by depth") : T("¿Dónde va cada coral?", "Where does each coral go?")}
+          </div>
+          <div className="space-y-1.5">
+            {guide.map(({ z, range }, i) => (
+              <div key={i} className="flex items-start gap-2.5 rounded-xl px-3 py-2" style={{ background: `${z.color}0F`, border: `1px solid ${z.color}30` }}>
+                <span className="mt-0.5 w-2 h-2 rounded-full shrink-0" style={{ background: z.color }} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="text-[11.5px] font-semibold" style={{ color: z.color }}>{z.label()} · {z.min}–{z.max >= 9999 ? "∞" : z.max} µmol</span>
+                    <span className="text-[10.5px] text-[var(--ink-2)] tabular-nums shrink-0" style={{ fontFamily: "var(--font-mono)" }}>
+                      {range[0]}–{range[1]}&quot; {T("prof.", "deep")}
+                    </span>
+                  </div>
+                  <div className="text-[10.5px] text-[var(--ink-2)] mt-0.5">{z.corals()}</div>
+                </div>
+              </div>
+            ))}
+            {!guide.length && (
+              <div className="text-[11.5px] text-[var(--ink-2)]">{T("Con esta configuración el PAR queda fuera de las zonas útiles — sube la intensidad o baja la lámpara.", "At these settings PAR falls outside useful ranges — raise intensity or lower the fixture.")}</div>
+            )}
+          </div>
+          <div className="mt-3 flex items-start gap-1.5 text-[10px] text-[var(--ink-3)]">
+            <L name="Info" size={11} className="shrink-0 mt-0.5" />
+            {T("Estimación basada en datos típicos del fabricante en el centro del tanque. Un medidor PAR real siempre da el valor exacto.", "Estimate based on typical manufacturer data at tank center. A real PAR meter always gives the exact value.")}
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 function LightingPage() {
   const { LIGHTING_SCHEDULE, LIGHT_CHANNELS } = window.AQUA;
   const currentWeek = window.AquaStore?.lightingWeek || 1;
@@ -1093,10 +1352,10 @@ function LightingPage() {
           <h1 className="text-[20px] lg:text-[22px] font-medium text-[var(--ink)] tracking-tight">{T("Programa de luz · 4 semanas","Lighting schedule · 4 weeks")}</h1>
           <p className="text-[12.5px] text-[var(--ink-2)] mt-1">{T("Aumentos graduales por canal para evitar estrés lumínico en corales nuevos","Gradual per-channel ramps to avoid light stress on new corals")}</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="secondary" icon="Lamp" onClick={() => setFixtureOpen(true)}>{T("Mi lámpara","My fixture")}</Button>
-          <Button variant="secondary" icon="Power" onClick={() => window.toast?.(T("Modo noche activado — intensidad reducida al 5%", "Night mode active — intensity reduced to 5%"), { icon: "Moon", tone: "info" })}>{T("Modo noche","Night mode")}</Button>
-          <Button variant="primary" icon="Sliders" onClick={() => window.toast?.(T("Ajustes finos de iluminación — próximamente", "Fine lighting controls — coming soon"), { icon: "Sliders", tone: "info" })}>{T("Ajustes finos","Fine tuning")}</Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button variant="secondary" size="sm" icon="Lamp" onClick={() => setFixtureOpen(true)}>{T("Mi lámpara","My fixture")}</Button>
+          <Button variant="secondary" size="sm" icon="Power" onClick={() => window.toast?.(T("Modo noche activado — intensidad reducida al 5%", "Night mode active — intensity reduced to 5%"), { icon: "Moon", tone: "info" })}>{T("Modo noche","Night mode")}</Button>
+          <Button variant="primary" size="sm" icon="Sliders" onClick={() => window.toast?.(T("Ajustes finos de iluminación — próximamente", "Fine lighting controls — coming soon"), { icon: "Sliders", tone: "info" })}>{T("Ajustes finos","Fine tuning")}</Button>
         </div>
       </div>
       {fixtureOpen && <LightFixtureModal onClose={closeFixtureModal} />}
@@ -1130,6 +1389,9 @@ function LightingPage() {
           <Button size="sm" variant="primary" icon="Plus" onClick={() => setFixtureOpen(true)}>{T("Agregar","Add")}</Button>
         </Card>
       )}
+
+      {/* PAR estimator */}
+      <ParCalculatorCard fixture={fixture} onConfigure={() => setFixtureOpen(true)} />
 
       {/* week selector */}
       <Card className="p-4">

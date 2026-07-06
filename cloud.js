@@ -35,6 +35,12 @@ window.CLOUD = (() => {
       if (session?.user) handleUser(session.user);
 
       client.auth.onAuthStateChange((_event, session) => {
+        if (_event === "PASSWORD_RECOVERY") {
+          // User arrived from a reset-password email link — surface the
+          // "set new password" flow even if React mounted before this fires.
+          window.__aquaRecovery = true;
+          window.dispatchEvent(new CustomEvent("aqua:recovery"));
+        }
         handleUser(session?.user || null);
       });
 
@@ -116,13 +122,21 @@ window.CLOUD = (() => {
     if (!client) throw new Error("cloud-not-configured");
     const { data, error } = await client.auth.signUp({ email, password });
     if (error) throw error;
-    return data.user;
+    // data.session is null when email confirmation is required
+    return { user: data.user, session: data.session };
+  }
+
+  async function updatePassword(newPassword) {
+    if (!client) throw new Error("cloud-not-configured");
+    const { error } = await client.auth.updateUser({ password: newPassword });
+    if (error) throw error;
   }
 
   async function resetPassword(email) {
     if (!client) throw new Error("cloud-not-configured");
     const { error } = await client.auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.href,
+      // Clean URL (no query/hash) so the recovery token in the hash survives
+      redirectTo: window.location.origin + window.location.pathname,
     });
     if (error) throw error;
   }
@@ -151,6 +165,7 @@ window.CLOUD = (() => {
     ready,
     signInWithEmail,
     signUp,
+    updatePassword,
     resetPassword,
     signInGoogle,
     signOut,

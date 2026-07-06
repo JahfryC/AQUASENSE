@@ -68,9 +68,9 @@ function Card({ as: As = "div", className = "", children, hover = false, ...rest
 // ---------- Button ----------
 function Button({ variant = "secondary", size = "md", icon, iconRight, loading, disabled, className = "", children, ...rest }) {
   const sizes = {
-    sm: "px-3 py-1.5 text-[11.5px] gap-1.5 rounded-full",
-    md: "px-4 py-2 text-[12.5px] gap-2 rounded-full",
-    lg: "px-5 py-2.5 text-[13.5px] gap-2 rounded-full",
+    sm: "px-3 py-1.5 text-[11.5px] gap-1.5 rounded-full min-h-[32px]",
+    md: "px-4 py-2 text-[12.5px] gap-2 rounded-full min-h-[38px]",
+    lg: "px-5 py-2.5 text-[13.5px] gap-2 rounded-full min-h-[44px]",
   };
   const variants = {
     primary:   "text-white border border-transparent shadow-md",
