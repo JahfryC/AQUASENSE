@@ -285,14 +285,16 @@ function ParametersPage({ onNavigate }) {
 }
 
 // ---------------------------- INHABITANTS PAGE ----------------------------
-function InhabitantCard({ item, kind }) {
+function InhabitantCard({ item, kind, onOpen }) {
   const s = STATUS_COLOR[item.status];
   const iconByKind = { fish: "Fish", coral: "Flower2", cuc: "Bug" };
   const placeholderColors = { fish: ["#60A5FA", "#22D3EE"], coral: ["#F87171", "#C77F00"], cuc: ["#0E9F6E", "#22D3EE"] };
   const [a, b] = placeholderColors[kind] || ["#60A5FA", "#22D3EE"];
+  const logCount = window.AquaStore.getInhabitantLogs(item.id).length;
+  const photo = window.AquaStore.getPhoto(item.id);
 
   return (
-    <Card hover className="overflow-hidden">
+    <Card hover onClick={onOpen} className="overflow-hidden cursor-pointer">
       {/* Photo slot with gradient avatar fallback */}
       <div
         className="relative h-28 flex items-center justify-center"
@@ -301,14 +303,12 @@ function InhabitantCard({ item, kind }) {
           borderBottom: "1px solid var(--hairline)",
         }}
       >
-        {/* Centered photo slot with avatar fallback */}
+        {/* Centered avatar — read-only here; photos are managed in the detail modal */}
         <div style={{ width: 64, height: 64, position: "relative", borderRadius: 16, overflow: "hidden", flexShrink: 0 }}>
-          {/* Fallback avatar shown when no photo */}
           <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", background: `linear-gradient(135deg, ${a}, ${b})` }}>
             <span style={{ color: "white", fontSize: 24, fontWeight: 700 }}>{item.name[0]}</span>
           </div>
-          {/* PhotoSlot overlays the avatar — shows upload UI on hover */}
-          <PhotoSlot id={`photo-${item.id}`} radius={16} style={{ position: "absolute", inset: 0 }} />
+          {photo && <img src={photo} alt={item.name} className="absolute inset-0 w-full h-full object-cover" />}
         </div>
         <div className="absolute top-2 left-2">
           <StatusPill status={item.status} />
@@ -322,8 +322,13 @@ function InhabitantCard({ item, kind }) {
         <div className="text-[10.5px] text-[var(--ink-3)] italic mt-0.5">{item.scientific}</div>
         {item.note && <div className="text-[11px] text-[var(--ink-2)] mt-2 line-clamp-2 leading-relaxed">{item.note}</div>}
         <div className="flex items-center justify-between mt-3">
-          <span className="text-[10px] text-[var(--ink-3)] inline-flex items-center gap-1"><L name="Calendar" size={10} /> {item.added}</span>
-          <Button size="sm" variant="ghost" icon="Sparkles" onClick={() => window.dispatchEvent(new CustomEvent("aquabot:ask", { detail: T(`¿Cómo está mi ${item.name}?`, `How is my ${item.name} doing?`) }))}>{T("Preguntar IA", "Ask AI")}</Button>
+          <span className="text-[10px] text-[var(--ink-3)] inline-flex items-center gap-1.5">
+            <L name="Calendar" size={10} /> {item.added}
+            {logCount > 0 && <span className="inline-flex items-center gap-0.5" style={{ color: "var(--accent)" }}><L name="NotebookPen" size={10} /> {logCount}</span>}
+          </span>
+          <span className="text-[10.5px] font-medium inline-flex items-center gap-1" style={{ color: "var(--accent)" }}>
+            {T("Ver detalle", "Details")} <L name="ChevronRight" size={11} />
+          </span>
         </div>
       </div>
     </Card>
@@ -451,6 +456,140 @@ async function searchSpeciesPhoto(query) {
   }
 }
 
+// ---- AI species care sheet + tank compatibility (Groq) ----
+function parseGroqJSON(data) {
+  const raw = data?.choices?.[0]?.message?.content?.trim() || "";
+  try { return JSON.parse(raw.replace(/```json|```/g, "").trim()); } catch { return null; }
+}
+
+async function groqJSON(system, user, maxTokens = 500) {
+  const apiKey = window.AQUAMIND_AI_KEY || localStorage.getItem("aqua:ai_key");
+  if (!apiKey) return { _noKey: true };
+  try {
+    const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: [{ role: "system", content: system }, { role: "user", content: user }],
+        max_tokens: maxTokens, temperature: 0.2,
+      }),
+    });
+    if (!resp.ok) return { _error: resp.status };
+    return parseGroqJSON(await resp.json()) || { _parseError: true };
+  } catch (e) { return { _error: "network" }; }
+}
+
+// Full care sheet for a species. kind: fish | corals | cuc
+async function fetchSpeciesCare(name, scientific, kind) {
+  const lang = window.__lang === "en" ? "English" : "Spanish";
+  const sys = "You are a marine/reef aquarium livestock database used by hobbyists (Reef2Reef-level accuracy). Return ONLY a JSON object, no markdown. Use null for unknown fields. Be accurate and specific.";
+  const user = `Species: "${name}"${scientific ? ` (${scientific})` : ""}, category: ${kind}.
+Return this exact shape (values in ${lang}, numbers as plain text with units):
+{"scientific":"latin name","common":"common name","temp":"75-78°F","salinity":"1.024-1.026","parMin":number_or_null,"parMax":number_or_null,"flow":"low|medium|high","diet":"short diet","temperament":"peaceful|semi-aggressive|aggressive","difficulty":"easy|moderate|hard|expert","adultSize":"e.g. 3 in","minTank":"e.g. 20 gal","placement":"where in the tank it goes","reefSafe":"yes|no|with caution|n/a","tip":"one key care tip (max 18 words)"}`;
+  return groqJSON(sys, user, 480);
+}
+
+// Cross-reference the new species with the user's actual tank
+async function fetchTankCompatibility(name, scientific, kind) {
+  const lang = window.__lang === "en" ? "English" : "Spanish";
+  const A = window.AQUA, S = window.AquaStore;
+  const p = A.CURRENT_PARAMETERS;
+  const fx = S?.lightFixture;
+  const fish = A.INHABITANTS.fish.map((f) => f.name).join(", ") || "none";
+  const corals = A.INHABITANTS.corals.map((c) => c.name).join(", ") || "none";
+  const cuc = A.INHABITANTS.cuc.map((c) => c.name).join(", ") || "none";
+  const ctx = `Tank: ${A.TANK_CONFIG.name}, ${A.TANK_CONFIG.realVolume || A.TANK_CONFIG.displayVolume} gal, type ${A.TANK_CONFIG.type}.
+Params: temp ${p.temperature?.value}°F, salinity ${p.salinity?.value}, pH ${p.ph?.value}, KH ${p.kh?.value}, ammonia ${p.ammonia?.value}, nitrate ${p.nitrate?.value}.
+Light: ${fx ? `${fx.name}${fx.par ? ` (~${fx.par} PAR ref)` : ""}` : "unknown"}.
+Current fish: ${fish}. Corals: ${corals}. Clean-up crew: ${cuc}.`;
+  const sys = "You are a reef aquarium compatibility advisor. Return ONLY a JSON object, no markdown. Be honest about risks.";
+  const user = `${ctx}
+The user wants to add: "${name}"${scientific ? ` (${scientific})` : ""} (${kind}).
+Return (values in ${lang}):
+{"verdict":"good|caution|bad","fit":"one sentence on whether it fits THIS tank and params","placement":"specific placement advice for this tank (PAR/flow zone)","warnings":["short risk 1","short risk 2"],"acclimation":"one short acclimation tip"}`;
+  return groqJSON(sys, user, 420);
+}
+
+// ---- Reusable care-sheet + compatibility views ----
+function CareSheetView({ care }) {
+  if (!care) return null;
+  const rows = [
+    { icon: "Thermometer", label: T("Temperatura", "Temp"),      value: care.temp },
+    { icon: "Sailboat",    label: T("Salinidad", "Salinity"),    value: care.salinity },
+    { icon: "Sun",         label: "PAR",                          value: (care.parMin || care.parMax) ? `${care.parMin ?? "?"}–${care.parMax ?? "?"}` : null },
+    { icon: "Wind",        label: T("Flujo", "Flow"),             value: care.flow },
+    { icon: "Utensils",    label: T("Dieta", "Diet"),             value: care.diet },
+    { icon: "Swords",      label: T("Temperamento", "Temperament"), value: care.temperament },
+    { icon: "Gauge",       label: T("Dificultad", "Difficulty"),  value: care.difficulty },
+    { icon: "Ruler",       label: T("Tamaño adulto", "Adult size"), value: care.adultSize },
+    { icon: "Container",   label: T("Tanque mín.", "Min tank"),   value: care.minTank },
+    { icon: "MapPin",      label: T("Ubicación", "Placement"),    value: care.placement },
+    { icon: "ShieldCheck", label: "Reef-safe",                    value: care.reefSafe },
+  ].filter((r) => r.value && r.value !== "null");
+  return (
+    <div className="rounded-xl p-3" style={{ background: "var(--well)", border: "1px solid var(--hairline)" }}>
+      <div className="flex items-center gap-1.5 mb-2 text-[10.5px] uppercase tracking-wider font-semibold" style={{ color: "var(--accent)" }}>
+        <L name="BookOpen" size={12} /> {T("Ficha de cuidados", "Care sheet")}
+      </div>
+      <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+        {rows.map((r, i) => (
+          <div key={i} className="flex items-center gap-1.5 min-w-0">
+            <L name={r.icon} size={11} className="text-[var(--ink-3)] shrink-0" />
+            <span className="text-[10px] text-[var(--ink-3)] shrink-0">{r.label}:</span>
+            <span className="text-[11px] text-[var(--ink)] font-medium truncate">{r.value}</span>
+          </div>
+        ))}
+      </div>
+      {care.tip && (
+        <div className="mt-2 pt-2 border-t border-[var(--hairline)] flex items-start gap-1.5">
+          <L name="Lightbulb" size={12} className="shrink-0 mt-0.5" style={{ color: "#C77F00" }} />
+          <span className="text-[11px] text-[var(--ink-2)] leading-relaxed">{care.tip}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CompatView({ compat }) {
+  if (!compat) return null;
+  const meta = {
+    good:    { color: "#0E9F6E", icon: "CheckCircle2", label: T("Buen encaje", "Good fit") },
+    caution: { color: "#C77F00", icon: "AlertTriangle", label: T("Con precaución", "With caution") },
+    bad:     { color: "#DC4458", icon: "XCircle",       label: T("No recomendado", "Not recommended") },
+  }[compat.verdict] || { color: "var(--ink-3)", icon: "HelpCircle", label: T("Sin datos", "No data") };
+  return (
+    <div className="rounded-xl p-3" style={{ background: `${meta.color}0F`, border: `1px solid ${meta.color}35` }}>
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <L name={meta.icon} size={13} style={{ color: meta.color }} />
+        <span className="text-[11.5px] font-semibold" style={{ color: meta.color }}>{meta.label} · {T("tu tanque", "your tank")}</span>
+      </div>
+      {compat.fit && <div className="text-[11.5px] text-[var(--ink)] leading-relaxed">{compat.fit}</div>}
+      {compat.placement && (
+        <div className="mt-1.5 flex items-start gap-1.5">
+          <L name="MapPin" size={11} className="shrink-0 mt-0.5" style={{ color: "var(--accent)" }} />
+          <span className="text-[11px] text-[var(--ink-2)]">{compat.placement}</span>
+        </div>
+      )}
+      {Array.isArray(compat.warnings) && compat.warnings.filter(Boolean).length > 0 && (
+        <ul className="mt-1.5 space-y-0.5">
+          {compat.warnings.filter(Boolean).map((w, i) => (
+            <li key={i} className="text-[10.5px] text-[var(--ink-2)] flex items-start gap-1.5">
+              <L name="Dot" size={12} className="shrink-0" style={{ color: meta.color }} /> {w}
+            </li>
+          ))}
+        </ul>
+      )}
+      {compat.acclimation && (
+        <div className="mt-1.5 pt-1.5 border-t flex items-start gap-1.5" style={{ borderColor: `${meta.color}25` }}>
+          <L name="Droplets" size={11} className="shrink-0 mt-0.5" style={{ color: "var(--accent)" }} />
+          <span className="text-[10.5px] text-[var(--ink-2)]">{compat.acclimation}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ---------------------------- ADD INHABITANT MODAL ----------------------------
 function AddInhabitantModal({ onClose }) {
   const [kind, setKind] = useState("fish");
@@ -461,6 +600,9 @@ function AddInhabitantModal({ onClose }) {
   const [photoResults, setPhotoResults] = useState([]);
   const [photoLoading, setPhotoLoading] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [care, setCare] = useState(null);
+  const [compat, setCompat] = useState(null);
   const nameRef = useRef(null);
   useEscape(onClose);
   useEffect(() => { nameRef.current?.focus(); }, []);
@@ -476,6 +618,36 @@ function AddInhabitantModal({ onClose }) {
     setPhotoLoading(false);
   };
 
+  // One tap: care sheet + tank compatibility + best photo
+  const analyzeWithAI = async () => {
+    const n = name.trim();
+    if (!n) { nameRef.current?.focus(); return; }
+    setAiLoading(true); setCare(null); setCompat(null);
+    const [careRes, compatRes] = await Promise.all([
+      fetchSpeciesCare(n, scientific.trim(), kind),
+      fetchTankCompatibility(n, scientific.trim(), kind),
+    ]);
+    if (careRes?._noKey || compatRes?._noKey) {
+      window.toast?.(T("Agrega tu key de Groq en Ajustes para usar la IA", "Add your Groq key in Settings to use AI"), { tone: "warn", icon: "Key" });
+      setAiLoading(false); return;
+    }
+    if (careRes && !careRes._error && !careRes._parseError) {
+      setCare(careRes);
+      if (!scientific.trim() && careRes.scientific) setScientific(careRes.scientific);
+    }
+    if (compatRes && !compatRes._error && !compatRes._parseError) setCompat(compatRes);
+    // Auto-pull a photo if the user hasn't picked one
+    if (!selectedPhoto) {
+      const results = await searchSpeciesPhoto(careRes?.scientific || scientific.trim() || n);
+      setPhotoResults(results);
+      if (results[0]) setSelectedPhoto(results[0].preview);
+    }
+    if ((careRes && careRes._error) || (compatRes && compatRes._error)) {
+      window.toast?.(T("La IA tuvo un problema — intenta de nuevo", "AI hiccup — try again"), { tone: "warn", icon: "AlertTriangle" });
+    }
+    setAiLoading(false);
+  };
+
   const save = () => {
     const n = name.trim();
     if (!n) { nameRef.current?.focus(); return; }
@@ -483,11 +655,12 @@ function AddInhabitantModal({ onClose }) {
     const item = {
       id: "ui" + Date.now(),
       name: n.charAt(0).toUpperCase() + n.slice(1),
-      scientific: scientific.trim(),
+      scientific: scientific.trim() || care?.scientific || "",
       added: window.AQUA.MOCK_TODAY,
       status: "ok",
       note: note.trim() || T("Recién añadido — en observación", "Newly added — under observation"),
     };
+    if (care && !care._error) item.care = care;
     window.AquaStore.addInhabitant(kind, item);
     if (selectedPhoto) window.AquaStore.setPhoto(item.id, selectedPhoto);
     window.toast?.(T(`${item.name} añadido`, `${item.name} added`), { icon: "Fish" });
@@ -581,6 +754,22 @@ function AddInhabitantModal({ onClose }) {
             </div>
           </div>
 
+          {/* Analyze with AI — care sheet + tank compatibility + photo */}
+          <button
+            type="button"
+            onClick={analyzeWithAI}
+            disabled={!name.trim() || aiLoading}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-[12.5px] font-semibold text-white disabled:opacity-50 transition-all active:scale-[0.99]"
+            style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-strong))" }}
+          >
+            {aiLoading
+              ? <><L name="Loader2" size={14} className="animate-spin" /> {T("Analizando especie…", "Analyzing species…")}</>
+              : <><L name="Sparkles" size={14} /> {T("Analizar con IA (cuidados + compatibilidad)", "Analyze with AI (care + compatibility)")}</>}
+          </button>
+
+          {compat && <CompatView compat={compat} />}
+          {care && <CareSheetView care={care} />}
+
           {/* Photo results grid */}
           {photoResults.length > 0 && (
             <div>
@@ -644,10 +833,216 @@ function AddInhabitantModal({ onClose }) {
   );
 }
 
+// ---- Health-status options for the seguimiento ----
+const HEALTH_OPTS = [
+  { id: "ok",     label: T("Sano", "Healthy"),      icon: "Heart" },
+  { id: "warn",   label: T("En observación", "Watch"), icon: "Eye" },
+  { id: "danger", label: T("Problema", "Problem"),  icon: "AlertTriangle" },
+];
+
+function fmtLogDate(ts) {
+  const d = new Date(ts);
+  const day = String(d.getDate()).padStart(2, "0");
+  const mon = String(d.getMonth() + 1).padStart(2, "0");
+  return `${day}/${mon} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+// ---------------------------- INHABITANT DETAIL / SEGUIMIENTO ----------------------------
+function InhabitantDetailModal({ item, kind, onClose, onChanged }) {
+  const S = window.AquaStore;
+  const [, force] = React.useReducer((x) => x + 1, 0);
+  const [care, setCare] = useState(item.care || null);
+  const [careLoading, setCareLoading] = useState(false);
+  const [confirmDel, setConfirmDel] = useState(false);
+  // New log entry
+  const [logNote, setLogNote] = useState("");
+  const [logStatus, setLogStatus] = useState("");
+  const [logPhoto, setLogPhoto] = useState(null);
+  const logFileRef = useRef(null);
+  useEscape(onClose);
+
+  const logs = S.getInhabitantLogs(item.id);
+  const photo = S.getPhoto(item.id);
+  const s = STATUS_COLOR[item.status] || STATUS_COLOR.ok;
+
+  const getCareAI = async () => {
+    setCareLoading(true);
+    const res = await fetchSpeciesCare(item.name, item.scientific, kind);
+    if (res?._noKey) window.toast?.(T("Agrega tu key de Groq en Ajustes", "Add your Groq key in Settings"), { tone: "warn", icon: "Key" });
+    else if (res && !res._error && !res._parseError) { setCare(res); S.updateInhabitant(item.id, { care: res }); }
+    else window.toast?.(T("La IA tuvo un problema — intenta de nuevo", "AI hiccup — try again"), { tone: "warn", icon: "AlertTriangle" });
+    setCareLoading(false);
+  };
+
+  const onLogFile = (e) => {
+    const f = e.target.files?.[0]; if (!f) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => setLogPhoto(ev.target.result);
+    reader.readAsDataURL(f);
+    e.target.value = "";
+  };
+
+  const addLog = () => {
+    if (!logNote.trim() && !logPhoto && !logStatus) {
+      window.toast?.(T("Escribe una nota, cambia el estado o agrega una foto", "Add a note, change status or attach a photo"), { tone: "warn", icon: "PenLine" });
+      return;
+    }
+    S.addInhabitantLog(item.id, { note: logNote.trim(), status: logStatus || undefined, photo: logPhoto || undefined });
+    // The newest photo becomes the inhabitant's main photo
+    if (logPhoto) S.setPhoto(item.id, logPhoto);
+    setLogNote(""); setLogStatus(""); setLogPhoto(null);
+    window.toast?.(T("Entrada de seguimiento guardada", "Tracking entry saved"), { icon: "NotebookPen" });
+    force(); onChanged?.();
+  };
+
+  const setStatusNow = (st) => {
+    S.updateInhabitant(item.id, { status: st });
+    force(); onChanged?.();
+  };
+
+  const doDelete = () => {
+    S.removeInhabitant(item.id);
+    window.toast?.(T(`${item.name} eliminado`, `${item.name} removed`), { icon: "Trash2" });
+    onChanged?.(); onClose();
+  };
+
+  const iconByKind = { fish: "Fish", coral: "Flower2", corals: "Flower2", cuc: "Bug" };
+
+  return ReactDOM.createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[var(--scrim)] backdrop-blur" onClick={onClose}>
+      <div className="w-full max-w-md glass-strong rounded-3xl overflow-hidden flex flex-col" style={{ maxHeight: "92dvh", boxShadow: "var(--glass-shadow)" }} onClick={(e) => e.stopPropagation()}>
+        {/* Header with photo */}
+        <div className="relative h-32 shrink-0" style={{ background: "linear-gradient(135deg, #0e4a6a, #115e5a)" }}>
+          {photo && <img src={photo} alt="" className="absolute inset-0 w-full h-full object-cover" style={{ opacity: 0.8 }} />}
+          <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(8,22,34,0.75), rgba(8,22,34,0.1))" }} />
+          <button onClick={onClose} className="absolute top-3 right-3 grid place-items-center w-8 h-8 rounded-full text-white" style={{ background: "rgba(0,0,0,0.35)", backdropFilter: "blur(6px)" }}><L name="X" size={15} /></button>
+          <div className="absolute left-4 bottom-3 right-4">
+            <div className="flex items-center gap-2">
+              <L name={iconByKind[kind] || "Fish"} size={14} style={{ color: "#2DD4BF" }} />
+              <div className="text-[17px] font-semibold text-white leading-tight" style={{ textShadow: "0 1px 6px rgba(0,0,0,0.5)" }}>{item.name}</div>
+            </div>
+            {item.scientific && <div className="text-[11px] text-white/80 italic">{item.scientific}</div>}
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          {/* Health status */}
+          <div>
+            <div className="text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1.5">{T("Estado de salud", "Health status")}</div>
+            <div className="grid grid-cols-3 gap-1.5">
+              {HEALTH_OPTS.map((o) => {
+                const active = item.status === o.id;
+                const c = STATUS_COLOR[o.id];
+                return (
+                  <button key={o.id} onClick={() => setStatusNow(o.id)}
+                    className="flex items-center justify-center gap-1.5 rounded-xl py-2 text-[11.5px] font-medium border transition-all"
+                    style={active ? { background: c.bg, border: `1.5px solid ${c.border}`, color: c.fg } : { border: "1px solid var(--hairline)", color: "var(--ink-3)" }}>
+                    <L name={o.icon} size={12} /> {o.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Care sheet */}
+          {care ? <CareSheetView care={care} /> : (
+            <button onClick={getCareAI} disabled={careLoading}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-[12px] font-semibold disabled:opacity-50 transition-all"
+              style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)", color: "var(--accent)" }}>
+              {careLoading ? <><L name="Loader2" size={13} className="animate-spin" /> {T("Buscando cuidados…", "Fetching care…")}</> : <><L name="BookOpen" size={13} /> {T("Obtener ficha de cuidados con IA", "Get care sheet with AI")}</>}
+            </button>
+          )}
+
+          {/* Seguimiento timeline */}
+          <div>
+            <div className="text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+              <L name="NotebookPen" size={12} /> {T("Seguimiento", "Tracking")} <span className="text-[var(--ink-3)] normal-case">· {logs.length}</span>
+            </div>
+
+            {/* Add entry */}
+            <div className="rounded-xl p-2.5 mb-2" style={{ background: "var(--well)", border: "1px solid var(--hairline)" }}>
+              <textarea value={logNote} onChange={(e) => setLogNote(e.target.value)} rows={2}
+                placeholder={T("Nota: crecimiento, color, comportamiento…", "Note: growth, color, behavior…")}
+                className="w-full bg-transparent border-0 outline-none text-[12.5px] text-[var(--ink)] placeholder:text-[var(--ink-3)] resize-none" />
+              <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+                {HEALTH_OPTS.map((o) => (
+                  <button key={o.id} onClick={() => setLogStatus(logStatus === o.id ? "" : o.id)}
+                    className="px-2 py-1 rounded-full text-[10px] font-medium border transition-all"
+                    style={logStatus === o.id ? { background: STATUS_COLOR[o.id].bg, border: `1px solid ${STATUS_COLOR[o.id].border}`, color: STATUS_COLOR[o.id].fg } : { border: "1px solid var(--hairline)", color: "var(--ink-3)" }}>
+                    {o.label}
+                  </button>
+                ))}
+                <button onClick={() => logFileRef.current?.click()} className="px-2 py-1 rounded-full text-[10px] font-medium border transition-all inline-flex items-center gap-1"
+                  style={logPhoto ? { background: "var(--accent-soft)", border: "1px solid var(--accent-border)", color: "var(--accent)" } : { border: "1px solid var(--hairline)", color: "var(--ink-3)" }}>
+                  <L name={logPhoto ? "CheckCircle2" : "Camera"} size={11} /> {logPhoto ? T("Foto lista", "Photo set") : T("Foto", "Photo")}
+                </button>
+                <input ref={logFileRef} type="file" accept="image/*" className="hidden" onChange={onLogFile} />
+                <button onClick={addLog} className="ml-auto px-3 py-1 rounded-full text-[11px] font-semibold text-white transition-all active:scale-[0.98]"
+                  style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-strong))" }}>
+                  {T("Guardar", "Save")}
+                </button>
+              </div>
+              {logPhoto && <img src={logPhoto} alt="" className="mt-2 h-16 rounded-lg object-cover" />}
+            </div>
+
+            {/* Entries */}
+            {logs.length === 0 ? (
+              <div className="text-[11px] text-[var(--ink-3)] text-center py-2">{T("Aún sin entradas — registra la primera arriba", "No entries yet — log the first one above")}</div>
+            ) : (
+              <div className="space-y-1.5">
+                {logs.map((lg) => {
+                  const c = lg.status ? STATUS_COLOR[lg.status] : null;
+                  return (
+                    <div key={lg.ts} className="flex gap-2.5 rounded-xl p-2.5" style={{ background: "var(--well)", border: "1px solid var(--hairline)" }}>
+                      {lg.photo && <img src={lg.photo} alt="" className="w-12 h-12 rounded-lg object-cover shrink-0" />}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[9.5px] text-[var(--ink-3)] tabular-nums" style={{ fontFamily: "var(--font-mono)" }}>{fmtLogDate(lg.ts)}</span>
+                          {c && <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full" style={{ background: c.bg, color: c.fg }}>{HEALTH_OPTS.find((h) => h.id === lg.status)?.label}</span>}
+                          <button onClick={() => { S.removeInhabitantLog(item.id, lg.ts); force(); }} className="ml-auto text-[var(--ink-3)] hover:text-[#DC4458] transition-colors"><L name="Trash2" size={11} /></button>
+                        </div>
+                        {lg.note && <div className="text-[11.5px] text-[var(--ink)] mt-0.5 leading-relaxed">{lg.note}</div>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Footer: ask AI + delete */}
+        <div className="shrink-0 p-3 border-t border-[var(--hairline)] flex items-center gap-2">
+          {!confirmDel ? (
+            <>
+              <Button size="sm" variant="ghost" icon="Sparkles" onClick={() => { window.dispatchEvent(new CustomEvent("aquabot:ask", { detail: T(`¿Cómo está mi ${item.name}? ¿Algún consejo según mis parámetros?`, `How is my ${item.name}? Any advice given my parameters?`) })); onClose(); }}>
+                {T("Preguntar a Aqua Buddy", "Ask Aqua Buddy")}
+              </Button>
+              <button onClick={() => setConfirmDel(true)} className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11.5px] font-medium transition-all"
+                style={{ background: "rgba(225,29,72,0.10)", border: "1px solid rgba(225,29,72,0.28)", color: "#DC4458" }}>
+                <L name="Trash2" size={12} /> {T("Eliminar", "Delete")}
+              </button>
+            </>
+          ) : (
+            <>
+              <span className="text-[11.5px] text-[var(--ink-2)]">{T("¿Eliminar definitivamente?", "Delete permanently?")}</span>
+              <button onClick={() => setConfirmDel(false)} className="ml-auto px-3 py-1.5 rounded-full text-[11.5px] font-medium" style={{ background: "var(--well)", border: "1px solid var(--hairline)", color: "var(--ink-2)" }}>{T("Cancelar", "Cancel")}</button>
+              <button onClick={doDelete} className="px-3 py-1.5 rounded-full text-[11.5px] font-semibold text-white" style={{ background: "#DC4458" }}>{T("Sí, eliminar", "Yes, delete")}</button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 function InhabitantsPage() {
   const { INHABITANTS, TANK_CONFIG } = window.AQUA;
   const [tab, setTab] = useState("all");
   const [addOpen, setAddOpen] = useState(false);
+  const [detail, setDetail] = useState(null); // { item, kind }
+  const [, force] = React.useReducer((x) => x + 1, 0);
   const total = INHABITANTS.fish.length + INHABITANTS.corals.length + INHABITANTS.cuc.length;
 
   const tabs = [
@@ -699,7 +1094,7 @@ function InhabitantsPage() {
         <div>
           <SectionHeader kicker={T("Peces","Fish")} title={`${INHABITANTS.fish.length} ${T("en el tanque","in the tank")}`} />
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-            {INHABITANTS.fish.map((f) => <InhabitantCard key={f.id} item={f} kind="fish" />)}
+            {INHABITANTS.fish.map((f) => <InhabitantCard key={f.id} item={f} kind="fish" onOpen={() => setDetail({ item: f, kind: "fish" })} />)}
           </div>
         </div>
       )}
@@ -707,7 +1102,7 @@ function InhabitantsPage() {
         <div className="mt-5">
           <SectionHeader kicker={T("Corales","Corals")} title={`${INHABITANTS.corals.length} ${T("colonias","colonies")}`} />
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-            {INHABITANTS.corals.map((c) => <InhabitantCard key={c.id} item={c} kind="coral" />)}
+            {INHABITANTS.corals.map((c) => <InhabitantCard key={c.id} item={c} kind="coral" onOpen={() => setDetail({ item: c, kind: "corals" })} />)}
           </div>
         </div>
       )}
@@ -715,9 +1110,18 @@ function InhabitantsPage() {
         <div className="mt-5">
           <SectionHeader kicker="Clean-up Crew" title={`${INHABITANTS.cuc.length} ${T("ayudantes","helpers")}`} />
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-            {INHABITANTS.cuc.map((c) => <InhabitantCard key={c.id} item={c} kind="cuc" />)}
+            {INHABITANTS.cuc.map((c) => <InhabitantCard key={c.id} item={c} kind="cuc" onOpen={() => setDetail({ item: c, kind: "cuc" })} />)}
           </div>
         </div>
+      )}
+
+      {detail && (
+        <InhabitantDetailModal
+          item={detail.item}
+          kind={detail.kind}
+          onClose={() => setDetail(null)}
+          onChanged={force}
+        />
       )}
     </div>
   );
@@ -2035,6 +2439,27 @@ function AquaBotPage() {
         </div>
       </div>
 
+      {/* Full-tank deep analysis — cross-references every data point */}
+      <button
+        onClick={() => window.dispatchEvent(new CustomEvent("aquabot:ask", {
+          detail: T(
+            "Analiza TODO mi tanque a fondo: cruza mis parámetros, el PAR de mi luz y la semana de aclimatación, mis peces y corales (compatibilidad y colocación), mis rutinas y alertas. Dame un diagnóstico completo y las acciones prioritarias con cantidades exactas para mi volumen.",
+            "Deeply analyze my WHOLE tank: cross-reference my parameters, my light's PAR and acclimation week, my fish and corals (compatibility and placement), my routines and alerts. Give me a full diagnosis and prioritized actions with exact quantities for my volume."
+          )
+        }))}
+        className="flex items-center gap-2.5 w-full rounded-2xl px-4 py-3 text-left transition-all active:scale-[0.995]"
+        style={{ background: "linear-gradient(135deg, var(--accent-soft), rgba(91,91,214,0.10))", border: "1px solid var(--accent-border)" }}
+      >
+        <div className="grid place-items-center w-9 h-9 rounded-xl shrink-0" style={{ background: "var(--surface-strong)", border: "1px solid var(--accent-border)" }}>
+          <L name="BrainCircuit" size={17} style={{ color: "var(--accent)" }} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-[13px] font-semibold text-[var(--ink)]">{T("Analiza todo mi tanque", "Analyze my whole tank")}</div>
+          <div className="text-[11px] text-[var(--ink-2)]">{T("Diagnóstico completo cruzando todos tus datos", "Full diagnosis across all your data")}</div>
+        </div>
+        <L name="ArrowRight" size={15} style={{ color: "var(--accent)" }} className="shrink-0" />
+      </button>
+
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4 flex-1 min-h-0">
         <div className="min-h-[500px] lg:min-h-0 min-w-0">
           <AquaBotWidget fullPage={true} />
@@ -2336,4 +2761,4 @@ function SupplementsPage() {
   );
 }
 
-Object.assign(window, { ParametersPage, InhabitantsPage, LightingPage, RoutinesPage, AquaBotPage, AlertsPage, SupplementsPage, expand30, LogReadingModal, exportParamsCSV });
+Object.assign(window, { ParametersPage, InhabitantsPage, LightingPage, RoutinesPage, AquaBotPage, AlertsPage, SupplementsPage, expand30, LogReadingModal, exportParamsCSV, groqJSON });

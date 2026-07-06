@@ -191,14 +191,23 @@ function buildAquaBuddyPrompt(mode = "personalized") {
 
   const fish = INHABITANTS.fish.map((f) => `${f.name} (${f.status})`).join(", ");
   const corals = INHABITANTS.corals.map((c) => `${c.name} (${c.status})`).join(", ");
+  const cuc = (INHABITANTS.cuc || []).map((c) => c.name).join(", ");
   const equipment = EQUIPMENT.map((e) => e.name).join(", ");
   const alerts = ALERTS.map((a) => a.title).join("; ");
+  const S = window.AquaStore;
+  const fx = S?.lightFixture;
+  const light = fx ? `${fx.name}${fx.par ? ` (~${fx.par} PAR reference)` : ""}${fx.wattage ? `, ${fx.wattage}W` : ""}, acclimation week ${S?.lightingWeek || 1}/4` : "not configured";
+  const dims = TANK_CONFIG.dims ? `${TANK_CONFIG.dims.l}x${TANK_CONFIG.dims.w}x${TANK_CONFIG.dims.h} in` : "unknown";
+  const routines = (window.AQUA.ROUTINES || []).map((r) => `${r.task || r.name} (${r.frequency || "?"})`).join("; ");
 
   const tankContext = mode === "personalized" ? `
-TANK: ${TANK_CONFIG.name} — ${TANK_CONFIG.displayVolume} gal display / ${TANK_CONFIG.realVolume} gal real, ${TANK_CONFIG.type}, ${TANK_CONFIG.location}.
+TANK: ${TANK_CONFIG.name} — ${TANK_CONFIG.displayVolume} gal display / ${TANK_CONFIG.realVolume} gal real, ${TANK_CONFIG.type}, dims ${dims}, filtration ${TANK_CONFIG.filtration || "?"}, ${TANK_CONFIG.location}.
 PARAMETERS (live): ${params}.
+LIGHTING: ${light}.
 FISH: ${fish}.
 CORALS: ${corals}.
+CLEAN-UP CREW: ${cuc || "none"}.
+ROUTINES: ${routines || "none"}.
 EQUIPMENT: ${equipment}.
 ACTIVE ALERTS: ${alerts || "none"}.
 OWNER: ${TANK_CONFIG.owner} — experienced in freshwater, newer to saltwater.` : "";
@@ -1234,6 +1243,152 @@ function alertCTAAction(a, navigate, dismiss) {
 }
 
 // ---------- Dashboard ----------
+// ---- Cross-referenced tank insights: pulls EVERY data point → prioritized actions ----
+function buildFullTankContext() {
+  const A = window.AQUA, S = window.AquaStore;
+  const c = A.TANK_CONFIG;
+  const p = A.CURRENT_PARAMETERS;
+  const params = Object.entries(p).map(([k, v]) => `${v.label} ${v.value}${v.unit ? v.unit : ""} [${v.status}] (ideal ${v.idealMin}-${v.idealMax})`).join("; ");
+  const fx = S?.lightFixture;
+  const light = fx ? `${fx.name}${fx.par ? ` ~${fx.par} PAR ref` : ""}${fx.wattage ? `, ${fx.wattage}W` : ""}` : "none set";
+  const describe = (arr) => arr.map((x) => `${x.name}${x.status && x.status !== "ok" ? ` [${x.status}]` : ""}`).join(", ") || "none";
+  const routines = (A.ROUTINES || []).map((r) => `${r.task || r.name} (${r.frequency || "?"})`).join("; ");
+  const done = S?.ud?.routinesDone ? Object.values(S.ud.routinesDone).filter(Boolean).length : 0;
+  const dims = c.dims ? `${c.dims.l}x${c.dims.w}x${c.dims.h}in` : "unknown";
+  const weeks = S?.lightingWeek || 1;
+  return `TANK: ${c.name}, ${c.realVolume || c.displayVolume} gal, type ${c.type}, dims ${dims}, filtration ${c.filtration || "?"}, acclimation week ${weeks}/4.
+PARAMETERS: ${params}.
+LIGHT: ${light}.
+FISH: ${describe(A.INHABITANTS.fish)}.
+CORALS: ${describe(A.INHABITANTS.corals)}.
+CLEAN-UP CREW: ${describe(A.INHABITANTS.cuc)}.
+ROUTINES: ${routines || "none"} (${done} completed).
+ACTIVE ALERTS: ${(S?.activeAlerts?.() || []).map((a) => a.title).join("; ") || "none"}.`;
+}
+
+async function fetchTankInsights() {
+  const lang = window.__lang === "en" ? "English" : "Spanish";
+  const sys = "You are Aqua Buddy, an expert reef/aquarium advisor (Reef2Reef/BRS level). Cross-reference ALL the tank data and return ONLY a JSON object, no markdown. Be specific with numbers and cite the data point that triggered each action.";
+  const user = `${buildFullTankContext()}
+Analyze the WHOLE system together (parameters + light/PAR + livestock compatibility + routines + alerts). Return (values in ${lang}):
+{"score":0-100_overall_health, "summary":"one-sentence state of the tank", "actions":[{"priority":"high|medium|low","title":"short action","detail":"why + exact what to do (reference the data)","category":"parameters|lighting|livestock|maintenance"}]}
+Give 3 to 6 actions, most important first. If everything is fine, still give proactive optimization tips.`;
+  return window.groqJSON
+    ? window.groqJSON(sys, user, 900)
+    : (async () => {
+        const apiKey = window.AQUAMIND_AI_KEY || localStorage.getItem("aqua:ai_key");
+        if (!apiKey) return { _noKey: true };
+        const data = await callGroq([{ role: "user", content: user }], sys);
+        if (!data || data._error) return { _error: true };
+        try { return JSON.parse((data.choices?.[0]?.message?.content || "").replace(/```json|```/g, "").trim()); }
+        catch { return { _parseError: true }; }
+      })();
+}
+
+function TankInsightsCard({ onNavigate }) {
+  const [loading, setLoading] = React.useState(false);
+  const [data, setData] = React.useState(null);
+  const [err, setErr] = React.useState("");
+
+  const run = async () => {
+    setLoading(true); setErr("");
+    const res = await fetchTankInsights();
+    if (res?._noKey) setErr(T("Agrega tu key de Groq en Ajustes para el análisis con IA", "Add your Groq key in Settings for AI analysis"));
+    else if (!res || res._error || res._parseError || !Array.isArray(res.actions)) setErr(T("La IA tuvo un problema — intenta de nuevo", "AI hiccup — try again"));
+    else setData(res);
+    setLoading(false);
+  };
+
+  const catMeta = {
+    parameters: { icon: "Activity", color: "#3B82F6", nav: "parameters" },
+    lighting:   { icon: "SunMedium", color: "#C77F00", nav: "lighting" },
+    livestock:  { icon: "Fish",      color: "#0E9F6E", nav: "inhabitants" },
+    maintenance:{ icon: "Wrench",    color: "#6366F1", nav: "routines" },
+  };
+  const prMeta = {
+    high:   { color: "#DC4458", label: T("Alta", "High") },
+    medium: { color: "#C77F00", label: T("Media", "Medium") },
+    low:    { color: "#0E9F6E", label: T("Baja", "Low") },
+  };
+
+  return (
+    <Card className="p-5">
+      <SectionHeader
+        kicker={T("Inteligencia AquaMind", "AquaMind intelligence")}
+        title={T("Recomendaciones para tu tanque", "Recommendations for your tank")}
+        action={
+          <Button size="sm" variant={data ? "secondary" : "primary"} icon={loading ? undefined : "Sparkles"} loading={loading} onClick={run}>
+            {data ? T("Actualizar", "Refresh") : T("Analizar todo", "Analyze all")}
+          </Button>
+        }
+      />
+
+      {!data && !loading && !err && (
+        <div className="flex items-start gap-3 py-1">
+          <div className="grid place-items-center w-10 h-10 rounded-xl shrink-0" style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)" }}>
+            <L name="BrainCircuit" size={17} style={{ color: "var(--accent)" }} />
+          </div>
+          <div className="text-[12px] text-[var(--ink-2)] leading-relaxed">
+            {T("Cruzo tus parámetros, PAR de la luz, habitantes, rutinas y alertas para darte las acciones más importantes ahora mismo.",
+               "I cross-reference your parameters, light PAR, livestock, routines and alerts to give you the most important actions right now.")}
+          </div>
+        </div>
+      )}
+
+      {err && <div className="text-[12px] text-[#DC4458] py-2">{err}</div>}
+
+      {loading && (
+        <div className="flex items-center gap-2 text-[12px] text-[var(--ink-2)] py-3">
+          <L name="Loader2" size={14} className="animate-spin" style={{ color: "var(--accent)" }} />
+          {T("Analizando todo el sistema…", "Analyzing the whole system…")}
+        </div>
+      )}
+
+      {data && (
+        <div className="space-y-3">
+          {/* Score + summary */}
+          <div className="flex items-center gap-3 rounded-2xl p-3" style={{ background: "var(--well)", border: "1px solid var(--hairline)" }}>
+            <div className="relative grid place-items-center w-12 h-12 shrink-0">
+              <svg viewBox="0 0 36 36" className="w-12 h-12 -rotate-90">
+                <circle cx="18" cy="18" r="15" fill="none" stroke="var(--hairline)" strokeWidth="3" />
+                <circle cx="18" cy="18" r="15" fill="none" strokeWidth="3" strokeLinecap="round"
+                  stroke={data.score >= 80 ? "#0E9F6E" : data.score >= 60 ? "#C77F00" : "#DC4458"}
+                  strokeDasharray={`${(data.score / 100) * 94.2} 94.2`} />
+              </svg>
+              <span className="absolute text-[13px] font-semibold tabular-nums" style={{ fontFamily: "var(--font-mono)" }}>{data.score}</span>
+            </div>
+            <div className="text-[12px] text-[var(--ink)] leading-relaxed">{data.summary}</div>
+          </div>
+
+          {/* Prioritized actions */}
+          {data.actions.map((ac, i) => {
+            const cm = catMeta[ac.category] || catMeta.parameters;
+            const pm = prMeta[ac.priority] || prMeta.medium;
+            return (
+              <div key={i} className="rounded-2xl p-3" style={{ background: "var(--surface)", border: "1px solid var(--hairline)" }}>
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="grid place-items-center w-6 h-6 rounded-lg shrink-0" style={{ background: `${cm.color}18`, border: `1px solid ${cm.color}35` }}>
+                    <L name={cm.icon} size={12} style={{ color: cm.color }} />
+                  </div>
+                  <span className="text-[12.5px] font-semibold text-[var(--ink)] flex-1 min-w-0">{ac.title}</span>
+                  <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full shrink-0" style={{ background: `${pm.color}18`, color: pm.color }}>{pm.label}</span>
+                </div>
+                <div className="text-[11.5px] text-[var(--ink-2)] leading-relaxed">{ac.detail}</div>
+                <button onClick={() => onNavigate?.(cm.nav)} className="mt-1.5 text-[10.5px] font-medium inline-flex items-center gap-1" style={{ color: cm.color }}>
+                  {T("Ir a la sección", "Go to section")} <L name="ArrowRight" size={10} />
+                </button>
+              </div>
+            );
+          })}
+          <div className="text-[9.5px] text-[var(--ink-3)] flex items-center gap-1">
+            <L name="Info" size={10} /> {T("Generado por IA cruzando todos tus datos. Verifica antes de actuar.", "AI-generated across all your data. Verify before acting.")}
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
+
 function Dashboard({ onNavigate, alerts: allAlerts, onDismissAlert, routinesDone, onToggleRoutine }) {
   const { TANK_CONFIG } = window.AQUA;
   const alerts = (allAlerts || window.AQUA.ALERTS).slice(0, 3);
@@ -1244,6 +1399,8 @@ function Dashboard({ onNavigate, alerts: allAlerts, onDismissAlert, routinesDone
       <ReefStatusHero onNavigate={onNavigate} />
 
       <TankVitalsStrip />
+
+      <TankInsightsCard onNavigate={onNavigate} />
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         <div className="lg:col-span-3 space-y-4 min-w-0">

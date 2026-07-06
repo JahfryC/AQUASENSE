@@ -16,7 +16,9 @@ window.AquaStore = (() => {
     routinesDone: {},
     customRoutines: [],
     customInhabitants: [],     // [{ kind, item }]
-    inhabitantUpdates: {},     // { id: { status, note } }
+    inhabitantUpdates: {},     // { id: { status, note, care } }
+    inhabitantLogs: {},        // { id: [{ ts, note, status, photo }] } — seguimiento
+    removedInhabitants: [],    // ids of seed inhabitants the user deleted
     customTanks: [],           // tanks added by the user
     supplements: [],           // [{ id, name, category, schedule, amount, unit, note }]
     lightingWeek: null,
@@ -45,6 +47,13 @@ window.AquaStore = (() => {
     for (const kind of ["fish", "corals", "cuc"]) {
       const it = A.INHABITANTS[kind].find((x) => x.id === id);
       if (it) Object.assign(it, patch);
+    }
+  });
+  // Remove any seed inhabitants the user deleted
+  (ud.removedInhabitants || []).forEach((id) => {
+    for (const kind of ["fish", "corals", "cuc"]) {
+      const i = A.INHABITANTS[kind].findIndex((x) => x.id === id);
+      if (i >= 0) A.INHABITANTS[kind].splice(i, 1);
     }
   });
 
@@ -122,6 +131,41 @@ window.AquaStore = (() => {
         }
       }
       return null;
+    },
+    removeInhabitant(id) {
+      let kindFound = null;
+      for (const kind of ["fish", "corals", "cuc"]) {
+        const i = A.INHABITANTS[kind].findIndex((x) => x.id === id);
+        if (i >= 0) { A.INHABITANTS[kind].splice(i, 1); kindFound = kind; }
+      }
+      // Drop from user-added list; if it was a seed, remember the deletion
+      const wasCustom = (ud.customInhabitants || []).some(({ item }) => item.id === id);
+      ud.customInhabitants = (ud.customInhabitants || []).filter(({ item }) => item.id !== id);
+      if (!wasCustom && kindFound) ud.removedInhabitants = [...(ud.removedInhabitants || []), id];
+      // Clean related state
+      if (ud.inhabitantUpdates) delete ud.inhabitantUpdates[id];
+      if (ud.inhabitantLogs) delete ud.inhabitantLogs[id];
+      if (ud.photos) { delete ud.photos[id]; delete ud.photos[`photo-${id}`]; }
+      touch();
+      return kindFound;
+    },
+    // ---- seguimiento (per-inhabitant timeline) ----
+    getInhabitantLogs(id) {
+      return (ud.inhabitantLogs && ud.inhabitantLogs[id]) || [];
+    },
+    addInhabitantLog(id, entry) {
+      const log = { ts: Date.now(), ...entry };
+      ud.inhabitantLogs = ud.inhabitantLogs || {};
+      ud.inhabitantLogs[id] = [log, ...(ud.inhabitantLogs[id] || [])];
+      // A log entry with a status also updates the inhabitant's current status
+      if (entry.status) this.updateInhabitant(id, { status: entry.status });
+      else touch();
+      return log;
+    },
+    removeInhabitantLog(id, ts) {
+      if (!ud.inhabitantLogs || !ud.inhabitantLogs[id]) return;
+      ud.inhabitantLogs[id] = ud.inhabitantLogs[id].filter((l) => l.ts !== ts);
+      touch();
     },
     findInhabitant(text) {
       const norm = (s) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");

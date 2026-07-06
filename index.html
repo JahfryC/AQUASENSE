@@ -1489,7 +1489,9 @@ window.AquaStore = (() => {
     routinesDone: {},
     customRoutines: [],
     customInhabitants: [],     // [{ kind, item }]
-    inhabitantUpdates: {},     // { id: { status, note } }
+    inhabitantUpdates: {},     // { id: { status, note, care } }
+    inhabitantLogs: {},        // { id: [{ ts, note, status, photo }] } — seguimiento
+    removedInhabitants: [],    // ids of seed inhabitants the user deleted
     customTanks: [],           // tanks added by the user
     supplements: [],           // [{ id, name, category, schedule, amount, unit, note }]
     lightingWeek: null,
@@ -1518,6 +1520,13 @@ window.AquaStore = (() => {
     for (const kind of ["fish", "corals", "cuc"]) {
       const it = A.INHABITANTS[kind].find((x) => x.id === id);
       if (it) Object.assign(it, patch);
+    }
+  });
+  // Remove any seed inhabitants the user deleted
+  (ud.removedInhabitants || []).forEach((id) => {
+    for (const kind of ["fish", "corals", "cuc"]) {
+      const i = A.INHABITANTS[kind].findIndex((x) => x.id === id);
+      if (i >= 0) A.INHABITANTS[kind].splice(i, 1);
     }
   });
 
@@ -1595,6 +1604,41 @@ window.AquaStore = (() => {
         }
       }
       return null;
+    },
+    removeInhabitant(id) {
+      let kindFound = null;
+      for (const kind of ["fish", "corals", "cuc"]) {
+        const i = A.INHABITANTS[kind].findIndex((x) => x.id === id);
+        if (i >= 0) { A.INHABITANTS[kind].splice(i, 1); kindFound = kind; }
+      }
+      // Drop from user-added list; if it was a seed, remember the deletion
+      const wasCustom = (ud.customInhabitants || []).some(({ item }) => item.id === id);
+      ud.customInhabitants = (ud.customInhabitants || []).filter(({ item }) => item.id !== id);
+      if (!wasCustom && kindFound) ud.removedInhabitants = [...(ud.removedInhabitants || []), id];
+      // Clean related state
+      if (ud.inhabitantUpdates) delete ud.inhabitantUpdates[id];
+      if (ud.inhabitantLogs) delete ud.inhabitantLogs[id];
+      if (ud.photos) { delete ud.photos[id]; delete ud.photos[`photo-${id}`]; }
+      touch();
+      return kindFound;
+    },
+    // ---- seguimiento (per-inhabitant timeline) ----
+    getInhabitantLogs(id) {
+      return (ud.inhabitantLogs && ud.inhabitantLogs[id]) || [];
+    },
+    addInhabitantLog(id, entry) {
+      const log = { ts: Date.now(), ...entry };
+      ud.inhabitantLogs = ud.inhabitantLogs || {};
+      ud.inhabitantLogs[id] = [log, ...(ud.inhabitantLogs[id] || [])];
+      // A log entry with a status also updates the inhabitant's current status
+      if (entry.status) this.updateInhabitant(id, { status: entry.status });
+      else touch();
+      return log;
+    },
+    removeInhabitantLog(id, ts) {
+      if (!ud.inhabitantLogs || !ud.inhabitantLogs[id]) return;
+      ud.inhabitantLogs[id] = ud.inhabitantLogs[id].filter((l) => l.ts !== ts);
+      touch();
     },
     findInhabitant(text) {
       const norm = (s) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
@@ -5131,13 +5175,22 @@ function buildAquaBuddyPrompt(mode = "personalized") {
   const params = Object.entries(CURRENT_PARAMETERS).map(([k, p]) => `${p.label}: ${p.value}${p.unit ? " " + p.unit : ""} (${p.status === "ok" ? "ok" : p.status === "warn" ? "warn" : "critical"})`).join(", ");
   const fish = INHABITANTS.fish.map(f => `${f.name} (${f.status})`).join(", ");
   const corals = INHABITANTS.corals.map(c => `${c.name} (${c.status})`).join(", ");
+  const cuc = (INHABITANTS.cuc || []).map(c => c.name).join(", ");
   const equipment = EQUIPMENT.map(e => e.name).join(", ");
   const alerts = ALERTS.map(a => a.title).join("; ");
+  const S = window.AquaStore;
+  const fx = S?.lightFixture;
+  const light = fx ? `${fx.name}${fx.par ? ` (~${fx.par} PAR reference)` : ""}${fx.wattage ? `, ${fx.wattage}W` : ""}, acclimation week ${S?.lightingWeek || 1}/4` : "not configured";
+  const dims = TANK_CONFIG.dims ? `${TANK_CONFIG.dims.l}x${TANK_CONFIG.dims.w}x${TANK_CONFIG.dims.h} in` : "unknown";
+  const routines = (window.AQUA.ROUTINES || []).map(r => `${r.task || r.name} (${r.frequency || "?"})`).join("; ");
   const tankContext = mode === "personalized" ? `
-TANK: ${TANK_CONFIG.name} — ${TANK_CONFIG.displayVolume} gal display / ${TANK_CONFIG.realVolume} gal real, ${TANK_CONFIG.type}, ${TANK_CONFIG.location}.
+TANK: ${TANK_CONFIG.name} — ${TANK_CONFIG.displayVolume} gal display / ${TANK_CONFIG.realVolume} gal real, ${TANK_CONFIG.type}, dims ${dims}, filtration ${TANK_CONFIG.filtration || "?"}, ${TANK_CONFIG.location}.
 PARAMETERS (live): ${params}.
+LIGHTING: ${light}.
 FISH: ${fish}.
 CORALS: ${corals}.
+CLEAN-UP CREW: ${cuc || "none"}.
+ROUTINES: ${routines || "none"}.
 EQUIPMENT: ${equipment}.
 ACTIVE ALERTS: ${alerts || "none"}.
 OWNER: ${TANK_CONFIG.owner} — experienced in freshwater, newer to saltwater.` : "";
@@ -6596,6 +6649,232 @@ function alertCTAAction(a, navigate, dismiss) {
 }
 
 // ---------- Dashboard ----------
+// ---- Cross-referenced tank insights: pulls EVERY data point → prioritized actions ----
+function buildFullTankContext() {
+  const A = window.AQUA,
+    S = window.AquaStore;
+  const c = A.TANK_CONFIG;
+  const p = A.CURRENT_PARAMETERS;
+  const params = Object.entries(p).map(([k, v]) => `${v.label} ${v.value}${v.unit ? v.unit : ""} [${v.status}] (ideal ${v.idealMin}-${v.idealMax})`).join("; ");
+  const fx = S?.lightFixture;
+  const light = fx ? `${fx.name}${fx.par ? ` ~${fx.par} PAR ref` : ""}${fx.wattage ? `, ${fx.wattage}W` : ""}` : "none set";
+  const describe = arr => arr.map(x => `${x.name}${x.status && x.status !== "ok" ? ` [${x.status}]` : ""}`).join(", ") || "none";
+  const routines = (A.ROUTINES || []).map(r => `${r.task || r.name} (${r.frequency || "?"})`).join("; ");
+  const done = S?.ud?.routinesDone ? Object.values(S.ud.routinesDone).filter(Boolean).length : 0;
+  const dims = c.dims ? `${c.dims.l}x${c.dims.w}x${c.dims.h}in` : "unknown";
+  const weeks = S?.lightingWeek || 1;
+  return `TANK: ${c.name}, ${c.realVolume || c.displayVolume} gal, type ${c.type}, dims ${dims}, filtration ${c.filtration || "?"}, acclimation week ${weeks}/4.
+PARAMETERS: ${params}.
+LIGHT: ${light}.
+FISH: ${describe(A.INHABITANTS.fish)}.
+CORALS: ${describe(A.INHABITANTS.corals)}.
+CLEAN-UP CREW: ${describe(A.INHABITANTS.cuc)}.
+ROUTINES: ${routines || "none"} (${done} completed).
+ACTIVE ALERTS: ${(S?.activeAlerts?.() || []).map(a => a.title).join("; ") || "none"}.`;
+}
+async function fetchTankInsights() {
+  const lang = window.__lang === "en" ? "English" : "Spanish";
+  const sys = "You are Aqua Buddy, an expert reef/aquarium advisor (Reef2Reef/BRS level). Cross-reference ALL the tank data and return ONLY a JSON object, no markdown. Be specific with numbers and cite the data point that triggered each action.";
+  const user = `${buildFullTankContext()}
+Analyze the WHOLE system together (parameters + light/PAR + livestock compatibility + routines + alerts). Return (values in ${lang}):
+{"score":0-100_overall_health, "summary":"one-sentence state of the tank", "actions":[{"priority":"high|medium|low","title":"short action","detail":"why + exact what to do (reference the data)","category":"parameters|lighting|livestock|maintenance"}]}
+Give 3 to 6 actions, most important first. If everything is fine, still give proactive optimization tips.`;
+  return window.groqJSON ? window.groqJSON(sys, user, 900) : (async () => {
+    const apiKey = window.AQUAMIND_AI_KEY || localStorage.getItem("aqua:ai_key");
+    if (!apiKey) return {
+      _noKey: true
+    };
+    const data = await callGroq([{
+      role: "user",
+      content: user
+    }], sys);
+    if (!data || data._error) return {
+      _error: true
+    };
+    try {
+      return JSON.parse((data.choices?.[0]?.message?.content || "").replace(/```json|```/g, "").trim());
+    } catch {
+      return {
+        _parseError: true
+      };
+    }
+  })();
+}
+function TankInsightsCard({
+  onNavigate
+}) {
+  const [loading, setLoading] = React.useState(false);
+  const [data, setData] = React.useState(null);
+  const [err, setErr] = React.useState("");
+  const run = async () => {
+    setLoading(true);
+    setErr("");
+    const res = await fetchTankInsights();
+    if (res?._noKey) setErr(T("Agrega tu key de Groq en Ajustes para el análisis con IA", "Add your Groq key in Settings for AI analysis"));else if (!res || res._error || res._parseError || !Array.isArray(res.actions)) setErr(T("La IA tuvo un problema — intenta de nuevo", "AI hiccup — try again"));else setData(res);
+    setLoading(false);
+  };
+  const catMeta = {
+    parameters: {
+      icon: "Activity",
+      color: "#3B82F6",
+      nav: "parameters"
+    },
+    lighting: {
+      icon: "SunMedium",
+      color: "#C77F00",
+      nav: "lighting"
+    },
+    livestock: {
+      icon: "Fish",
+      color: "#0E9F6E",
+      nav: "inhabitants"
+    },
+    maintenance: {
+      icon: "Wrench",
+      color: "#6366F1",
+      nav: "routines"
+    }
+  };
+  const prMeta = {
+    high: {
+      color: "#DC4458",
+      label: T("Alta", "High")
+    },
+    medium: {
+      color: "#C77F00",
+      label: T("Media", "Medium")
+    },
+    low: {
+      color: "#0E9F6E",
+      label: T("Baja", "Low")
+    }
+  };
+  return /*#__PURE__*/React.createElement(Card, {
+    className: "p-5"
+  }, /*#__PURE__*/React.createElement(SectionHeader, {
+    kicker: T("Inteligencia AquaMind", "AquaMind intelligence"),
+    title: T("Recomendaciones para tu tanque", "Recommendations for your tank"),
+    action: /*#__PURE__*/React.createElement(Button, {
+      size: "sm",
+      variant: data ? "secondary" : "primary",
+      icon: loading ? undefined : "Sparkles",
+      loading: loading,
+      onClick: run
+    }, data ? T("Actualizar", "Refresh") : T("Analizar todo", "Analyze all"))
+  }), !data && !loading && !err && /*#__PURE__*/React.createElement("div", {
+    className: "flex items-start gap-3 py-1"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "grid place-items-center w-10 h-10 rounded-xl shrink-0",
+    style: {
+      background: "var(--accent-soft)",
+      border: "1px solid var(--accent-border)"
+    }
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "BrainCircuit",
+    size: 17,
+    style: {
+      color: "var(--accent)"
+    }
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "text-[12px] text-[var(--ink-2)] leading-relaxed"
+  }, T("Cruzo tus parámetros, PAR de la luz, habitantes, rutinas y alertas para darte las acciones más importantes ahora mismo.", "I cross-reference your parameters, light PAR, livestock, routines and alerts to give you the most important actions right now."))), err && /*#__PURE__*/React.createElement("div", {
+    className: "text-[12px] text-[#DC4458] py-2"
+  }, err), loading && /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 text-[12px] text-[var(--ink-2)] py-3"
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "Loader2",
+    size: 14,
+    className: "animate-spin",
+    style: {
+      color: "var(--accent)"
+    }
+  }), T("Analizando todo el sistema…", "Analyzing the whole system…")), data && /*#__PURE__*/React.createElement("div", {
+    className: "space-y-3"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3 rounded-2xl p-3",
+    style: {
+      background: "var(--well)",
+      border: "1px solid var(--hairline)"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "relative grid place-items-center w-12 h-12 shrink-0"
+  }, /*#__PURE__*/React.createElement("svg", {
+    viewBox: "0 0 36 36",
+    className: "w-12 h-12 -rotate-90"
+  }, /*#__PURE__*/React.createElement("circle", {
+    cx: "18",
+    cy: "18",
+    r: "15",
+    fill: "none",
+    stroke: "var(--hairline)",
+    strokeWidth: "3"
+  }), /*#__PURE__*/React.createElement("circle", {
+    cx: "18",
+    cy: "18",
+    r: "15",
+    fill: "none",
+    strokeWidth: "3",
+    strokeLinecap: "round",
+    stroke: data.score >= 80 ? "#0E9F6E" : data.score >= 60 ? "#C77F00" : "#DC4458",
+    strokeDasharray: `${data.score / 100 * 94.2} 94.2`
+  })), /*#__PURE__*/React.createElement("span", {
+    className: "absolute text-[13px] font-semibold tabular-nums",
+    style: {
+      fontFamily: "var(--font-mono)"
+    }
+  }, data.score)), /*#__PURE__*/React.createElement("div", {
+    className: "text-[12px] text-[var(--ink)] leading-relaxed"
+  }, data.summary)), data.actions.map((ac, i) => {
+    const cm = catMeta[ac.category] || catMeta.parameters;
+    const pm = prMeta[ac.priority] || prMeta.medium;
+    return /*#__PURE__*/React.createElement("div", {
+      key: i,
+      className: "rounded-2xl p-3",
+      style: {
+        background: "var(--surface)",
+        border: "1px solid var(--hairline)"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-2 mb-1"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "grid place-items-center w-6 h-6 rounded-lg shrink-0",
+      style: {
+        background: `${cm.color}18`,
+        border: `1px solid ${cm.color}35`
+      }
+    }, /*#__PURE__*/React.createElement(L, {
+      name: cm.icon,
+      size: 12,
+      style: {
+        color: cm.color
+      }
+    })), /*#__PURE__*/React.createElement("span", {
+      className: "text-[12.5px] font-semibold text-[var(--ink)] flex-1 min-w-0"
+    }, ac.title), /*#__PURE__*/React.createElement("span", {
+      className: "text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full shrink-0",
+      style: {
+        background: `${pm.color}18`,
+        color: pm.color
+      }
+    }, pm.label)), /*#__PURE__*/React.createElement("div", {
+      className: "text-[11.5px] text-[var(--ink-2)] leading-relaxed"
+    }, ac.detail), /*#__PURE__*/React.createElement("button", {
+      onClick: () => onNavigate?.(cm.nav),
+      className: "mt-1.5 text-[10.5px] font-medium inline-flex items-center gap-1",
+      style: {
+        color: cm.color
+      }
+    }, T("Ir a la sección", "Go to section"), " ", /*#__PURE__*/React.createElement(L, {
+      name: "ArrowRight",
+      size: 10
+    })));
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "text-[9.5px] text-[var(--ink-3)] flex items-center gap-1"
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "Info",
+    size: 10
+  }), " ", T("Generado por IA cruzando todos tus datos. Verifica antes de actuar.", "AI-generated across all your data. Verify before acting."))));
+}
 function Dashboard({
   onNavigate,
   alerts: allAlerts,
@@ -6613,7 +6892,9 @@ function Dashboard({
     "data-screen-label": "Dashboard"
   }, /*#__PURE__*/React.createElement(ReefStatusHero, {
     onNavigate: onNavigate
-  }), /*#__PURE__*/React.createElement(TankVitalsStrip, null), /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement(TankVitalsStrip, null), /*#__PURE__*/React.createElement(TankInsightsCard, {
+    onNavigate: onNavigate
+  }), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-1 lg:grid-cols-5 gap-4"
   }, /*#__PURE__*/React.createElement("div", {
     className: "lg:col-span-3 space-y-4 min-w-0"
@@ -7167,7 +7448,8 @@ function ParametersPage({
 // ---------------------------- INHABITANTS PAGE ----------------------------
 function InhabitantCard({
   item,
-  kind
+  kind,
+  onOpen
 }) {
   const s = STATUS_COLOR[item.status];
   const iconByKind = {
@@ -7181,9 +7463,12 @@ function InhabitantCard({
     cuc: ["#0E9F6E", "#22D3EE"]
   };
   const [a, b] = placeholderColors[kind] || ["#60A5FA", "#22D3EE"];
+  const logCount = window.AquaStore.getInhabitantLogs(item.id).length;
+  const photo = window.AquaStore.getPhoto(item.id);
   return /*#__PURE__*/React.createElement(Card, {
     hover: true,
-    className: "overflow-hidden"
+    onClick: onOpen,
+    className: "overflow-hidden cursor-pointer"
   }, /*#__PURE__*/React.createElement("div", {
     className: "relative h-28 flex items-center justify-center",
     style: {
@@ -7213,13 +7498,10 @@ function InhabitantCard({
       fontSize: 24,
       fontWeight: 700
     }
-  }, item.name[0])), /*#__PURE__*/React.createElement(PhotoSlot, {
-    id: `photo-${item.id}`,
-    radius: 16,
-    style: {
-      position: "absolute",
-      inset: 0
-    }
+  }, item.name[0])), photo && /*#__PURE__*/React.createElement("img", {
+    src: photo,
+    alt: item.name,
+    className: "absolute inset-0 w-full h-full object-cover"
   })), /*#__PURE__*/React.createElement("div", {
     className: "absolute top-2 left-2"
   }, /*#__PURE__*/React.createElement(StatusPill, {
@@ -7243,18 +7525,27 @@ function InhabitantCard({
   }, item.note), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-between mt-3"
   }, /*#__PURE__*/React.createElement("span", {
-    className: "text-[10px] text-[var(--ink-3)] inline-flex items-center gap-1"
+    className: "text-[10px] text-[var(--ink-3)] inline-flex items-center gap-1.5"
   }, /*#__PURE__*/React.createElement(L, {
     name: "Calendar",
     size: 10
-  }), " ", item.added), /*#__PURE__*/React.createElement(Button, {
-    size: "sm",
-    variant: "ghost",
-    icon: "Sparkles",
-    onClick: () => window.dispatchEvent(new CustomEvent("aquabot:ask", {
-      detail: T(`¿Cómo está mi ${item.name}?`, `How is my ${item.name} doing?`)
-    }))
-  }, T("Preguntar IA", "Ask AI")))));
+  }), " ", item.added, logCount > 0 && /*#__PURE__*/React.createElement("span", {
+    className: "inline-flex items-center gap-0.5",
+    style: {
+      color: "var(--accent)"
+    }
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "NotebookPen",
+    size: 10
+  }), " ", logCount)), /*#__PURE__*/React.createElement("span", {
+    className: "text-[10.5px] font-medium inline-flex items-center gap-1",
+    style: {
+      color: "var(--accent)"
+    }
+  }, T("Ver detalle", "Details"), " ", /*#__PURE__*/React.createElement(L, {
+    name: "ChevronRight",
+    size: 11
+  })))));
 }
 function DiagnoseModal({
   inhabitant,
@@ -7395,6 +7686,261 @@ async function searchSpeciesPhoto(query) {
   }
 }
 
+// ---- AI species care sheet + tank compatibility (Groq) ----
+function parseGroqJSON(data) {
+  const raw = data?.choices?.[0]?.message?.content?.trim() || "";
+  try {
+    return JSON.parse(raw.replace(/```json|```/g, "").trim());
+  } catch {
+    return null;
+  }
+}
+async function groqJSON(system, user, maxTokens = 500) {
+  const apiKey = window.AQUAMIND_AI_KEY || localStorage.getItem("aqua:ai_key");
+  if (!apiKey) return {
+    _noKey: true
+  };
+  try {
+    const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: [{
+          role: "system",
+          content: system
+        }, {
+          role: "user",
+          content: user
+        }],
+        max_tokens: maxTokens,
+        temperature: 0.2
+      })
+    });
+    if (!resp.ok) return {
+      _error: resp.status
+    };
+    return parseGroqJSON(await resp.json()) || {
+      _parseError: true
+    };
+  } catch (e) {
+    return {
+      _error: "network"
+    };
+  }
+}
+
+// Full care sheet for a species. kind: fish | corals | cuc
+async function fetchSpeciesCare(name, scientific, kind) {
+  const lang = window.__lang === "en" ? "English" : "Spanish";
+  const sys = "You are a marine/reef aquarium livestock database used by hobbyists (Reef2Reef-level accuracy). Return ONLY a JSON object, no markdown. Use null for unknown fields. Be accurate and specific.";
+  const user = `Species: "${name}"${scientific ? ` (${scientific})` : ""}, category: ${kind}.
+Return this exact shape (values in ${lang}, numbers as plain text with units):
+{"scientific":"latin name","common":"common name","temp":"75-78°F","salinity":"1.024-1.026","parMin":number_or_null,"parMax":number_or_null,"flow":"low|medium|high","diet":"short diet","temperament":"peaceful|semi-aggressive|aggressive","difficulty":"easy|moderate|hard|expert","adultSize":"e.g. 3 in","minTank":"e.g. 20 gal","placement":"where in the tank it goes","reefSafe":"yes|no|with caution|n/a","tip":"one key care tip (max 18 words)"}`;
+  return groqJSON(sys, user, 480);
+}
+
+// Cross-reference the new species with the user's actual tank
+async function fetchTankCompatibility(name, scientific, kind) {
+  const lang = window.__lang === "en" ? "English" : "Spanish";
+  const A = window.AQUA,
+    S = window.AquaStore;
+  const p = A.CURRENT_PARAMETERS;
+  const fx = S?.lightFixture;
+  const fish = A.INHABITANTS.fish.map(f => f.name).join(", ") || "none";
+  const corals = A.INHABITANTS.corals.map(c => c.name).join(", ") || "none";
+  const cuc = A.INHABITANTS.cuc.map(c => c.name).join(", ") || "none";
+  const ctx = `Tank: ${A.TANK_CONFIG.name}, ${A.TANK_CONFIG.realVolume || A.TANK_CONFIG.displayVolume} gal, type ${A.TANK_CONFIG.type}.
+Params: temp ${p.temperature?.value}°F, salinity ${p.salinity?.value}, pH ${p.ph?.value}, KH ${p.kh?.value}, ammonia ${p.ammonia?.value}, nitrate ${p.nitrate?.value}.
+Light: ${fx ? `${fx.name}${fx.par ? ` (~${fx.par} PAR ref)` : ""}` : "unknown"}.
+Current fish: ${fish}. Corals: ${corals}. Clean-up crew: ${cuc}.`;
+  const sys = "You are a reef aquarium compatibility advisor. Return ONLY a JSON object, no markdown. Be honest about risks.";
+  const user = `${ctx}
+The user wants to add: "${name}"${scientific ? ` (${scientific})` : ""} (${kind}).
+Return (values in ${lang}):
+{"verdict":"good|caution|bad","fit":"one sentence on whether it fits THIS tank and params","placement":"specific placement advice for this tank (PAR/flow zone)","warnings":["short risk 1","short risk 2"],"acclimation":"one short acclimation tip"}`;
+  return groqJSON(sys, user, 420);
+}
+
+// ---- Reusable care-sheet + compatibility views ----
+function CareSheetView({
+  care
+}) {
+  if (!care) return null;
+  const rows = [{
+    icon: "Thermometer",
+    label: T("Temperatura", "Temp"),
+    value: care.temp
+  }, {
+    icon: "Sailboat",
+    label: T("Salinidad", "Salinity"),
+    value: care.salinity
+  }, {
+    icon: "Sun",
+    label: "PAR",
+    value: care.parMin || care.parMax ? `${care.parMin ?? "?"}–${care.parMax ?? "?"}` : null
+  }, {
+    icon: "Wind",
+    label: T("Flujo", "Flow"),
+    value: care.flow
+  }, {
+    icon: "Utensils",
+    label: T("Dieta", "Diet"),
+    value: care.diet
+  }, {
+    icon: "Swords",
+    label: T("Temperamento", "Temperament"),
+    value: care.temperament
+  }, {
+    icon: "Gauge",
+    label: T("Dificultad", "Difficulty"),
+    value: care.difficulty
+  }, {
+    icon: "Ruler",
+    label: T("Tamaño adulto", "Adult size"),
+    value: care.adultSize
+  }, {
+    icon: "Container",
+    label: T("Tanque mín.", "Min tank"),
+    value: care.minTank
+  }, {
+    icon: "MapPin",
+    label: T("Ubicación", "Placement"),
+    value: care.placement
+  }, {
+    icon: "ShieldCheck",
+    label: "Reef-safe",
+    value: care.reefSafe
+  }].filter(r => r.value && r.value !== "null");
+  return /*#__PURE__*/React.createElement("div", {
+    className: "rounded-xl p-3",
+    style: {
+      background: "var(--well)",
+      border: "1px solid var(--hairline)"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-1.5 mb-2 text-[10.5px] uppercase tracking-wider font-semibold",
+    style: {
+      color: "var(--accent)"
+    }
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "BookOpen",
+    size: 12
+  }), " ", T("Ficha de cuidados", "Care sheet")), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-x-3 gap-y-1.5"
+  }, rows.map((r, i) => /*#__PURE__*/React.createElement("div", {
+    key: i,
+    className: "flex items-center gap-1.5 min-w-0"
+  }, /*#__PURE__*/React.createElement(L, {
+    name: r.icon,
+    size: 11,
+    className: "text-[var(--ink-3)] shrink-0"
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "text-[10px] text-[var(--ink-3)] shrink-0"
+  }, r.label, ":"), /*#__PURE__*/React.createElement("span", {
+    className: "text-[11px] text-[var(--ink)] font-medium truncate"
+  }, r.value)))), care.tip && /*#__PURE__*/React.createElement("div", {
+    className: "mt-2 pt-2 border-t border-[var(--hairline)] flex items-start gap-1.5"
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "Lightbulb",
+    size: 12,
+    className: "shrink-0 mt-0.5",
+    style: {
+      color: "#C77F00"
+    }
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "text-[11px] text-[var(--ink-2)] leading-relaxed"
+  }, care.tip)));
+}
+function CompatView({
+  compat
+}) {
+  if (!compat) return null;
+  const meta = {
+    good: {
+      color: "#0E9F6E",
+      icon: "CheckCircle2",
+      label: T("Buen encaje", "Good fit")
+    },
+    caution: {
+      color: "#C77F00",
+      icon: "AlertTriangle",
+      label: T("Con precaución", "With caution")
+    },
+    bad: {
+      color: "#DC4458",
+      icon: "XCircle",
+      label: T("No recomendado", "Not recommended")
+    }
+  }[compat.verdict] || {
+    color: "var(--ink-3)",
+    icon: "HelpCircle",
+    label: T("Sin datos", "No data")
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "rounded-xl p-3",
+    style: {
+      background: `${meta.color}0F`,
+      border: `1px solid ${meta.color}35`
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-1.5 mb-1.5"
+  }, /*#__PURE__*/React.createElement(L, {
+    name: meta.icon,
+    size: 13,
+    style: {
+      color: meta.color
+    }
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "text-[11.5px] font-semibold",
+    style: {
+      color: meta.color
+    }
+  }, meta.label, " \xB7 ", T("tu tanque", "your tank"))), compat.fit && /*#__PURE__*/React.createElement("div", {
+    className: "text-[11.5px] text-[var(--ink)] leading-relaxed"
+  }, compat.fit), compat.placement && /*#__PURE__*/React.createElement("div", {
+    className: "mt-1.5 flex items-start gap-1.5"
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "MapPin",
+    size: 11,
+    className: "shrink-0 mt-0.5",
+    style: {
+      color: "var(--accent)"
+    }
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "text-[11px] text-[var(--ink-2)]"
+  }, compat.placement)), Array.isArray(compat.warnings) && compat.warnings.filter(Boolean).length > 0 && /*#__PURE__*/React.createElement("ul", {
+    className: "mt-1.5 space-y-0.5"
+  }, compat.warnings.filter(Boolean).map((w, i) => /*#__PURE__*/React.createElement("li", {
+    key: i,
+    className: "text-[10.5px] text-[var(--ink-2)] flex items-start gap-1.5"
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "Dot",
+    size: 12,
+    className: "shrink-0",
+    style: {
+      color: meta.color
+    }
+  }), " ", w))), compat.acclimation && /*#__PURE__*/React.createElement("div", {
+    className: "mt-1.5 pt-1.5 border-t flex items-start gap-1.5",
+    style: {
+      borderColor: `${meta.color}25`
+    }
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "Droplets",
+    size: 11,
+    className: "shrink-0 mt-0.5",
+    style: {
+      color: "var(--accent)"
+    }
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "text-[10.5px] text-[var(--ink-2)]"
+  }, compat.acclimation)));
+}
+
 // ---------------------------- ADD INHABITANT MODAL ----------------------------
 function AddInhabitantModal({
   onClose
@@ -7407,6 +7953,9 @@ function AddInhabitantModal({
   const [photoResults, setPhotoResults] = useState([]);
   const [photoLoading, setPhotoLoading] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [care, setCare] = useState(null);
+  const [compat, setCompat] = useState(null);
   const nameRef = useRef(null);
   useEscape(onClose);
   useEffect(() => {
@@ -7425,6 +7974,45 @@ function AddInhabitantModal({
     });
     setPhotoLoading(false);
   };
+
+  // One tap: care sheet + tank compatibility + best photo
+  const analyzeWithAI = async () => {
+    const n = name.trim();
+    if (!n) {
+      nameRef.current?.focus();
+      return;
+    }
+    setAiLoading(true);
+    setCare(null);
+    setCompat(null);
+    const [careRes, compatRes] = await Promise.all([fetchSpeciesCare(n, scientific.trim(), kind), fetchTankCompatibility(n, scientific.trim(), kind)]);
+    if (careRes?._noKey || compatRes?._noKey) {
+      window.toast?.(T("Agrega tu key de Groq en Ajustes para usar la IA", "Add your Groq key in Settings to use AI"), {
+        tone: "warn",
+        icon: "Key"
+      });
+      setAiLoading(false);
+      return;
+    }
+    if (careRes && !careRes._error && !careRes._parseError) {
+      setCare(careRes);
+      if (!scientific.trim() && careRes.scientific) setScientific(careRes.scientific);
+    }
+    if (compatRes && !compatRes._error && !compatRes._parseError) setCompat(compatRes);
+    // Auto-pull a photo if the user hasn't picked one
+    if (!selectedPhoto) {
+      const results = await searchSpeciesPhoto(careRes?.scientific || scientific.trim() || n);
+      setPhotoResults(results);
+      if (results[0]) setSelectedPhoto(results[0].preview);
+    }
+    if (careRes && careRes._error || compatRes && compatRes._error) {
+      window.toast?.(T("La IA tuvo un problema — intenta de nuevo", "AI hiccup — try again"), {
+        tone: "warn",
+        icon: "AlertTriangle"
+      });
+    }
+    setAiLoading(false);
+  };
   const save = () => {
     const n = name.trim();
     if (!n) {
@@ -7435,11 +8023,12 @@ function AddInhabitantModal({
     const item = {
       id: "ui" + Date.now(),
       name: n.charAt(0).toUpperCase() + n.slice(1),
-      scientific: scientific.trim(),
+      scientific: scientific.trim() || care?.scientific || "",
       added: window.AQUA.MOCK_TODAY,
       status: "ok",
       note: note.trim() || T("Recién añadido — en observación", "Newly added — under observation")
     };
+    if (care && !care._error) item.care = care;
     window.AquaStore.addInhabitant(kind, item);
     if (selectedPhoto) window.AquaStore.setPhoto(item.id, selectedPhoto);
     window.toast?.(T(`${item.name} añadido`, `${item.name} added`), {
@@ -7559,7 +8148,26 @@ function AddInhabitantModal({
   }) : /*#__PURE__*/React.createElement(L, {
     name: "Search",
     size: 13
-  }), T("Foto", "Photo")))), photoResults.length > 0 && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+  }), T("Foto", "Photo")))), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: analyzeWithAI,
+    disabled: !name.trim() || aiLoading,
+    className: "w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-[12.5px] font-semibold text-white disabled:opacity-50 transition-all active:scale-[0.99]",
+    style: {
+      background: "linear-gradient(135deg, var(--accent), var(--accent-strong))"
+    }
+  }, aiLoading ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(L, {
+    name: "Loader2",
+    size: 14,
+    className: "animate-spin"
+  }), " ", T("Analizando especie…", "Analyzing species…")) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(L, {
+    name: "Sparkles",
+    size: 14
+  }), " ", T("Analizar con IA (cuidados + compatibilidad)", "Analyze with AI (care + compatibility)"))), compat && /*#__PURE__*/React.createElement(CompatView, {
+    compat: compat
+  }), care && /*#__PURE__*/React.createElement(CareSheetView, {
+    care: care
+  }), photoResults.length > 0 && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1.5"
   }, T("Selecciona una foto (iNaturalist)", "Select a photo (iNaturalist)"), /*#__PURE__*/React.createElement("span", {
     className: "ml-2 normal-case text-[9.5px]"
@@ -7626,6 +8234,364 @@ function AddInhabitantModal({
     onClick: save
   }, T("Agregar", "Add"))))), document.body);
 }
+
+// ---- Health-status options for the seguimiento ----
+const HEALTH_OPTS = [{
+  id: "ok",
+  label: T("Sano", "Healthy"),
+  icon: "Heart"
+}, {
+  id: "warn",
+  label: T("En observación", "Watch"),
+  icon: "Eye"
+}, {
+  id: "danger",
+  label: T("Problema", "Problem"),
+  icon: "AlertTriangle"
+}];
+function fmtLogDate(ts) {
+  const d = new Date(ts);
+  const day = String(d.getDate()).padStart(2, "0");
+  const mon = String(d.getMonth() + 1).padStart(2, "0");
+  return `${day}/${mon} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+// ---------------------------- INHABITANT DETAIL / SEGUIMIENTO ----------------------------
+function InhabitantDetailModal({
+  item,
+  kind,
+  onClose,
+  onChanged
+}) {
+  const S = window.AquaStore;
+  const [, force] = React.useReducer(x => x + 1, 0);
+  const [care, setCare] = useState(item.care || null);
+  const [careLoading, setCareLoading] = useState(false);
+  const [confirmDel, setConfirmDel] = useState(false);
+  // New log entry
+  const [logNote, setLogNote] = useState("");
+  const [logStatus, setLogStatus] = useState("");
+  const [logPhoto, setLogPhoto] = useState(null);
+  const logFileRef = useRef(null);
+  useEscape(onClose);
+  const logs = S.getInhabitantLogs(item.id);
+  const photo = S.getPhoto(item.id);
+  const s = STATUS_COLOR[item.status] || STATUS_COLOR.ok;
+  const getCareAI = async () => {
+    setCareLoading(true);
+    const res = await fetchSpeciesCare(item.name, item.scientific, kind);
+    if (res?._noKey) window.toast?.(T("Agrega tu key de Groq en Ajustes", "Add your Groq key in Settings"), {
+      tone: "warn",
+      icon: "Key"
+    });else if (res && !res._error && !res._parseError) {
+      setCare(res);
+      S.updateInhabitant(item.id, {
+        care: res
+      });
+    } else window.toast?.(T("La IA tuvo un problema — intenta de nuevo", "AI hiccup — try again"), {
+      tone: "warn",
+      icon: "AlertTriangle"
+    });
+    setCareLoading(false);
+  };
+  const onLogFile = e => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = ev => setLogPhoto(ev.target.result);
+    reader.readAsDataURL(f);
+    e.target.value = "";
+  };
+  const addLog = () => {
+    if (!logNote.trim() && !logPhoto && !logStatus) {
+      window.toast?.(T("Escribe una nota, cambia el estado o agrega una foto", "Add a note, change status or attach a photo"), {
+        tone: "warn",
+        icon: "PenLine"
+      });
+      return;
+    }
+    S.addInhabitantLog(item.id, {
+      note: logNote.trim(),
+      status: logStatus || undefined,
+      photo: logPhoto || undefined
+    });
+    // The newest photo becomes the inhabitant's main photo
+    if (logPhoto) S.setPhoto(item.id, logPhoto);
+    setLogNote("");
+    setLogStatus("");
+    setLogPhoto(null);
+    window.toast?.(T("Entrada de seguimiento guardada", "Tracking entry saved"), {
+      icon: "NotebookPen"
+    });
+    force();
+    onChanged?.();
+  };
+  const setStatusNow = st => {
+    S.updateInhabitant(item.id, {
+      status: st
+    });
+    force();
+    onChanged?.();
+  };
+  const doDelete = () => {
+    S.removeInhabitant(item.id);
+    window.toast?.(T(`${item.name} eliminado`, `${item.name} removed`), {
+      icon: "Trash2"
+    });
+    onChanged?.();
+    onClose();
+  };
+  const iconByKind = {
+    fish: "Fish",
+    coral: "Flower2",
+    corals: "Flower2",
+    cuc: "Bug"
+  };
+  return ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 z-50 flex items-center justify-center p-4 bg-[var(--scrim)] backdrop-blur",
+    onClick: onClose
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-full max-w-md glass-strong rounded-3xl overflow-hidden flex flex-col",
+    style: {
+      maxHeight: "92dvh",
+      boxShadow: "var(--glass-shadow)"
+    },
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "relative h-32 shrink-0",
+    style: {
+      background: "linear-gradient(135deg, #0e4a6a, #115e5a)"
+    }
+  }, photo && /*#__PURE__*/React.createElement("img", {
+    src: photo,
+    alt: "",
+    className: "absolute inset-0 w-full h-full object-cover",
+    style: {
+      opacity: 0.8
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "absolute inset-0",
+    style: {
+      background: "linear-gradient(to top, rgba(8,22,34,0.75), rgba(8,22,34,0.1))"
+    }
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    className: "absolute top-3 right-3 grid place-items-center w-8 h-8 rounded-full text-white",
+    style: {
+      background: "rgba(0,0,0,0.35)",
+      backdropFilter: "blur(6px)"
+    }
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "X",
+    size: 15
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "absolute left-4 bottom-3 right-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement(L, {
+    name: iconByKind[kind] || "Fish",
+    size: 14,
+    style: {
+      color: "#2DD4BF"
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "text-[17px] font-semibold text-white leading-tight",
+    style: {
+      textShadow: "0 1px 6px rgba(0,0,0,0.5)"
+    }
+  }, item.name)), item.scientific && /*#__PURE__*/React.createElement("div", {
+    className: "text-[11px] text-white/80 italic"
+  }, item.scientific))), /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 overflow-y-auto p-4 space-y-3"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1.5"
+  }, T("Estado de salud", "Health status")), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-3 gap-1.5"
+  }, HEALTH_OPTS.map(o => {
+    const active = item.status === o.id;
+    const c = STATUS_COLOR[o.id];
+    return /*#__PURE__*/React.createElement("button", {
+      key: o.id,
+      onClick: () => setStatusNow(o.id),
+      className: "flex items-center justify-center gap-1.5 rounded-xl py-2 text-[11.5px] font-medium border transition-all",
+      style: active ? {
+        background: c.bg,
+        border: `1.5px solid ${c.border}`,
+        color: c.fg
+      } : {
+        border: "1px solid var(--hairline)",
+        color: "var(--ink-3)"
+      }
+    }, /*#__PURE__*/React.createElement(L, {
+      name: o.icon,
+      size: 12
+    }), " ", o.label);
+  }))), care ? /*#__PURE__*/React.createElement(CareSheetView, {
+    care: care
+  }) : /*#__PURE__*/React.createElement("button", {
+    onClick: getCareAI,
+    disabled: careLoading,
+    className: "w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-[12px] font-semibold disabled:opacity-50 transition-all",
+    style: {
+      background: "var(--accent-soft)",
+      border: "1px solid var(--accent-border)",
+      color: "var(--accent)"
+    }
+  }, careLoading ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(L, {
+    name: "Loader2",
+    size: 13,
+    className: "animate-spin"
+  }), " ", T("Buscando cuidados…", "Fetching care…")) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(L, {
+    name: "BookOpen",
+    size: 13
+  }), " ", T("Obtener ficha de cuidados con IA", "Get care sheet with AI"))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "text-[10.5px] text-[var(--ink-3)] uppercase tracking-wider mb-1.5 flex items-center gap-1.5"
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "NotebookPen",
+    size: 12
+  }), " ", T("Seguimiento", "Tracking"), " ", /*#__PURE__*/React.createElement("span", {
+    className: "text-[var(--ink-3)] normal-case"
+  }, "\xB7 ", logs.length)), /*#__PURE__*/React.createElement("div", {
+    className: "rounded-xl p-2.5 mb-2",
+    style: {
+      background: "var(--well)",
+      border: "1px solid var(--hairline)"
+    }
+  }, /*#__PURE__*/React.createElement("textarea", {
+    value: logNote,
+    onChange: e => setLogNote(e.target.value),
+    rows: 2,
+    placeholder: T("Nota: crecimiento, color, comportamiento…", "Note: growth, color, behavior…"),
+    className: "w-full bg-transparent border-0 outline-none text-[12.5px] text-[var(--ink)] placeholder:text-[var(--ink-3)] resize-none"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-1.5 flex-wrap mt-1.5"
+  }, HEALTH_OPTS.map(o => /*#__PURE__*/React.createElement("button", {
+    key: o.id,
+    onClick: () => setLogStatus(logStatus === o.id ? "" : o.id),
+    className: "px-2 py-1 rounded-full text-[10px] font-medium border transition-all",
+    style: logStatus === o.id ? {
+      background: STATUS_COLOR[o.id].bg,
+      border: `1px solid ${STATUS_COLOR[o.id].border}`,
+      color: STATUS_COLOR[o.id].fg
+    } : {
+      border: "1px solid var(--hairline)",
+      color: "var(--ink-3)"
+    }
+  }, o.label)), /*#__PURE__*/React.createElement("button", {
+    onClick: () => logFileRef.current?.click(),
+    className: "px-2 py-1 rounded-full text-[10px] font-medium border transition-all inline-flex items-center gap-1",
+    style: logPhoto ? {
+      background: "var(--accent-soft)",
+      border: "1px solid var(--accent-border)",
+      color: "var(--accent)"
+    } : {
+      border: "1px solid var(--hairline)",
+      color: "var(--ink-3)"
+    }
+  }, /*#__PURE__*/React.createElement(L, {
+    name: logPhoto ? "CheckCircle2" : "Camera",
+    size: 11
+  }), " ", logPhoto ? T("Foto lista", "Photo set") : T("Foto", "Photo")), /*#__PURE__*/React.createElement("input", {
+    ref: logFileRef,
+    type: "file",
+    accept: "image/*",
+    className: "hidden",
+    onChange: onLogFile
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: addLog,
+    className: "ml-auto px-3 py-1 rounded-full text-[11px] font-semibold text-white transition-all active:scale-[0.98]",
+    style: {
+      background: "linear-gradient(135deg, var(--accent), var(--accent-strong))"
+    }
+  }, T("Guardar", "Save"))), logPhoto && /*#__PURE__*/React.createElement("img", {
+    src: logPhoto,
+    alt: "",
+    className: "mt-2 h-16 rounded-lg object-cover"
+  })), logs.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    className: "text-[11px] text-[var(--ink-3)] text-center py-2"
+  }, T("Aún sin entradas — registra la primera arriba", "No entries yet — log the first one above")) : /*#__PURE__*/React.createElement("div", {
+    className: "space-y-1.5"
+  }, logs.map(lg => {
+    const c = lg.status ? STATUS_COLOR[lg.status] : null;
+    return /*#__PURE__*/React.createElement("div", {
+      key: lg.ts,
+      className: "flex gap-2.5 rounded-xl p-2.5",
+      style: {
+        background: "var(--well)",
+        border: "1px solid var(--hairline)"
+      }
+    }, lg.photo && /*#__PURE__*/React.createElement("img", {
+      src: lg.photo,
+      alt: "",
+      className: "w-12 h-12 rounded-lg object-cover shrink-0"
+    }), /*#__PURE__*/React.createElement("div", {
+      className: "flex-1 min-w-0"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-2"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "text-[9.5px] text-[var(--ink-3)] tabular-nums",
+      style: {
+        fontFamily: "var(--font-mono)"
+      }
+    }, fmtLogDate(lg.ts)), c && /*#__PURE__*/React.createElement("span", {
+      className: "text-[9px] font-semibold px-1.5 py-0.5 rounded-full",
+      style: {
+        background: c.bg,
+        color: c.fg
+      }
+    }, HEALTH_OPTS.find(h => h.id === lg.status)?.label), /*#__PURE__*/React.createElement("button", {
+      onClick: () => {
+        S.removeInhabitantLog(item.id, lg.ts);
+        force();
+      },
+      className: "ml-auto text-[var(--ink-3)] hover:text-[#DC4458] transition-colors"
+    }, /*#__PURE__*/React.createElement(L, {
+      name: "Trash2",
+      size: 11
+    }))), lg.note && /*#__PURE__*/React.createElement("div", {
+      className: "text-[11.5px] text-[var(--ink)] mt-0.5 leading-relaxed"
+    }, lg.note)));
+  })))), /*#__PURE__*/React.createElement("div", {
+    className: "shrink-0 p-3 border-t border-[var(--hairline)] flex items-center gap-2"
+  }, !confirmDel ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Button, {
+    size: "sm",
+    variant: "ghost",
+    icon: "Sparkles",
+    onClick: () => {
+      window.dispatchEvent(new CustomEvent("aquabot:ask", {
+        detail: T(`¿Cómo está mi ${item.name}? ¿Algún consejo según mis parámetros?`, `How is my ${item.name}? Any advice given my parameters?`)
+      }));
+      onClose();
+    }
+  }, T("Preguntar a Aqua Buddy", "Ask Aqua Buddy")), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setConfirmDel(true),
+    className: "ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11.5px] font-medium transition-all",
+    style: {
+      background: "rgba(225,29,72,0.10)",
+      border: "1px solid rgba(225,29,72,0.28)",
+      color: "#DC4458"
+    }
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "Trash2",
+    size: 12
+  }), " ", T("Eliminar", "Delete"))) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", {
+    className: "text-[11.5px] text-[var(--ink-2)]"
+  }, T("¿Eliminar definitivamente?", "Delete permanently?")), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setConfirmDel(false),
+    className: "ml-auto px-3 py-1.5 rounded-full text-[11.5px] font-medium",
+    style: {
+      background: "var(--well)",
+      border: "1px solid var(--hairline)",
+      color: "var(--ink-2)"
+    }
+  }, T("Cancelar", "Cancel")), /*#__PURE__*/React.createElement("button", {
+    onClick: doDelete,
+    className: "px-3 py-1.5 rounded-full text-[11.5px] font-semibold text-white",
+    style: {
+      background: "#DC4458"
+    }
+  }, T("Sí, eliminar", "Yes, delete")))))), document.body);
+}
 function InhabitantsPage() {
   const {
     INHABITANTS,
@@ -7633,6 +8599,8 @@ function InhabitantsPage() {
   } = window.AQUA;
   const [tab, setTab] = useState("all");
   const [addOpen, setAddOpen] = useState(false);
+  const [detail, setDetail] = useState(null); // { item, kind }
+  const [, force] = React.useReducer(x => x + 1, 0);
   const total = INHABITANTS.fish.length + INHABITANTS.corals.length + INHABITANTS.cuc.length;
   const tabs = [{
     id: "all",
@@ -7703,7 +8671,11 @@ function InhabitantsPage() {
   }, INHABITANTS.fish.map(f => /*#__PURE__*/React.createElement(InhabitantCard, {
     key: f.id,
     item: f,
-    kind: "fish"
+    kind: "fish",
+    onOpen: () => setDetail({
+      item: f,
+      kind: "fish"
+    })
   })))), (tab === "all" || tab === "corals") && INHABITANTS.corals.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "mt-5"
   }, /*#__PURE__*/React.createElement(SectionHeader, {
@@ -7714,7 +8686,11 @@ function InhabitantsPage() {
   }, INHABITANTS.corals.map(c => /*#__PURE__*/React.createElement(InhabitantCard, {
     key: c.id,
     item: c,
-    kind: "coral"
+    kind: "coral",
+    onOpen: () => setDetail({
+      item: c,
+      kind: "corals"
+    })
   })))), (tab === "all" || tab === "cuc") && INHABITANTS.cuc.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "mt-5"
   }, /*#__PURE__*/React.createElement(SectionHeader, {
@@ -7725,8 +8701,17 @@ function InhabitantsPage() {
   }, INHABITANTS.cuc.map(c => /*#__PURE__*/React.createElement(InhabitantCard, {
     key: c.id,
     item: c,
-    kind: "cuc"
-  })))));
+    kind: "cuc",
+    onOpen: () => setDetail({
+      item: c,
+      kind: "cuc"
+    })
+  })))), detail && /*#__PURE__*/React.createElement(InhabitantDetailModal, {
+    item: detail.item,
+    kind: detail.kind,
+    onClose: () => setDetail(null),
+    onChanged: force
+  }));
 }
 
 // ---------------------------- LIGHTING PAGE ----------------------------
@@ -10080,7 +11065,41 @@ function AquaBotPage() {
   }, /*#__PURE__*/React.createElement(PulsingDot, {
     color: "#0E9F6E",
     size: 6
-  }), T("Contexto de tu tanque cargado", "Your tank context loaded"))), /*#__PURE__*/React.createElement("div", {
+  }), T("Contexto de tu tanque cargado", "Your tank context loaded"))), /*#__PURE__*/React.createElement("button", {
+    onClick: () => window.dispatchEvent(new CustomEvent("aquabot:ask", {
+      detail: T("Analiza TODO mi tanque a fondo: cruza mis parámetros, el PAR de mi luz y la semana de aclimatación, mis peces y corales (compatibilidad y colocación), mis rutinas y alertas. Dame un diagnóstico completo y las acciones prioritarias con cantidades exactas para mi volumen.", "Deeply analyze my WHOLE tank: cross-reference my parameters, my light's PAR and acclimation week, my fish and corals (compatibility and placement), my routines and alerts. Give me a full diagnosis and prioritized actions with exact quantities for my volume.")
+    })),
+    className: "flex items-center gap-2.5 w-full rounded-2xl px-4 py-3 text-left transition-all active:scale-[0.995]",
+    style: {
+      background: "linear-gradient(135deg, var(--accent-soft), rgba(91,91,214,0.10))",
+      border: "1px solid var(--accent-border)"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "grid place-items-center w-9 h-9 rounded-xl shrink-0",
+    style: {
+      background: "var(--surface-strong)",
+      border: "1px solid var(--accent-border)"
+    }
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "BrainCircuit",
+    size: 17,
+    style: {
+      color: "var(--accent)"
+    }
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 min-w-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-[13px] font-semibold text-[var(--ink)]"
+  }, T("Analiza todo mi tanque", "Analyze my whole tank")), /*#__PURE__*/React.createElement("div", {
+    className: "text-[11px] text-[var(--ink-2)]"
+  }, T("Diagnóstico completo cruzando todos tus datos", "Full diagnosis across all your data"))), /*#__PURE__*/React.createElement(L, {
+    name: "ArrowRight",
+    size: 15,
+    style: {
+      color: "var(--accent)"
+    },
+    className: "shrink-0"
+  })), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4 flex-1 min-h-0"
   }, /*#__PURE__*/React.createElement("div", {
     className: "min-h-[500px] lg:min-h-0 min-w-0"
@@ -10541,7 +11560,8 @@ Object.assign(window, {
   SupplementsPage,
   expand30,
   LogReadingModal,
-  exportParamsCSV
+  exportParamsCSV,
+  groqJSON
 });
 </script>
 <script>/* settings.jsx (precompiled) */
