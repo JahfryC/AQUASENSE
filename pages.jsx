@@ -1183,7 +1183,31 @@ function depthRangeForZone(zone, basePar, intensityPct, mountIn, tankDepth) {
   return [Math.round(dMin), Math.round(dMax)];
 }
 
-function ParSliderRow({ icon, label, value, unit, min, max, step = 1, onChange }) {
+// Resolve the active tank's physical dimensions: saved dims (new tanks store
+// them) or a TANK_DB match by name for tanks added before dims existed.
+function activeTankDims() {
+  const tank = window.AquaStore?.activeTank || {};
+  if (tank.dims?.h) return { tank, dims: tank.dims };
+  const name = (tank.name || "").toLowerCase();
+  if (typeof TANK_DB !== "undefined") {
+    const row =
+      (name && TANK_DB.find((r) => {
+        const rn = r.n.toLowerCase();
+        return rn === name || name.includes(rn) || rn.includes(name);
+      })) ||
+      // Renamed tank: fall back to brand + volume match
+      (tank.brand && TANK_DB.find((r) =>
+        r.br.toLowerCase() === tank.brand.toLowerCase() &&
+        (r.vol === tank.displayVolume || r.vol === tank.realVolume)
+      ));
+    if (row?.h) return { tank, dims: { l: row.l, w: row.w, h: row.h } };
+  }
+  return { tank, dims: null };
+}
+
+const toCm = (inches) => Math.round(inches * 2.54);
+
+function ParSliderRow({ icon, label, value, unit, display, min, max, step = 1, onChange }) {
   return (
     <div>
       <div className="flex items-center justify-between mb-1">
@@ -1191,7 +1215,7 @@ function ParSliderRow({ icon, label, value, unit, min, max, step = 1, onChange }
           <L name={icon} size={12} className="text-[var(--ink-3)]" /> {label}
         </div>
         <div className="text-[12px] font-medium text-[var(--ink)] tabular-nums" style={{ fontFamily: "var(--font-mono)" }}>
-          {value}{unit}
+          {display || `${value}${unit}`}
         </div>
       </div>
       <input
@@ -1215,9 +1239,20 @@ function ParCalculatorCard({ fixture, onConfigure }) {
   const persisted = useMemo(() => {
     try { return JSON.parse(localStorage.getItem("aqua:parcalc") || "{}"); } catch (e) { return {}; }
   }, []);
+
+  // Active tank dimensions → real water depth (minus ~3" of sand bed + rim)
+  const [tankRev, setTankRev] = useState(0);
+  useEffect(() => {
+    const fn = () => setTankRev((v) => v + 1);
+    window.addEventListener("aqua:tank", fn);
+    return () => window.removeEventListener("aqua:tank", fn);
+  }, []);
+  const { tank, dims: tankDims } = useMemo(activeTankDims, [tankRev]);
+  const tankDepth = tankDims?.h ? Math.max(6, tankDims.h - 3) : null;
+
   const [intensity, setIntensity] = useState(persisted.i ?? weekAvg);
   const [mount, setMount]         = useState(persisted.m ?? 8);
-  const [depth, setDepth]         = useState(persisted.d ?? 20);
+  const [depth, setDepth]         = useState(persisted.d ?? tankDepth ?? 20);
   useEffect(() => {
     localStorage.setItem("aqua:parcalc", JSON.stringify({ i: intensity, m: mount, d: depth }));
   }, [intensity, mount, depth]);
@@ -1362,10 +1397,31 @@ function ParCalculatorCard({ fixture, onConfigure }) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {/* Left — controls + cross-section */}
         <div>
+          {/* Active tank — real dimensions drive the water depth */}
+          {tankDims && (
+            <div className="flex items-center gap-2 rounded-xl px-3 py-2 mb-3" style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)" }}>
+              <L name="Container" size={13} style={{ color: "var(--accent)" }} className="shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="text-[11px] font-semibold text-[var(--ink)] truncate">{tank.name}</div>
+                <div className="text-[10px] text-[var(--ink-2)]">
+                  {tankDims.l}×{tankDims.w || "?"}×{tankDims.h} in ({toCm(tankDims.l)}×{tankDims.w ? toCm(tankDims.w) : "?"}×{toCm(tankDims.h)} cm)
+                  {" · "}{T("agua", "water")} ≈ {tankDepth} in
+                </div>
+              </div>
+              {depth !== tankDepth && (
+                <button onClick={() => setDepth(tankDepth)}
+                  className="shrink-0 px-2 py-1 rounded-full text-[10px] font-semibold transition-all"
+                  style={{ background: "var(--accent)", color: "#fff" }}>
+                  {T("Usar medidas", "Use dims")}
+                </button>
+              )}
+            </div>
+          )}
+
           <div className="space-y-3 mb-4">
             <ParSliderRow icon="SunMedium" label={T("Intensidad", "Intensity")} value={intensity} unit="%" min={10} max={100} step={5} onChange={setIntensity} />
-            <ParSliderRow icon="MoveVertical" label={T("Altura de montaje sobre el agua", "Mount height above water")} value={mount} unit='"' min={3} max={16} onChange={setMount} />
-            <ParSliderRow icon="Waves" label={T("Profundidad del agua", "Water depth")} value={depth} unit='"' min={8} max={32} onChange={setDepth} />
+            <ParSliderRow icon="MoveVertical" label={T("Altura de montaje sobre el agua", "Mount height above water")} value={mount} display={`${mount} in · ${toCm(mount)} cm`} min={3} max={16} onChange={setMount} />
+            <ParSliderRow icon="Waves" label={T("Profundidad del agua", "Water depth")} value={depth} display={`${depth} in · ${toCm(depth)} cm`} min={8} max={32} onChange={setDepth} />
           </div>
 
           <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
@@ -1387,8 +1443,8 @@ function ParCalculatorCard({ fixture, onConfigure }) {
               const z = parZoneFor(m.par, zones);
               return (
                 <g key={i}>
-                  <line x1={PAD + 4} x2={W - 108} y1={y} y2={y} stroke={z.color} strokeOpacity="0.55" strokeDasharray="2 3" />
-                  <text x={W - 102} y={y + 3} fontSize="9.5" fill="var(--ink-2)" fontFamily="DM Mono">{m.name} {Math.round(m.d)}&quot;</text>
+                  <line x1={PAD + 4} x2={W - 140} y1={y} y2={y} stroke={z.color} strokeOpacity="0.55" strokeDasharray="2 3" />
+                  <text x={W - 134} y={y + 3} fontSize="9" fill="var(--ink-2)" fontFamily="DM Mono">{m.name} · {toCm(m.d)} cm</text>
                   <text x={W - PAD} y={y + 3} fontSize="10.5" fontWeight="600" fill={z.color} textAnchor="end" fontFamily="DM Mono">{m.par}</text>
                 </g>
               );
@@ -1406,13 +1462,13 @@ function ParCalculatorCard({ fixture, onConfigure }) {
               <div key={i} className="flex items-start gap-2.5 rounded-xl px-3 py-2" style={{ background: `${z.color}0F`, border: `1px solid ${z.color}30` }}>
                 <span className="mt-0.5 w-2 h-2 rounded-full shrink-0" style={{ background: z.color }} />
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-[11.5px] font-semibold" style={{ color: z.color }}>{z.label()} · {z.min}–{z.max >= 9999 ? "∞" : z.max} µmol</span>
-                    <span className="text-[10.5px] text-[var(--ink-2)] tabular-nums shrink-0" style={{ fontFamily: "var(--font-mono)" }}>
-                      {range[0]}–{range[1]}&quot; {T("prof.", "deep")}
-                    </span>
-                  </div>
+                  <div className="text-[11.5px] font-semibold" style={{ color: z.color }}>{z.label()} · {z.min}–{z.max >= 9999 ? "∞" : z.max} µmol</div>
                   <div className="text-[10.5px] text-[var(--ink-2)] mt-0.5">{z.corals()}</div>
+                  <div className="text-[10px] font-medium mt-1 flex items-center gap-1" style={{ color: z.color }}>
+                    <L name="MoveDown" size={9} />
+                    {T(`Colócalo a ${toCm(range[0])}–${toCm(range[1])} cm bajo la superficie (${range[0]}–${range[1]} in)`,
+                       `Place it ${toCm(range[0])}–${toCm(range[1])} cm below the surface (${range[0]}–${range[1]} in)`)}
+                  </div>
                 </div>
               </div>
             ))}

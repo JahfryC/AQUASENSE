@@ -504,6 +504,24 @@ function ReefStatusHero({ onNavigate }) {
               <span className="w-1.5 h-1.5 rounded-full" style={{ background: statusBadge.text, opacity: 0.7 }} />
               {statusBadge.label}
             </span>
+            {(() => {
+              const typeLabel = {
+                reef: T("Reef", "Reef"), saltwater: T("Marino", "Saltwater"),
+                freshwater: T("Dulce", "Freshwater"), planted: T("Plantado", "Planted"),
+              }[TANK_CONFIG.type];
+              const d = TANK_CONFIG.dims;
+              const bits = [
+                typeLabel,
+                TANK_CONFIG.brand,
+                d?.l && d?.h ? `${d.l}×${d.w || "?"}×${d.h}"` : null,
+              ].filter(Boolean);
+              return bits.length ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10.5px] font-medium text-white/90" style={{ background: "rgba(8,22,34,0.45)", backdropFilter: "blur(8px)" }}>
+                  <L name="Shell" size={10} style={{ color: "#2DD4BF" }} />
+                  {bits.join(" · ")}
+                </span>
+              ) : null;
+            })()}
           </div>
         </div>
         {!isNewTank && (dangerCount + warnCount + alertCount) > 0 && (
@@ -513,11 +531,6 @@ function ReefStatusHero({ onNavigate }) {
             </span>
           </div>
         )}
-        <div className="absolute top-3 right-3">
-          <div className="grid place-items-center w-9 h-9 rounded-xl" style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.18)" }}>
-            <L name="Droplet" size={16} style={{ color: "#2DD4BF" }} />
-          </div>
-        </div>
         <HeroPhotoSlot />
       </div>
 
@@ -577,7 +590,7 @@ function HeroPhotoSlot() {
     <>
       {photo && <img src={photo} alt="" className="absolute inset-0 w-full h-full object-cover" style={{ borderRadius: "inherit", opacity: 0.55 }} />}
       <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
-      <button onClick={() => fileRef.current?.click()} className="absolute bottom-3 right-3 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-medium text-white transition-all hover:brightness-110" style={{ background: "rgba(13,148,136,0.7)", border: "1px solid rgba(255,255,255,0.25)", backdropFilter: "blur(8px)" }}>
+      <button onClick={() => fileRef.current?.click()} className="absolute top-3 right-3 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-medium text-white transition-all hover:brightness-110" style={{ background: "rgba(13,148,136,0.7)", border: "1px solid rgba(255,255,255,0.25)", backdropFilter: "blur(8px)" }}>
         <L name="Camera" size={12} /> {photo ? T("Cambiar foto","Change photo") : T("Agregar foto","Add photo")}
       </button>
     </>

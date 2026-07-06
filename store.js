@@ -35,6 +35,12 @@ window.AquaStore = (() => {
   (ud.customRoutines || []).forEach((r) => A.ROUTINES.push(r));
   (ud.customInhabitants || []).forEach(({ kind, item }) => { (A.INHABITANTS[kind] || A.INHABITANTS.fish).push(item); });
   (ud.customTanks || []).forEach((t) => { if (!A.ALL_TANKS.find((x) => x.id === t.id)) A.ALL_TANKS.push(t); });
+  // Restore the active tank into TANK_CONFIG on load — otherwise a reload
+  // reverts the dashboard/hero to the default "Mi Acuario" placeholder
+  if (ud.activeTankId && ud.activeTankId !== "tank-001") {
+    const activeT = A.ALL_TANKS.find((t) => t.id === ud.activeTankId);
+    if (activeT) Object.assign(A.TANK_CONFIG, activeT);
+  }
   Object.entries(ud.inhabitantUpdates || {}).forEach(([id, patch]) => {
     for (const kind of ["fish", "corals", "cuc"]) {
       const it = A.INHABITANTS[kind].find((x) => x.id === id);

@@ -252,6 +252,7 @@ function AddTankModal({ onClose, onAdded }) {
   const [displayVol, setDisplayVol] = React.useState("");
   const [totalVol,   setTotalVol]   = React.useState("");
   const [filtration, setFiltration] = React.useState("sump");
+  const [dims, setDims]             = React.useState(null); // { l, w, h } inches — from DB/AI, not asked manually
   const searchRef = React.useRef(null);
   const nameRef   = React.useRef(null);
   useEscape(onClose);
@@ -297,9 +298,9 @@ function AddTankModal({ onClose, onAdded }) {
           model: "llama-3.3-70b-versatile",
           messages: [
             { role: "system", content: "You are a database of aquarium tanks. Return ONLY a JSON object — no markdown, no explanation. If the tank is unknown, return {\"notFound\":true}." },
-            { role: "user", content: `Aquarium tank specs for: "${query.trim()}"\nReturn: {"n":"full name","br":"brand","vol":gallons_number,"t":"reef|saltwater|freshwater|planted","filtration":"sump|aio|canister|none"}` },
+            { role: "user", content: `Aquarium tank specs for: "${query.trim()}"\nReturn: {"n":"full name","br":"brand","vol":gallons_number,"t":"reef|saltwater|freshwater|planted","filtration":"sump|aio|canister|none","l":length_inches,"w":width_inches,"h":height_inches}` },
           ],
-          max_tokens: 120,
+          max_tokens: 160,
           temperature: 0.1,
         }),
       });
@@ -320,11 +321,12 @@ function AddTankModal({ onClose, onAdded }) {
 
   const fillFrom = (row) => {
     setName(row.n);
-    setBrand(row.br);
+    setBrand(row.br || "");
     setType(row.t === "freshwater" ? "freshwater" : row.t === "planted" ? "planted" : "reef");
     setDisplayVol(row.vol ? String(row.vol) : "");
     setTotalVol(row.vol ? String(row.vol) : "");
     if (row.filtration) setFiltration(row.filtration);
+    setDims(row.l && row.h ? { l: row.l, w: row.w || null, h: row.h } : null);
     setStep("fill");
   };
 
@@ -338,6 +340,7 @@ function AddTankModal({ onClose, onAdded }) {
       realVolume: totalVol ? +totalVol : displayVol ? +displayVol : 0,
       brand: brand.trim(),
       filtration,
+      dims,
     });
     window.toast?.(T(`Tanque "${tank.name}" añadido`, `Tank "${tank.name}" added`), { icon: "Waves" });
     onAdded?.();

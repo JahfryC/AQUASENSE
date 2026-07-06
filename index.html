@@ -1508,6 +1508,12 @@ window.AquaStore = (() => {
   (ud.customRoutines || []).forEach((r) => A.ROUTINES.push(r));
   (ud.customInhabitants || []).forEach(({ kind, item }) => { (A.INHABITANTS[kind] || A.INHABITANTS.fish).push(item); });
   (ud.customTanks || []).forEach((t) => { if (!A.ALL_TANKS.find((x) => x.id === t.id)) A.ALL_TANKS.push(t); });
+  // Restore the active tank into TANK_CONFIG on load — otherwise a reload
+  // reverts the dashboard/hero to the default "Mi Acuario" placeholder
+  if (ud.activeTankId && ud.activeTankId !== "tank-001") {
+    const activeT = A.ALL_TANKS.find((t) => t.id === ud.activeTankId);
+    if (activeT) Object.assign(A.TANK_CONFIG, activeT);
+  }
   Object.entries(ud.inhabitantUpdates || {}).forEach(([id, patch]) => {
     for (const kind of ["fish", "corals", "cuc"]) {
       const it = A.INHABITANTS[kind].find((x) => x.id === id);
@@ -4264,6 +4270,7 @@ function AddTankModal({
   const [displayVol, setDisplayVol] = React.useState("");
   const [totalVol, setTotalVol] = React.useState("");
   const [filtration, setFiltration] = React.useState("sump");
+  const [dims, setDims] = React.useState(null); // { l, w, h } inches — from DB/AI, not asked manually
   const searchRef = React.useRef(null);
   const nameRef = React.useRef(null);
   useEscape(onClose);
@@ -4316,9 +4323,9 @@ function AddTankModal({
             content: "You are a database of aquarium tanks. Return ONLY a JSON object — no markdown, no explanation. If the tank is unknown, return {\"notFound\":true}."
           }, {
             role: "user",
-            content: `Aquarium tank specs for: "${query.trim()}"\nReturn: {"n":"full name","br":"brand","vol":gallons_number,"t":"reef|saltwater|freshwater|planted","filtration":"sump|aio|canister|none"}`
+            content: `Aquarium tank specs for: "${query.trim()}"\nReturn: {"n":"full name","br":"brand","vol":gallons_number,"t":"reef|saltwater|freshwater|planted","filtration":"sump|aio|canister|none","l":length_inches,"w":width_inches,"h":height_inches}`
           }],
-          max_tokens: 120,
+          max_tokens: 160,
           temperature: 0.1
         })
       });
@@ -4344,11 +4351,16 @@ function AddTankModal({
   };
   const fillFrom = row => {
     setName(row.n);
-    setBrand(row.br);
+    setBrand(row.br || "");
     setType(row.t === "freshwater" ? "freshwater" : row.t === "planted" ? "planted" : "reef");
     setDisplayVol(row.vol ? String(row.vol) : "");
     setTotalVol(row.vol ? String(row.vol) : "");
     if (row.filtration) setFiltration(row.filtration);
+    setDims(row.l && row.h ? {
+      l: row.l,
+      w: row.w || null,
+      h: row.h
+    } : null);
     setStep("fill");
   };
   const save = () => {
@@ -4363,7 +4375,8 @@ function AddTankModal({
       displayVolume: displayVol ? +displayVol : 0,
       realVolume: totalVol ? +totalVol : displayVol ? +displayVol : 0,
       brand: brand.trim(),
-      filtration
+      filtration,
+      dims
     });
     window.toast?.(T(`Tanque "${tank.name}" añadido`, `Tank "${tank.name}" added`), {
       icon: "Waves"
@@ -5544,7 +5557,29 @@ function ReefStatusHero({
       background: statusBadge.text,
       opacity: 0.7
     }
-  }), statusBadge.label))), !isNewTank && dangerCount + warnCount + alertCount > 0 && /*#__PURE__*/React.createElement("div", {
+  }), statusBadge.label), (() => {
+    const typeLabel = {
+      reef: T("Reef", "Reef"),
+      saltwater: T("Marino", "Saltwater"),
+      freshwater: T("Dulce", "Freshwater"),
+      planted: T("Plantado", "Planted")
+    }[TANK_CONFIG.type];
+    const d = TANK_CONFIG.dims;
+    const bits = [typeLabel, TANK_CONFIG.brand, d?.l && d?.h ? `${d.l}×${d.w || "?"}×${d.h}"` : null].filter(Boolean);
+    return bits.length ? /*#__PURE__*/React.createElement("span", {
+      className: "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10.5px] font-medium text-white/90",
+      style: {
+        background: "rgba(8,22,34,0.45)",
+        backdropFilter: "blur(8px)"
+      }
+    }, /*#__PURE__*/React.createElement(L, {
+      name: "Shell",
+      size: 10,
+      style: {
+        color: "#2DD4BF"
+      }
+    }), bits.join(" · ")) : null;
+  })())), !isNewTank && dangerCount + warnCount + alertCount > 0 && /*#__PURE__*/React.createElement("div", {
     className: "absolute right-3 bottom-3 hidden sm:block"
   }, /*#__PURE__*/React.createElement("span", {
     className: "text-[10.5px] text-white/85 px-2 py-1 rounded-full",
@@ -5552,21 +5587,7 @@ function ReefStatusHero({
       background: "rgba(8,22,34,0.45)",
       backdropFilter: "blur(8px)"
     }
-  }, dangerCount + warnCount > 0 ? T(`${dangerCount + warnCount} parámetros · ${alertCount} alertas`, `${dangerCount + warnCount} params · ${alertCount} alerts`) : T(`${alertCount} alertas`, `${alertCount} alerts`))), /*#__PURE__*/React.createElement("div", {
-    className: "absolute top-3 right-3"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "grid place-items-center w-9 h-9 rounded-xl",
-    style: {
-      background: "rgba(255,255,255,0.12)",
-      border: "1px solid rgba(255,255,255,0.18)"
-    }
-  }, /*#__PURE__*/React.createElement(L, {
-    name: "Droplet",
-    size: 16,
-    style: {
-      color: "#2DD4BF"
-    }
-  }))), /*#__PURE__*/React.createElement(HeroPhotoSlot, null)), /*#__PURE__*/React.createElement("div", {
+  }, dangerCount + warnCount > 0 ? T(`${dangerCount + warnCount} parámetros · ${alertCount} alertas`, `${dangerCount + warnCount} params · ${alertCount} alerts`) : T(`${alertCount} alertas`, `${alertCount} alerts`))), /*#__PURE__*/React.createElement(HeroPhotoSlot, null)), /*#__PURE__*/React.createElement("div", {
     className: "px-5 pt-4 pb-5"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-between mb-2.5"
@@ -5651,7 +5672,7 @@ function HeroPhotoSlot() {
     onChange: handleFile
   }), /*#__PURE__*/React.createElement("button", {
     onClick: () => fileRef.current?.click(),
-    className: "absolute bottom-3 right-3 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-medium text-white transition-all hover:brightness-110",
+    className: "absolute top-3 right-3 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-medium text-white transition-all hover:brightness-110",
     style: {
       background: "rgba(13,148,136,0.7)",
       border: "1px solid rgba(255,255,255,0.25)",
@@ -8748,11 +8769,44 @@ function depthRangeForZone(zone, basePar, intensityPct, mountIn, tankDepth) {
   if (dMax <= dMin + 0.2) return null;
   return [Math.round(dMin), Math.round(dMax)];
 }
+
+// Resolve the active tank's physical dimensions: saved dims (new tanks store
+// them) or a TANK_DB match by name for tanks added before dims existed.
+function activeTankDims() {
+  const tank = window.AquaStore?.activeTank || {};
+  if (tank.dims?.h) return {
+    tank,
+    dims: tank.dims
+  };
+  const name = (tank.name || "").toLowerCase();
+  if (typeof TANK_DB !== "undefined") {
+    const row = name && TANK_DB.find(r => {
+      const rn = r.n.toLowerCase();
+      return rn === name || name.includes(rn) || rn.includes(name);
+    }) ||
+    // Renamed tank: fall back to brand + volume match
+    tank.brand && TANK_DB.find(r => r.br.toLowerCase() === tank.brand.toLowerCase() && (r.vol === tank.displayVolume || r.vol === tank.realVolume));
+    if (row?.h) return {
+      tank,
+      dims: {
+        l: row.l,
+        w: row.w,
+        h: row.h
+      }
+    };
+  }
+  return {
+    tank,
+    dims: null
+  };
+}
+const toCm = inches => Math.round(inches * 2.54);
 function ParSliderRow({
   icon,
   label,
   value,
   unit,
+  display,
   min,
   max,
   step = 1,
@@ -8771,7 +8825,7 @@ function ParSliderRow({
     style: {
       fontFamily: "var(--font-mono)"
     }
-  }, value, unit)), /*#__PURE__*/React.createElement("input", {
+  }, display || `${value}${unit}`)), /*#__PURE__*/React.createElement("input", {
     type: "range",
     min: min,
     max: max,
@@ -8802,9 +8856,22 @@ function ParCalculatorCard({
       return {};
     }
   }, []);
+
+  // Active tank dimensions → real water depth (minus ~3" of sand bed + rim)
+  const [tankRev, setTankRev] = useState(0);
+  useEffect(() => {
+    const fn = () => setTankRev(v => v + 1);
+    window.addEventListener("aqua:tank", fn);
+    return () => window.removeEventListener("aqua:tank", fn);
+  }, []);
+  const {
+    tank,
+    dims: tankDims
+  } = useMemo(activeTankDims, [tankRev]);
+  const tankDepth = tankDims?.h ? Math.max(6, tankDims.h - 3) : null;
   const [intensity, setIntensity] = useState(persisted.i ?? weekAvg);
   const [mount, setMount] = useState(persisted.m ?? 8);
-  const [depth, setDepth] = useState(persisted.d ?? 20);
+  const [depth, setDepth] = useState(persisted.d ?? tankDepth ?? 20);
   useEffect(() => {
     localStorage.setItem("aqua:parcalc", JSON.stringify({
       i: intensity,
@@ -9020,7 +9087,33 @@ function ParCalculatorCard({
     size: 13
   }))), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-1 md:grid-cols-2 gap-5"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("div", null, tankDims && /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 rounded-xl px-3 py-2 mb-3",
+    style: {
+      background: "var(--accent-soft)",
+      border: "1px solid var(--accent-border)"
+    }
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "Container",
+    size: 13,
+    style: {
+      color: "var(--accent)"
+    },
+    className: "shrink-0"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 min-w-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-[11px] font-semibold text-[var(--ink)] truncate"
+  }, tank.name), /*#__PURE__*/React.createElement("div", {
+    className: "text-[10px] text-[var(--ink-2)]"
+  }, tankDims.l, "\xD7", tankDims.w || "?", "\xD7", tankDims.h, " in (", toCm(tankDims.l), "\xD7", tankDims.w ? toCm(tankDims.w) : "?", "\xD7", toCm(tankDims.h), " cm)", " · ", T("agua", "water"), " \u2248 ", tankDepth, " in")), depth !== tankDepth && /*#__PURE__*/React.createElement("button", {
+    onClick: () => setDepth(tankDepth),
+    className: "shrink-0 px-2 py-1 rounded-full text-[10px] font-semibold transition-all",
+    style: {
+      background: "var(--accent)",
+      color: "#fff"
+    }
+  }, T("Usar medidas", "Use dims"))), /*#__PURE__*/React.createElement("div", {
     className: "space-y-3 mb-4"
   }, /*#__PURE__*/React.createElement(ParSliderRow, {
     icon: "SunMedium",
@@ -9035,7 +9128,7 @@ function ParCalculatorCard({
     icon: "MoveVertical",
     label: T("Altura de montaje sobre el agua", "Mount height above water"),
     value: mount,
-    unit: "\"",
+    display: `${mount} in · ${toCm(mount)} cm`,
     min: 3,
     max: 16,
     onChange: setMount
@@ -9043,7 +9136,7 @@ function ParCalculatorCard({
     icon: "Waves",
     label: T("Profundidad del agua", "Water depth"),
     value: depth,
-    unit: "\"",
+    display: `${depth} in · ${toCm(depth)} cm`,
     min: 8,
     max: 32,
     onChange: setDepth
@@ -9095,19 +9188,19 @@ function ParCalculatorCard({
       key: i
     }, /*#__PURE__*/React.createElement("line", {
       x1: PAD + 4,
-      x2: W - 108,
+      x2: W - 140,
       y1: y,
       y2: y,
       stroke: z.color,
       strokeOpacity: "0.55",
       strokeDasharray: "2 3"
     }), /*#__PURE__*/React.createElement("text", {
-      x: W - 102,
+      x: W - 134,
       y: y + 3,
-      fontSize: "9.5",
+      fontSize: "9",
       fill: "var(--ink-2)",
       fontFamily: "DM Mono"
-    }, m.name, " ", Math.round(m.d), "\""), /*#__PURE__*/React.createElement("text", {
+    }, m.name, " \xB7 ", toCm(m.d), " cm"), /*#__PURE__*/React.createElement("text", {
       x: W - PAD,
       y: y + 3,
       fontSize: "10.5",
@@ -9138,20 +9231,21 @@ function ParCalculatorCard({
   }), /*#__PURE__*/React.createElement("div", {
     className: "flex-1 min-w-0"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-baseline justify-between gap-2"
-  }, /*#__PURE__*/React.createElement("span", {
     className: "text-[11.5px] font-semibold",
     style: {
       color: z.color
     }
-  }, z.label(), " \xB7 ", z.min, "\u2013", z.max >= 9999 ? "∞" : z.max, " \xB5mol"), /*#__PURE__*/React.createElement("span", {
-    className: "text-[10.5px] text-[var(--ink-2)] tabular-nums shrink-0",
-    style: {
-      fontFamily: "var(--font-mono)"
-    }
-  }, range[0], "\u2013", range[1], "\" ", T("prof.", "deep"))), /*#__PURE__*/React.createElement("div", {
+  }, z.label(), " \xB7 ", z.min, "\u2013", z.max >= 9999 ? "∞" : z.max, " \xB5mol"), /*#__PURE__*/React.createElement("div", {
     className: "text-[10.5px] text-[var(--ink-2)] mt-0.5"
-  }, z.corals())))), !guide.length && /*#__PURE__*/React.createElement("div", {
+  }, z.corals()), /*#__PURE__*/React.createElement("div", {
+    className: "text-[10px] font-medium mt-1 flex items-center gap-1",
+    style: {
+      color: z.color
+    }
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "MoveDown",
+    size: 9
+  }), T(`Colócalo a ${toCm(range[0])}–${toCm(range[1])} cm bajo la superficie (${range[0]}–${range[1]} in)`, `Place it ${toCm(range[0])}–${toCm(range[1])} cm below the surface (${range[0]}–${range[1]} in)`))))), !guide.length && /*#__PURE__*/React.createElement("div", {
     className: "text-[11.5px] text-[var(--ink-2)]"
   }, T("Con esta configuración el PAR queda fuera de las zonas útiles — sube la intensidad o baja la lámpara.", "At these settings PAR falls outside useful ranges — raise intensity or lower the fixture."))), /*#__PURE__*/React.createElement("div", {
     className: "mt-3 flex items-start gap-1.5 text-[10px] text-[var(--ink-3)]"
