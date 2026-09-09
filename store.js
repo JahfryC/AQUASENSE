@@ -8,7 +8,9 @@ window.AquaStore = (() => {
   const A = window.AQUA;
 
   let ud = {
+    ownerUid: null,            // uid del dueño de estos datos (null = local/invitado)
     activeTankId: "tank-001",  // selected tank
+    tankConfig: null,          // ajustes del tanque por defecto (nombre, tipo, volumen…)
     readings: null,            // snapshot de HISTORY
     params: null,              // snapshot de CURRENT_PARAMETERS (valor/estado/tendencia/nota)
     dismissedAlerts: [],
@@ -37,6 +39,13 @@ window.AquaStore = (() => {
   (ud.customRoutines || []).forEach((r) => A.ROUTINES.push(r));
   (ud.customInhabitants || []).forEach(({ kind, item }) => { (A.INHABITANTS[kind] || A.INHABITANTS.fish).push(item); });
   (ud.customTanks || []).forEach((t) => { if (!A.ALL_TANKS.find((x) => x.id === t.id)) A.ALL_TANKS.push(t); });
+  // Restore the default tank's own settings (name/type/volume/brand typed during
+  // onboarding). Without this they revert to the seed placeholder on every reload.
+  if (ud.tankConfig) {
+    Object.assign(A.TANK_CONFIG, ud.tankConfig);
+    const seed = A.ALL_TANKS.find((t) => t.id === "tank-001");
+    if (seed) Object.assign(seed, ud.tankConfig);
+  }
   // Restore the active tank into TANK_CONFIG on load — otherwise a reload
   // reverts the dashboard/hero to the default "Mi Acuario" placeholder
   if (ud.activeTankId && ud.activeTankId !== "tank-001") {
@@ -63,6 +72,45 @@ window.AquaStore = (() => {
     window.AQUAMIND_AI_KEY = storedKey || null;
   })();
 
+  const TT = (es, en) => (window.T || ((a) => a))(es, en);
+
+  // Escribe en localStorage. Si la cuota está llena, va liberando espacio
+  // (fotos antiguas del seguimiento primero) en vez de dejar de guardar TODO
+  // en silencio, que era el comportamiento anterior.
+  function writeLocal() {
+    try {
+      localStorage.setItem(KEY, JSON.stringify(ud));
+      return true;
+    } catch (e) {
+      let freed = 0;
+      // 1) soltar fotos de entradas de seguimiento, de la más antigua a la más nueva
+      const logIds = Object.keys(ud.inhabitantLogs || {});
+      const withPhotos = [];
+      logIds.forEach((id) => (ud.inhabitantLogs[id] || []).forEach((l) => { if (l.photo) withPhotos.push(l); }));
+      withPhotos.sort((a, b) => a.ts - b.ts);
+      for (const entry of withPhotos) {
+        delete entry.photo;
+        freed++;
+        try { localStorage.setItem(KEY, JSON.stringify(ud)); }
+        catch (_) { continue; }
+        window.toast?.(
+          TT(`Almacenamiento lleno — liberé ${freed} foto(s) antigua(s) del seguimiento para poder guardar`,
+             `Storage full — freed ${freed} old tracking photo(s) so your data could be saved`),
+          { tone: "warn", icon: "AlertTriangle" }
+        );
+        return true;
+      }
+      // 2) nada más que soltar: avisar de verdad y marcar el estado
+      ud._storageFull = true;
+      window.toast?.(
+        TT("No se pudo guardar: almacenamiento lleno. Borra fotos de habitantes para liberar espacio.",
+           "Couldn't save: storage is full. Delete inhabitant photos to free space."),
+        { tone: "warn", icon: "AlertTriangle", duration: 8000 }
+      );
+      return false;
+    }
+  }
+
   let saveTimer = null;
   function persist() {
     ud.updatedAt = Date.now();
@@ -72,30 +120,44 @@ window.AquaStore = (() => {
       const p = A.CURRENT_PARAMETERS[k];
       ud.params[k] = { value: p.value, status: p.status, trend: p.trend, note: p.note };
     });
+    // Guardar los ajustes propios del tanque por defecto (los que se escriben
+    // en el onboarding). Sin esto se perdían en cada recarga.
+    if ((ud.activeTankId || "tank-001") === "tank-001") {
+      const c = A.TANK_CONFIG;
+      ud.tankConfig = {
+        name: c.name, type: c.type, displayVolume: c.displayVolume,
+        realVolume: c.realVolume, brand: c.brand, filtration: c.filtration,
+        dims: c.dims, setupDate: c.setupDate, owner: c.owner,
+      };
+    }
     clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => {
-      try {
-        localStorage.setItem(KEY, JSON.stringify(ud));
-      } catch (e) {
-        // cuota llena — casi siempre por fotos grandes
-        window.toast?.(
-          (window.T || ((a) => a))("Almacenamiento lleno — elimina alguna foto", "Storage full — remove a photo"),
-          { tone: "warn", icon: "AlertTriangle" }
-        );
-      }
-      window.CLOUD?.push(ud);
-    }, 250);
+    saveTimer = setTimeout(flush, 250);
+  }
+  // Escritura inmediata — usada por persist (con debounce) y al cerrar la app
+  function flush() {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+    writeLocal();
+    window.CLOUD?.push(ud);
   }
   function touch() {
     persist();
     window.dispatchEvent(new Event("aqua:data"));
   }
 
+  // No perder los últimos 250 ms de cambios al cerrar pestaña o mandar la app
+  // a segundo plano (crítico en iOS, donde 'unload' no es fiable).
+  window.addEventListener("pagehide", () => { if (saveTimer) flush(); });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden" && saveTimer) flush();
+  });
+
   const SEV_RANK = { danger: 0, warn: 1, info: 2 };
 
   return {
     get ud() { return ud; },
     persist,
+    flush,
     touch,
 
     // ---- alertas ----
@@ -192,11 +254,34 @@ window.AquaStore = (() => {
     setLightFixture(data) { ud.lightFixture = data; touch(); },
 
     // ---- fotos ----
+    // Las fotos viven dentro del blob JSON, así que SIEMPRE se reescalan antes
+    // de guardarlas: una foto de iPhone en base64 (~5 MB) reventaba la cuota
+    // de localStorage ella sola.
+    compressPhoto(dataURL, maxPx = 1200, quality = 0.75) {
+      return new Promise((resolve) => {
+        if (typeof dataURL !== "string" || !dataURL.startsWith("data:image")) { resolve(dataURL); return; }
+        const img = new Image();
+        img.onload = () => {
+          try {
+            const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
+            const c = document.createElement("canvas");
+            c.width = Math.max(1, Math.round(img.width * scale));
+            c.height = Math.max(1, Math.round(img.height * scale));
+            c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+            const out = c.toDataURL("image/jpeg", quality);
+            resolve(out.length < dataURL.length ? out : dataURL);
+          } catch (e) { resolve(dataURL); }
+        };
+        img.onerror = () => resolve(dataURL);
+        img.src = dataURL;
+      });
+    },
     getPhoto(id) { return ud.photos[id] || null; },
-    setPhoto(id, dataURL) {
-      if (dataURL) ud.photos[id] = dataURL;
+    async setPhoto(id, dataURL) {
+      if (dataURL) ud.photos[id] = await this.compressPhoto(dataURL);
       else delete ud.photos[id];
       touch();
+      return ud.photos[id] || null;
     },
 
     // ---- multi-tank ----
@@ -251,12 +336,52 @@ window.AquaStore = (() => {
       touch();
     },
 
-    // ---- sincronización nube → local (last-write-wins por updatedAt) ----
-    applyRemote(remote) {
-      if (remote && typeof remote.updatedAt === "number" && remote.updatedAt > ud.updatedAt) {
-        try { localStorage.setItem(KEY, JSON.stringify(remote)); } catch (e) { return; }
-        location.reload();
+    // ---- identidad: estos datos pertenecen a un usuario ----
+    get ownerUid() { return ud.ownerUid || null; },
+    // Se llama al iniciar sesión. Si los datos locales son de OTRA persona
+    // (o de una sesión de invitado sobre la que ahora entra alguien), se
+    // descartan antes de tocar la nube. Sin esto, el usuario B veía —y
+    // sobrescribía— el acuario del usuario A en el mismo navegador.
+    bindUser(uid) {
+      if (!uid) return false;
+      const prev = ud.ownerUid || null;
+      if (prev && prev !== uid) { this.wipeLocal(); return true; }
+      if (!prev) {
+        // Datos locales sin dueño: adoptarlos solo si el usuario nunca tuvo
+        // nada guardado en este navegador (primer inicio de sesión real).
+        ud.ownerUid = uid;
+        persist();
       }
+      return false;
+    },
+    // Borra los datos de este dispositivo sin tocar la nube ni recargar.
+    wipeLocal() {
+      try {
+        localStorage.removeItem(KEY);
+        localStorage.removeItem("aqua:onboarded");
+        localStorage.removeItem("aqua:page");
+      } catch (e) { /* ignorar */ }
+      sessionStorage.removeItem("aqua:session");
+    },
+
+    // ---- sincronización nube → local ----
+    // Solo se aplica un blob remoto si pertenece a la misma cuenta y es más
+    // reciente. Si falla la escritura, se avisa en vez de fallar en silencio.
+    applyRemote(remote, uid) {
+      if (!remote || typeof remote.updatedAt !== "number") return;
+      if (uid && remote.ownerUid && remote.ownerUid !== uid) return;
+      if (remote.updatedAt <= ud.updatedAt) return;
+      try {
+        localStorage.setItem(KEY, JSON.stringify(remote));
+      } catch (e) {
+        window.toast?.(
+          TT("No se pudieron traer los datos de la nube: almacenamiento lleno.",
+             "Couldn't pull cloud data: storage is full."),
+          { tone: "warn", icon: "AlertTriangle" }
+        );
+        return;
+      }
+      location.reload();
     },
 
     reset() {

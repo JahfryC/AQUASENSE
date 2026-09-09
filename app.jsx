@@ -45,19 +45,25 @@ function App() {
     }
     setSession(user);
   };
-  const signOut = () => {
-    window.CLOUD?.signOut();
+  const signOut = async () => {
+    // Vaciar los cambios pendientes antes de soltar la sesión, si no los
+    // últimos 250 ms se subían con las credenciales del usuario saliente.
+    window.AquaStore?.flush?.();
+    await window.CLOUD?.signOut();
     localStorage.removeItem("aqua:session");
+    // sessionStorage guarda las sesiones de invitado: si no se limpia, la
+    // sesión "resucita" al recargar y se entra sin pasar por el login.
+    sessionStorage.removeItem("aqua:session");
     setSession(null);
     setActivePage("dashboard");
   };
 
-  // Supabase auth: cloud.js emite aqua:auth al conectar o cerrar sesion.
+  // Supabase auth: cloud.js emite aqua:auth al conectar o cerrar sesión.
   React.useEffect(() => {
     const fn = (e) => {
       if (e.detail) {
         signIn({ ...e.detail, color: "linear-gradient(150deg, var(--accent), var(--indigo))" });
-        window.toast?.(T(`Sesion iniciada: ${e.detail.email} — datos sincronizando con la nube`, `Signed in: ${e.detail.email} — data syncing to the cloud`), { icon: "CloudUpload" });
+        window.toast?.(T(`Sesión iniciada: ${e.detail.email} — datos sincronizando con la nube`, `Signed in: ${e.detail.email} — data syncing to the cloud`), { icon: "CloudUpload" });
       } else {
         // Sign-out from Supabase: clear any cloud-backed session
         setSession((s) => {

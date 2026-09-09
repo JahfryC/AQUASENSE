@@ -170,15 +170,34 @@ const __TWEAKS_STYLE = `
 // ── useTweaks ───────────────────────────────────────────────────────────────
 // Single source of truth for tweak values. setTweak persists via the host
 // (__edit_mode_set_keys → host rewrites the EDITMODE block on disk).
+// Preferencias del usuario (idioma / estilo / densidad). Se guardan en
+// localStorage: antes solo se mandaban por postMessage a un editor externo
+// que no existe en producción, así que el idioma volvía a español en cada
+// recarga y además pisaba la preferencia guardada.
+const TWEAKS_KEY = 'aqua:tweaks';
+function loadTweaks(defaults) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(TWEAKS_KEY) || 'null');
+    if (saved && typeof saved === 'object') return { ...defaults, ...saved };
+  } catch (e) { /* ignorar */ }
+  // Migración: respetar el idioma guardado por la versión anterior
+  const lang = localStorage.getItem('aqua:lang');
+  return lang ? { ...defaults, lang } : defaults;
+}
+
 function useTweaks(defaults) {
-  const [values, setValues] = React.useState(defaults);
+  const [values, setValues] = React.useState(() => loadTweaks(defaults));
   // Accepts either setTweak('key', value) or setTweak({ key: value, ... }) so a
   // useState-style call doesn't write a "[object Object]" key into the persisted
   // JSON block.
   const setTweak = React.useCallback((keyOrEdits, val) => {
     const edits = typeof keyOrEdits === 'object' && keyOrEdits !== null
       ? keyOrEdits : { [keyOrEdits]: val };
-    setValues((prev) => ({ ...prev, ...edits }));
+    setValues((prev) => {
+      const next = { ...prev, ...edits };
+      try { localStorage.setItem(TWEAKS_KEY, JSON.stringify(next)); } catch (e) { /* ignorar */ }
+      return next;
+    });
     window.parent.postMessage({ type: '__edit_mode_set_keys', edits }, '*');
     // Same-window signal so in-page listeners (deck-stage rail thumbnails)
     // can react — the parent message only reaches the host, not peers.

@@ -591,7 +591,12 @@ function HeroPhotoSlot() {
   const handleFile = (e) => {
     const f = e.target.files?.[0]; if (!f) return;
     const reader = new FileReader();
-    reader.onload = (ev) => { window.AquaStore?.setPhoto("tank-hero", ev.target.result); forceUpdate(); e.target.value = ""; };
+    // setPhoto reescala internamente antes de guardar (cuota de localStorage)
+    reader.onload = async (ev) => {
+      await window.AquaStore?.setPhoto("tank-hero", ev.target.result);
+      forceUpdate();
+      e.target.value = "";
+    };
     reader.readAsDataURL(f);
   };
 

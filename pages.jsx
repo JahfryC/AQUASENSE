@@ -25,8 +25,9 @@ function LogReadingModal({ paramKeys, onClose }) {
   const entries = Object.entries(vals).filter(([, v]) => v !== "" && isFinite(+v));
   const save = () => {
     if (!entries.length) return;
-    entries.forEach(([k, v]) => window.AQUA.logReading(k, +v));
-    window.dispatchEvent(new Event("aqua:data"));
+    // Debe ir por AquaStore: window.AQUA.logReading solo muta memoria y la
+    // lectura se perdía al recargar.
+    entries.forEach(([k, v]) => window.AquaStore.logReading(k, +v));
     window.toast?.(
       entries.length === 1
         ? T(`Lectura de ${CURRENT_PARAMETERS[entries[0][0]].label} registrada`, `${CURRENT_PARAMETERS[entries[0][0]].label} reading logged`)
@@ -877,7 +878,9 @@ function InhabitantDetailModal({ item, kind, onClose, onChanged }) {
   const onLogFile = (e) => {
     const f = e.target.files?.[0]; if (!f) return;
     const reader = new FileReader();
-    reader.onload = (ev) => setLogPhoto(ev.target.result);
+    // Reescalar antes de guardar: una foto de móvil sin comprimir llenaba
+    // la cuota de localStorage ella sola.
+    reader.onload = async (ev) => setLogPhoto(await S.compressPhoto(ev.target.result));
     reader.readAsDataURL(f);
     e.target.value = "";
   };

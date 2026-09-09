@@ -68,6 +68,10 @@ window.CLOUD = (() => {
 
   async function startSync(uid) {
     stopSync();
+    // Los datos locales pueden ser de otra cuenta (o de una sesión de invitado).
+    // bindUser los descarta antes de leer o escribir nada en la nube.
+    const wiped = window.AquaStore?.bindUser?.(uid);
+    if (wiped) { location.reload(); return; }
     // Pull latest from cloud
     try {
       const { data } = await client
@@ -75,19 +79,22 @@ window.CLOUD = (() => {
         .select("data")
         .eq("user_id", uid)
         .single();
-      if (data?.data) window.AquaStore?.applyRemote(data.data);
-    } catch (_) {}
+      if (data?.data) window.AquaStore?.applyRemote(data.data, uid);
+      syncState("ok");
+    } catch (_) { syncState("error"); }
 
-    // Real-time subscription for changes from other devices
+    // Real-time subscription for changes from other devices.
+    // "*" cubre INSERT además de UPDATE: la primera vez que un dispositivo
+    // guarda, es un INSERT y con "UPDATE" nunca llegaba.
     realtimeChannel = client
       .channel("aquamind_data_changes")
       .on("postgres_changes", {
-        event: "UPDATE",
+        event: "*",
         schema: "public",
         table: "aquamind_data",
         filter: `user_id=eq.${uid}`,
       }, (payload) => {
-        if (payload.new?.data) window.AquaStore?.applyRemote(payload.new.data);
+        if (payload.new?.data) window.AquaStore?.applyRemote(payload.new.data, uid);
       })
       .subscribe();
   }
@@ -99,16 +106,42 @@ window.CLOUD = (() => {
     }
   }
 
+  // ---- estado de sincronización (para que la UI no mienta) ----
+  // "off" sin cuenta · "syncing" subiendo · "ok" al día · "error" pendiente
+  let sync = { state: "off", lastOk: null, pending: false };
+  function syncState(state) {
+    sync = { ...sync, state, ...(state === "ok" ? { lastOk: Date.now(), pending: false } : {}) };
+    window.dispatchEvent(new CustomEvent("aqua:sync", { detail: { ...sync } }));
+  }
+
+  let pushTimer = null, retryDelay = 2000;
   async function push(ud) {
     if (!client || !user || !ud) return;
+    // Nunca subir datos de otra cuenta a esta cuenta
+    if (ud.ownerUid && ud.ownerUid !== user.id) return;
+    if (!ud.ownerUid) ud.ownerUid = user.id;
+    syncState("syncing");
     try {
-      await client
+      const { error } = await client
         .from("aquamind_data")
         .upsert(
           { user_id: user.id, data: JSON.parse(JSON.stringify(ud)), updated_at: new Date().toISOString() },
           { onConflict: "user_id" }
         );
-    } catch (_) { /* offline — localStorage already saved it */ }
+      if (error) throw error;
+      retryDelay = 2000;
+      syncState("ok");
+    } catch (e) {
+      // Sin conexión / proyecto pausado: reintentar con backoff en vez de
+      // perder el cambio en silencio (localStorage ya lo tiene).
+      sync.pending = true;
+      syncState("error");
+      clearTimeout(pushTimer);
+      pushTimer = setTimeout(() => {
+        retryDelay = Math.min(retryDelay * 2, 60000);
+        push(window.AquaStore?.ud);
+      }, retryDelay);
+    }
   }
 
   async function signInWithEmail(email, password) {
@@ -152,8 +185,10 @@ window.CLOUD = (() => {
 
   async function signOut() {
     stopSync();
+    clearTimeout(pushTimer);
     try { await client?.auth.signOut(); } catch (_) {}
     user = null;
+    syncState("off");
     window.dispatchEvent(new CustomEvent("aqua:auth", { detail: null }));
   }
 
@@ -162,6 +197,7 @@ window.CLOUD = (() => {
   return {
     get isConfigured() { return true; },
     get user() { return user; },
+    get syncStatus() { return { ...sync }; },
     ready,
     signInWithEmail,
     signUp,

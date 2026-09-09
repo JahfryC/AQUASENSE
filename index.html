@@ -1481,7 +1481,9 @@ window.AquaStore = (() => {
   const A = window.AQUA;
 
   let ud = {
+    ownerUid: null,            // uid del dueño de estos datos (null = local/invitado)
     activeTankId: "tank-001",  // selected tank
+    tankConfig: null,          // ajustes del tanque por defecto (nombre, tipo, volumen…)
     readings: null,            // snapshot de HISTORY
     params: null,              // snapshot de CURRENT_PARAMETERS (valor/estado/tendencia/nota)
     dismissedAlerts: [],
@@ -1510,6 +1512,13 @@ window.AquaStore = (() => {
   (ud.customRoutines || []).forEach((r) => A.ROUTINES.push(r));
   (ud.customInhabitants || []).forEach(({ kind, item }) => { (A.INHABITANTS[kind] || A.INHABITANTS.fish).push(item); });
   (ud.customTanks || []).forEach((t) => { if (!A.ALL_TANKS.find((x) => x.id === t.id)) A.ALL_TANKS.push(t); });
+  // Restore the default tank's own settings (name/type/volume/brand typed during
+  // onboarding). Without this they revert to the seed placeholder on every reload.
+  if (ud.tankConfig) {
+    Object.assign(A.TANK_CONFIG, ud.tankConfig);
+    const seed = A.ALL_TANKS.find((t) => t.id === "tank-001");
+    if (seed) Object.assign(seed, ud.tankConfig);
+  }
   // Restore the active tank into TANK_CONFIG on load — otherwise a reload
   // reverts the dashboard/hero to the default "Mi Acuario" placeholder
   if (ud.activeTankId && ud.activeTankId !== "tank-001") {
@@ -1536,6 +1545,45 @@ window.AquaStore = (() => {
     window.AQUAMIND_AI_KEY = storedKey || null;
   })();
 
+  const TT = (es, en) => (window.T || ((a) => a))(es, en);
+
+  // Escribe en localStorage. Si la cuota está llena, va liberando espacio
+  // (fotos antiguas del seguimiento primero) en vez de dejar de guardar TODO
+  // en silencio, que era el comportamiento anterior.
+  function writeLocal() {
+    try {
+      localStorage.setItem(KEY, JSON.stringify(ud));
+      return true;
+    } catch (e) {
+      let freed = 0;
+      // 1) soltar fotos de entradas de seguimiento, de la más antigua a la más nueva
+      const logIds = Object.keys(ud.inhabitantLogs || {});
+      const withPhotos = [];
+      logIds.forEach((id) => (ud.inhabitantLogs[id] || []).forEach((l) => { if (l.photo) withPhotos.push(l); }));
+      withPhotos.sort((a, b) => a.ts - b.ts);
+      for (const entry of withPhotos) {
+        delete entry.photo;
+        freed++;
+        try { localStorage.setItem(KEY, JSON.stringify(ud)); }
+        catch (_) { continue; }
+        window.toast?.(
+          TT(`Almacenamiento lleno — liberé ${freed} foto(s) antigua(s) del seguimiento para poder guardar`,
+             `Storage full — freed ${freed} old tracking photo(s) so your data could be saved`),
+          { tone: "warn", icon: "AlertTriangle" }
+        );
+        return true;
+      }
+      // 2) nada más que soltar: avisar de verdad y marcar el estado
+      ud._storageFull = true;
+      window.toast?.(
+        TT("No se pudo guardar: almacenamiento lleno. Borra fotos de habitantes para liberar espacio.",
+           "Couldn't save: storage is full. Delete inhabitant photos to free space."),
+        { tone: "warn", icon: "AlertTriangle", duration: 8000 }
+      );
+      return false;
+    }
+  }
+
   let saveTimer = null;
   function persist() {
     ud.updatedAt = Date.now();
@@ -1545,30 +1593,44 @@ window.AquaStore = (() => {
       const p = A.CURRENT_PARAMETERS[k];
       ud.params[k] = { value: p.value, status: p.status, trend: p.trend, note: p.note };
     });
+    // Guardar los ajustes propios del tanque por defecto (los que se escriben
+    // en el onboarding). Sin esto se perdían en cada recarga.
+    if ((ud.activeTankId || "tank-001") === "tank-001") {
+      const c = A.TANK_CONFIG;
+      ud.tankConfig = {
+        name: c.name, type: c.type, displayVolume: c.displayVolume,
+        realVolume: c.realVolume, brand: c.brand, filtration: c.filtration,
+        dims: c.dims, setupDate: c.setupDate, owner: c.owner,
+      };
+    }
     clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => {
-      try {
-        localStorage.setItem(KEY, JSON.stringify(ud));
-      } catch (e) {
-        // cuota llena — casi siempre por fotos grandes
-        window.toast?.(
-          (window.T || ((a) => a))("Almacenamiento lleno — elimina alguna foto", "Storage full — remove a photo"),
-          { tone: "warn", icon: "AlertTriangle" }
-        );
-      }
-      window.CLOUD?.push(ud);
-    }, 250);
+    saveTimer = setTimeout(flush, 250);
+  }
+  // Escritura inmediata — usada por persist (con debounce) y al cerrar la app
+  function flush() {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+    writeLocal();
+    window.CLOUD?.push(ud);
   }
   function touch() {
     persist();
     window.dispatchEvent(new Event("aqua:data"));
   }
 
+  // No perder los últimos 250 ms de cambios al cerrar pestaña o mandar la app
+  // a segundo plano (crítico en iOS, donde 'unload' no es fiable).
+  window.addEventListener("pagehide", () => { if (saveTimer) flush(); });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden" && saveTimer) flush();
+  });
+
   const SEV_RANK = { danger: 0, warn: 1, info: 2 };
 
   return {
     get ud() { return ud; },
     persist,
+    flush,
     touch,
 
     // ---- alertas ----
@@ -1665,11 +1727,34 @@ window.AquaStore = (() => {
     setLightFixture(data) { ud.lightFixture = data; touch(); },
 
     // ---- fotos ----
+    // Las fotos viven dentro del blob JSON, así que SIEMPRE se reescalan antes
+    // de guardarlas: una foto de iPhone en base64 (~5 MB) reventaba la cuota
+    // de localStorage ella sola.
+    compressPhoto(dataURL, maxPx = 1200, quality = 0.75) {
+      return new Promise((resolve) => {
+        if (typeof dataURL !== "string" || !dataURL.startsWith("data:image")) { resolve(dataURL); return; }
+        const img = new Image();
+        img.onload = () => {
+          try {
+            const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
+            const c = document.createElement("canvas");
+            c.width = Math.max(1, Math.round(img.width * scale));
+            c.height = Math.max(1, Math.round(img.height * scale));
+            c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+            const out = c.toDataURL("image/jpeg", quality);
+            resolve(out.length < dataURL.length ? out : dataURL);
+          } catch (e) { resolve(dataURL); }
+        };
+        img.onerror = () => resolve(dataURL);
+        img.src = dataURL;
+      });
+    },
     getPhoto(id) { return ud.photos[id] || null; },
-    setPhoto(id, dataURL) {
-      if (dataURL) ud.photos[id] = dataURL;
+    async setPhoto(id, dataURL) {
+      if (dataURL) ud.photos[id] = await this.compressPhoto(dataURL);
       else delete ud.photos[id];
       touch();
+      return ud.photos[id] || null;
     },
 
     // ---- multi-tank ----
@@ -1724,12 +1809,52 @@ window.AquaStore = (() => {
       touch();
     },
 
-    // ---- sincronización nube → local (last-write-wins por updatedAt) ----
-    applyRemote(remote) {
-      if (remote && typeof remote.updatedAt === "number" && remote.updatedAt > ud.updatedAt) {
-        try { localStorage.setItem(KEY, JSON.stringify(remote)); } catch (e) { return; }
-        location.reload();
+    // ---- identidad: estos datos pertenecen a un usuario ----
+    get ownerUid() { return ud.ownerUid || null; },
+    // Se llama al iniciar sesión. Si los datos locales son de OTRA persona
+    // (o de una sesión de invitado sobre la que ahora entra alguien), se
+    // descartan antes de tocar la nube. Sin esto, el usuario B veía —y
+    // sobrescribía— el acuario del usuario A en el mismo navegador.
+    bindUser(uid) {
+      if (!uid) return false;
+      const prev = ud.ownerUid || null;
+      if (prev && prev !== uid) { this.wipeLocal(); return true; }
+      if (!prev) {
+        // Datos locales sin dueño: adoptarlos solo si el usuario nunca tuvo
+        // nada guardado en este navegador (primer inicio de sesión real).
+        ud.ownerUid = uid;
+        persist();
       }
+      return false;
+    },
+    // Borra los datos de este dispositivo sin tocar la nube ni recargar.
+    wipeLocal() {
+      try {
+        localStorage.removeItem(KEY);
+        localStorage.removeItem("aqua:onboarded");
+        localStorage.removeItem("aqua:page");
+      } catch (e) { /* ignorar */ }
+      sessionStorage.removeItem("aqua:session");
+    },
+
+    // ---- sincronización nube → local ----
+    // Solo se aplica un blob remoto si pertenece a la misma cuenta y es más
+    // reciente. Si falla la escritura, se avisa en vez de fallar en silencio.
+    applyRemote(remote, uid) {
+      if (!remote || typeof remote.updatedAt !== "number") return;
+      if (uid && remote.ownerUid && remote.ownerUid !== uid) return;
+      if (remote.updatedAt <= ud.updatedAt) return;
+      try {
+        localStorage.setItem(KEY, JSON.stringify(remote));
+      } catch (e) {
+        window.toast?.(
+          TT("No se pudieron traer los datos de la nube: almacenamiento lleno.",
+             "Couldn't pull cloud data: storage is full."),
+          { tone: "warn", icon: "AlertTriangle" }
+        );
+        return;
+      }
+      location.reload();
     },
 
     reset() {
@@ -1813,6 +1938,10 @@ window.CLOUD = (() => {
 
   async function startSync(uid) {
     stopSync();
+    // Los datos locales pueden ser de otra cuenta (o de una sesión de invitado).
+    // bindUser los descarta antes de leer o escribir nada en la nube.
+    const wiped = window.AquaStore?.bindUser?.(uid);
+    if (wiped) { location.reload(); return; }
     // Pull latest from cloud
     try {
       const { data } = await client
@@ -1820,19 +1949,22 @@ window.CLOUD = (() => {
         .select("data")
         .eq("user_id", uid)
         .single();
-      if (data?.data) window.AquaStore?.applyRemote(data.data);
-    } catch (_) {}
+      if (data?.data) window.AquaStore?.applyRemote(data.data, uid);
+      syncState("ok");
+    } catch (_) { syncState("error"); }
 
-    // Real-time subscription for changes from other devices
+    // Real-time subscription for changes from other devices.
+    // "*" cubre INSERT además de UPDATE: la primera vez que un dispositivo
+    // guarda, es un INSERT y con "UPDATE" nunca llegaba.
     realtimeChannel = client
       .channel("aquamind_data_changes")
       .on("postgres_changes", {
-        event: "UPDATE",
+        event: "*",
         schema: "public",
         table: "aquamind_data",
         filter: `user_id=eq.${uid}`,
       }, (payload) => {
-        if (payload.new?.data) window.AquaStore?.applyRemote(payload.new.data);
+        if (payload.new?.data) window.AquaStore?.applyRemote(payload.new.data, uid);
       })
       .subscribe();
   }
@@ -1844,16 +1976,42 @@ window.CLOUD = (() => {
     }
   }
 
+  // ---- estado de sincronización (para que la UI no mienta) ----
+  // "off" sin cuenta · "syncing" subiendo · "ok" al día · "error" pendiente
+  let sync = { state: "off", lastOk: null, pending: false };
+  function syncState(state) {
+    sync = { ...sync, state, ...(state === "ok" ? { lastOk: Date.now(), pending: false } : {}) };
+    window.dispatchEvent(new CustomEvent("aqua:sync", { detail: { ...sync } }));
+  }
+
+  let pushTimer = null, retryDelay = 2000;
   async function push(ud) {
     if (!client || !user || !ud) return;
+    // Nunca subir datos de otra cuenta a esta cuenta
+    if (ud.ownerUid && ud.ownerUid !== user.id) return;
+    if (!ud.ownerUid) ud.ownerUid = user.id;
+    syncState("syncing");
     try {
-      await client
+      const { error } = await client
         .from("aquamind_data")
         .upsert(
           { user_id: user.id, data: JSON.parse(JSON.stringify(ud)), updated_at: new Date().toISOString() },
           { onConflict: "user_id" }
         );
-    } catch (_) { /* offline — localStorage already saved it */ }
+      if (error) throw error;
+      retryDelay = 2000;
+      syncState("ok");
+    } catch (e) {
+      // Sin conexión / proyecto pausado: reintentar con backoff en vez de
+      // perder el cambio en silencio (localStorage ya lo tiene).
+      sync.pending = true;
+      syncState("error");
+      clearTimeout(pushTimer);
+      pushTimer = setTimeout(() => {
+        retryDelay = Math.min(retryDelay * 2, 60000);
+        push(window.AquaStore?.ud);
+      }, retryDelay);
+    }
   }
 
   async function signInWithEmail(email, password) {
@@ -1897,8 +2055,10 @@ window.CLOUD = (() => {
 
   async function signOut() {
     stopSync();
+    clearTimeout(pushTimer);
     try { await client?.auth.signOut(); } catch (_) {}
     user = null;
+    syncState("off");
     window.dispatchEvent(new CustomEvent("aqua:auth", { detail: null }));
   }
 
@@ -1907,6 +2067,7 @@ window.CLOUD = (() => {
   return {
     get isConfigured() { return true; },
     get user() { return user; },
+    get syncStatus() { return { ...sync }; },
     ready,
     signInWithEmail,
     signUp,
@@ -2096,8 +2257,28 @@ const __TWEAKS_STYLE = `
 // ── useTweaks ───────────────────────────────────────────────────────────────
 // Single source of truth for tweak values. setTweak persists via the host
 // (__edit_mode_set_keys → host rewrites the EDITMODE block on disk).
+// Preferencias del usuario (idioma / estilo / densidad). Se guardan en
+// localStorage: antes solo se mandaban por postMessage a un editor externo
+// que no existe en producción, así que el idioma volvía a español en cada
+// recarga y además pisaba la preferencia guardada.
+const TWEAKS_KEY = 'aqua:tweaks';
+function loadTweaks(defaults) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(TWEAKS_KEY) || 'null');
+    if (saved && typeof saved === 'object') return {
+      ...defaults,
+      ...saved
+    };
+  } catch (e) {/* ignorar */}
+  // Migración: respetar el idioma guardado por la versión anterior
+  const lang = localStorage.getItem('aqua:lang');
+  return lang ? {
+    ...defaults,
+    lang
+  } : defaults;
+}
 function useTweaks(defaults) {
-  const [values, setValues] = React.useState(defaults);
+  const [values, setValues] = React.useState(() => loadTweaks(defaults));
   // Accepts either setTweak('key', value) or setTweak({ key: value, ... }) so a
   // useState-style call doesn't write a "[object Object]" key into the persisted
   // JSON block.
@@ -2105,10 +2286,16 @@ function useTweaks(defaults) {
     const edits = typeof keyOrEdits === 'object' && keyOrEdits !== null ? keyOrEdits : {
       [keyOrEdits]: val
     };
-    setValues(prev => ({
-      ...prev,
-      ...edits
-    }));
+    setValues(prev => {
+      const next = {
+        ...prev,
+        ...edits
+      };
+      try {
+        localStorage.setItem(TWEAKS_KEY, JSON.stringify(next));
+      } catch (e) {/* ignorar */}
+      return next;
+    });
     window.parent.postMessage({
       type: '__edit_mode_set_keys',
       edits
@@ -5702,8 +5889,9 @@ function HeroPhotoSlot() {
     const f = e.target.files?.[0];
     if (!f) return;
     const reader = new FileReader();
-    reader.onload = ev => {
-      window.AquaStore?.setPhoto("tank-hero", ev.target.result);
+    // setPhoto reescala internamente antes de guardar (cuota de localStorage)
+    reader.onload = async ev => {
+      await window.AquaStore?.setPhoto("tank-hero", ev.target.result);
       forceUpdate();
       e.target.value = "";
     };
@@ -7045,8 +7233,9 @@ function LogReadingModal({
   const entries = Object.entries(vals).filter(([, v]) => v !== "" && isFinite(+v));
   const save = () => {
     if (!entries.length) return;
-    entries.forEach(([k, v]) => window.AQUA.logReading(k, +v));
-    window.dispatchEvent(new Event("aqua:data"));
+    // Debe ir por AquaStore: window.AQUA.logReading solo muta memoria y la
+    // lectura se perdía al recargar.
+    entries.forEach(([k, v]) => window.AquaStore.logReading(k, +v));
     window.toast?.(entries.length === 1 ? T(`Lectura de ${CURRENT_PARAMETERS[entries[0][0]].label} registrada`, `${CURRENT_PARAMETERS[entries[0][0]].label} reading logged`) : T(`${entries.length} lecturas registradas`, `${entries.length} readings logged`));
     onClose();
   };
@@ -8298,7 +8487,9 @@ function InhabitantDetailModal({
     const f = e.target.files?.[0];
     if (!f) return;
     const reader = new FileReader();
-    reader.onload = ev => setLogPhoto(ev.target.result);
+    // Reescalar antes de guardar: una foto de móvil sin comprimir llenaba
+    // la cuota de localStorage ella sola.
+    reader.onload = async ev => setLogPhoto(await S.compressPhoto(ev.target.result));
     reader.readAsDataURL(f);
     e.target.value = "";
   };
@@ -11613,11 +11804,11 @@ function RecoveryPasswordModal({
   const save = async e => {
     e.preventDefault();
     if (pw.length < 6) {
-      setError(T("Minimo 6 caracteres.", "At least 6 characters."));
+      setError(T("Mínimo 6 caracteres.", "At least 6 characters."));
       return;
     }
     if (pw !== pw2) {
-      setError(T("Las contrasenas no coinciden.", "Passwords don't match."));
+      setError(T("Las contraseñas no coinciden.", "Passwords don't match."));
       return;
     }
     setError("");
@@ -11626,12 +11817,12 @@ function RecoveryPasswordModal({
       await window.CLOUD.updatePassword(pw);
       window.__aquaRecovery = false;
       history.replaceState(null, "", location.pathname + location.search);
-      window.toast?.(T("Contrasena actualizada — ya puedes usarla para entrar", "Password updated — you can now sign in with it"), {
+      window.toast?.(T("Contraseña actualizada — ya puedes usarla para entrar", "Password updated — you can now sign in with it"), {
         icon: "ShieldCheck"
       });
       onDone();
     } catch (err) {
-      setError(err.message || T("No se pudo actualizar. Pide un nuevo enlace de recuperacion.", "Couldn't update. Request a new recovery link."));
+      setError(err.message || T("No se pudo actualizar. Pide un nuevo enlace de recuperación.", "Couldn't update. Request a new recovery link."));
     }
     setLoading(false);
   };
@@ -11659,9 +11850,9 @@ function RecoveryPasswordModal({
     }
   })), /*#__PURE__*/React.createElement("div", {
     className: "text-[15px] font-semibold text-[var(--ink)]"
-  }, T("Nueva contrasena", "New password"))), /*#__PURE__*/React.createElement("p", {
+  }, T("Nueva contraseña", "New password"))), /*#__PURE__*/React.createElement("p", {
     className: "text-[11.5px] text-[var(--ink-2)] mb-4"
-  }, T("Llegaste desde el enlace de recuperacion. Define tu nueva contrasena.", "You arrived from the recovery link. Set your new password.")), /*#__PURE__*/React.createElement("div", {
+  }, T("Llegaste desde el enlace de recuperación. Define tu nueva contraseña.", "You arrived from the recovery link. Set your new password.")), /*#__PURE__*/React.createElement("div", {
     className: "space-y-2.5"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-2 bg-[var(--well)] border border-[var(--hairline)] rounded-xl px-3 py-2.5"
@@ -11674,7 +11865,7 @@ function RecoveryPasswordModal({
     value: pw,
     onChange: e => setPw(e.target.value),
     autoFocus: true,
-    placeholder: T("Nueva contrasena", "New password"),
+    placeholder: T("Nueva contraseña", "New password"),
     className: "flex-1 bg-transparent border-0 outline-none text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)]"
   }), /*#__PURE__*/React.createElement("button", {
     type: "button",
@@ -11693,7 +11884,7 @@ function RecoveryPasswordModal({
     type: show ? "text" : "password",
     value: pw2,
     onChange: e => setPw2(e.target.value),
-    placeholder: T("Repite la contrasena", "Repeat password"),
+    placeholder: T("Repite la contraseña", "Repeat password"),
     className: "flex-1 bg-transparent border-0 outline-none text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)]"
   }))), error && /*#__PURE__*/React.createElement("div", {
     className: "mt-3 text-[11.5px] text-[#DC4458]"
@@ -11704,7 +11895,7 @@ function RecoveryPasswordModal({
     style: {
       background: "linear-gradient(135deg, var(--accent), var(--accent-strong))"
     }
-  }, loading ? T("Guardando…", "Saving…") : T("Guardar contrasena", "Save password")), /*#__PURE__*/React.createElement("button", {
+  }, loading ? T("Guardando…", "Saving…") : T("Guardar contraseña", "Save password")), /*#__PURE__*/React.createElement("button", {
     type: "button",
     onClick: () => {
       window.__aquaRecovery = false;
@@ -11739,7 +11930,7 @@ function LoginScreen({
       return;
     }
     if (mode !== "reset" && password.length < 6) {
-      setError(T("La contrasena debe tener al menos 6 caracteres.", "Password must be at least 6 characters."));
+      setError(T("La contraseña debe tener al menos 6 caracteres.", "Password must be at least 6 characters."));
       return;
     }
     clearMessages();
@@ -11765,7 +11956,7 @@ function LoginScreen({
     try {
       if (mode === "reset") {
         await window.CLOUD.resetPassword(email.trim());
-        setInfo(T("Revisa tu email — te enviamos el enlace de recuperacion.", "Check your email — we sent the recovery link."));
+        setInfo(T("Revisa tu email — te enviamos el enlace de recuperación.", "Check your email — we sent the recovery link."));
         setMode("signin");
       } else if (mode === "signup") {
         const {
@@ -11774,11 +11965,11 @@ function LoginScreen({
         } = await window.CLOUD.signUp(email.trim(), password);
         if (u && !u.identities?.length) {
           // Supabase returns a user with no identities when the email is already registered
-          setError(T("Ya tienes cuenta con ese email. Inicia sesion.", "That email already has an account. Sign in instead."));
+          setError(T("Ya tienes cuenta con ese email. Inicia sesión.", "That email already has an account. Sign in instead."));
           setMode("signin");
         } else if (u && !session) {
           // Email confirmation required — no session yet, so don't fake one
-          setInfo(T("Cuenta creada. Revisa tu email y haz clic en el enlace de confirmacion, luego inicia sesion aqui.", "Account created. Check your email, click the confirmation link, then sign in here."));
+          setInfo(T("Cuenta creada. Revisa tu email y haz clic en el enlace de confirmación, luego inicia sesión aquí.", "Account created. Check your email, click the confirmation link, then sign in here."));
           setMode("signin");
         } else if (u) {
           // Auto-confirmed: wipe all old data so new account starts truly fresh,
@@ -11802,7 +11993,7 @@ function LoginScreen({
     } catch (err) {
       const msg = err.message || "";
       const low = msg.toLowerCase();
-      if (low.includes("rate limit")) setError(T("Limite de emails alcanzado (plan gratuito de Supabase, ~4 por hora). Espera 30-60 min e intenta de nuevo — tu cuenta puede que ya este creada, prueba iniciar sesion.", "Email rate limit reached (Supabase free tier, ~4 per hour). Wait 30-60 min and try again — your account may already exist, try signing in."));else if (msg.includes("Invalid login")) setError(T("Email o contrasena incorrectos.", "Incorrect email or password."));else if (msg.includes("Email not confirmed")) setError(T("Confirma tu email antes de iniciar sesion. Revisa tu bandeja (y spam).", "Please confirm your email before signing in. Check your inbox (and spam)."));else if (msg.includes("User already registered")) setError(T("Ya tienes cuenta. Inicia sesion.", "Account already exists. Sign in instead."));else if (low.includes("failed to fetch") || low.includes("network")) setError(T("Sin conexion con el servidor. Revisa tu internet o intenta en unos minutos (el proyecto puede estar despertando).", "Can't reach the server. Check your connection or retry in a few minutes (the project may be waking up)."));else setError(msg || T("Algo salio mal. Intenta de nuevo.", "Something went wrong. Please try again."));
+      if (low.includes("rate limit")) setError(T("Límite de emails alcanzado (plan gratuito de Supabase, ~4 por hora). Espera 30-60 min e intenta de nuevo — tu cuenta puede que ya esté creada, prueba iniciar sesión.", "Email rate limit reached (Supabase free tier, ~4 per hour). Wait 30-60 min and try again — your account may already exist, try signing in."));else if (msg.includes("Invalid login")) setError(T("Email o contraseña incorrectos.", "Incorrect email or password."));else if (msg.includes("Email not confirmed")) setError(T("Confirma tu email antes de iniciar sesión. Revisa tu bandeja (y spam).", "Please confirm your email before signing in. Check your inbox (and spam)."));else if (msg.includes("User already registered")) setError(T("Ya tienes cuenta. Inicia sesión.", "Account already exists. Sign in instead."));else if (low.includes("failed to fetch") || low.includes("network")) setError(T("Sin conexión con el servidor. Revisa tu internet o intenta en unos minutos (el proyecto puede estar despertando).", "Can't reach the server. Check your connection or retry in a few minutes (the project may be waking up)."));else setError(msg || T("Algo salió mal. Intenta de nuevo.", "Something went wrong. Please try again."));
     }
     setLoading(false);
   };
@@ -11833,9 +12024,9 @@ function LoginScreen({
     });
   };
   const titles = {
-    signin: T("Iniciar sesion", "Sign in"),
+    signin: T("Iniciar sesión", "Sign in"),
     signup: T("Crear cuenta", "Create account"),
-    reset: T("Recuperar contrasena", "Reset password")
+    reset: T("Recuperar contraseña", "Reset password")
   };
   return /*#__PURE__*/React.createElement("div", {
     className: "min-h-screen relative grid place-items-center p-4",
@@ -11958,7 +12149,7 @@ function LoginScreen({
       setPassword(e.target.value);
       clearMessages();
     },
-    placeholder: mode === "signup" ? T("Minimo 6 caracteres", "Minimum 6 characters") : T("Contrasena", "Password"),
+    placeholder: mode === "signup" ? T("Mínimo 6 caracteres", "Minimum 6 characters") : T("Contraseña", "Password"),
     autoComplete: mode === "signup" ? "new-password" : "current-password",
     className: "flex-1 bg-transparent border-0 outline-none text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)]",
     required: true
@@ -11998,7 +12189,7 @@ function LoginScreen({
       clearMessages();
     },
     className: "text-[11px] text-[var(--ink-3)] hover:text-[var(--accent)] transition-colors"
-  }, T("Olvide mi contrasena", "Forgot password?"))), /*#__PURE__*/React.createElement("button", {
+  }, T("Olvidé mi contraseña", "Forgot password?"))), /*#__PURE__*/React.createElement("button", {
     type: "submit",
     disabled: loading,
     className: "w-full rounded-full py-2.5 text-[13.5px] font-semibold text-white disabled:opacity-60 transition-all active:scale-[0.99]",
@@ -12016,12 +12207,12 @@ function LoginScreen({
       clearMessages();
     },
     className: "w-full text-[12px] text-[var(--ink-3)] hover:text-[var(--ink-2)] transition-colors"
-  }, T("← Volver al inicio de sesion", "← Back to sign in"))), !cloudReady && /*#__PURE__*/React.createElement("p", {
+  }, T("← Volver al inicio de sesión", "← Back to sign in"))), !cloudReady && /*#__PURE__*/React.createElement("p", {
     className: "text-[10.5px] text-[var(--ink-3)] mt-3 text-center leading-relaxed rounded-lg px-2 py-1.5",
     style: {
       background: "var(--well)"
     }
-  }, T("Supabase no configurado — entrara en modo demo local.", "Supabase not configured — will enter local demo mode.")), /*#__PURE__*/React.createElement("div", {
+  }, T("Supabase no configurado — entrará en modo demo local.", "Supabase not configured — will enter local demo mode.")), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-3 my-4"
   }, /*#__PURE__*/React.createElement("span", {
     className: "flex-1 h-px bg-[var(--hairline)]"
@@ -12046,7 +12237,7 @@ function LoginScreen({
     className: "text-[12px] text-[var(--ink-3)] hover:text-[var(--ink-2)] transition-colors"
   }, T("Explorar sin cuenta →", "Explore without account →"))), /*#__PURE__*/React.createElement("p", {
     className: "text-[10px] text-[var(--ink-3)] mt-5 text-center leading-relaxed"
-  }, T("Datos cifrados en transito y en reposo. Nunca compartimos tu informacion.", "Data encrypted in transit and at rest. We never share your information.")))));
+  }, T("Datos cifrados en tránsito y en reposo. Nunca compartimos tu información.", "Data encrypted in transit and at rest. We never share your information.")))));
 }
 
 // ---------- helpers: .ics generation for Apple Calendar / Reminders ----------
@@ -12241,7 +12432,7 @@ function SupabaseConfigRow() {
     window.CLOUD?.setConfig?.(url.trim(), key.trim());
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
-    window.toast?.(T("Supabase guardado — recarga la pagina para activar la nube", "Supabase saved — reload the page to activate cloud sync"), {
+    window.toast?.(T("Supabase guardado — recarga la página para activar la nube", "Supabase saved — reload the page to activate cloud sync"), {
       icon: "Cloud",
       tone: "info"
     });
@@ -13377,14 +13568,20 @@ function App() {
     }
     setSession(user);
   };
-  const signOut = () => {
-    window.CLOUD?.signOut();
+  const signOut = async () => {
+    // Vaciar los cambios pendientes antes de soltar la sesión, si no los
+    // últimos 250 ms se subían con las credenciales del usuario saliente.
+    window.AquaStore?.flush?.();
+    await window.CLOUD?.signOut();
     localStorage.removeItem("aqua:session");
+    // sessionStorage guarda las sesiones de invitado: si no se limpia, la
+    // sesión "resucita" al recargar y se entra sin pasar por el login.
+    sessionStorage.removeItem("aqua:session");
     setSession(null);
     setActivePage("dashboard");
   };
 
-  // Supabase auth: cloud.js emite aqua:auth al conectar o cerrar sesion.
+  // Supabase auth: cloud.js emite aqua:auth al conectar o cerrar sesión.
   React.useEffect(() => {
     const fn = e => {
       if (e.detail) {
@@ -13392,7 +13589,7 @@ function App() {
           ...e.detail,
           color: "linear-gradient(150deg, var(--accent), var(--indigo))"
         });
-        window.toast?.(T(`Sesion iniciada: ${e.detail.email} — datos sincronizando con la nube`, `Signed in: ${e.detail.email} — data syncing to the cloud`), {
+        window.toast?.(T(`Sesión iniciada: ${e.detail.email} — datos sincronizando con la nube`, `Signed in: ${e.detail.email} — data syncing to the cloud`), {
           icon: "CloudUpload"
         });
       } else {
