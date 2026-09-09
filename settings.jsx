@@ -745,18 +745,27 @@ function SettingsPage({ session, onSignOut, tweaks, setTweak }) {
   };
 
   const askPermission = async () => {
-    if (typeof Notification === "undefined") return;
-    const p = await Notification.requestPermission();
+    const N = window.AquaNotify;
+    if (!N?.supported) {
+      window.toast?.(T("Este navegador no soporta notificaciones", "This browser doesn't support notifications"), { tone: "warn", icon: "BellOff" });
+      return;
+    }
+    const p = await N.request();
     setPerm(p);
     if (p === "granted") {
-      new Notification("AquaMind", { body: T("Notificaciones activadas — te avisaremos de alertas críticas y rutinas.", "Notifications on — we'll ping you about critical alerts and routines.") });
+      localStorage.setItem("aqua:notify_enabled", "true");
+      await N.show("AquaMind", T("Notificaciones activadas — te avisaré de parámetros críticos y rutinas pendientes.", "Notifications on — I'll ping you about critical parameters and pending routines."), "aqua-welcome");
+      N.start();
+      N.check({ force: false });
+    } else if (p === "denied") {
+      window.toast?.(T("Permiso denegado. Actívalo en los ajustes del navegador para este sitio.", "Permission denied. Enable it in your browser settings for this site."), { tone: "warn", icon: "BellOff" });
     }
   };
 
-  const testNotification = () => {
-    if (perm === "granted") {
-      new Notification("AquaMind · " + T("Alerta crítica", "Critical alert"), { body: T("Birdsnest blanqueando — KH 7.0 dKH. Dosifica 7 ml de Reef Buffer.", "Birdsnest bleaching — KH 7.0 dKH. Dose 7 ml Reef Buffer.") });
-    }
+  // Prueba con el estado REAL del tanque (antes mostraba un coral inventado)
+  const testNotification = async () => {
+    const ok = await window.AquaNotify?.test();
+    if (!ok) window.toast?.(T("No se pudo mostrar la notificación — revisa el permiso", "Couldn't show the notification — check the permission"), { tone: "warn", icon: "BellOff" });
   };
 
   const exportICS = (kind) => {
@@ -983,6 +992,17 @@ function SettingsPage({ session, onSignOut, tweaks, setTweak }) {
                    "You blocked notifications. Re-enable them in your browser's site settings (lock icon in the address bar).")}
               </p>
             )}
+            {/* Alcance real, sin prometer de más */}
+            <div className="mt-3 rounded-xl px-3 py-2.5" style={{ background: "var(--well)", border: "1px solid var(--hairline)" }}>
+              <div className="text-[10.5px] font-semibold text-[var(--ink)] mb-1 flex items-center gap-1.5">
+                <L name="Info" size={11} style={{ color: "var(--accent)" }} /> {T("Qué puede y qué no puede hacer", "What it can and can't do")}
+              </div>
+              <ul className="text-[10.5px] text-[var(--ink-2)] leading-relaxed space-y-0.5">
+                <li>✓ {T("Te avisa de parámetros críticos y rutinas pendientes al abrir la app y mientras la tengas abierta.", "Alerts you to critical parameters and pending routines when you open the app and while it's open.")}</li>
+                <li>✓ {T("En iPhone funciona si instalas AquaMind en tu pantalla de inicio (Compartir → Añadir a inicio).", "On iPhone it works if you install AquaMind to your Home Screen (Share → Add to Home Screen).")}</li>
+                <li>✗ {T("Al ser una app web sin servidor propio, no puede despertar tu teléfono con la app completamente cerrada.", "Being a web app with no server of its own, it can't wake your phone while the app is fully closed.")}</li>
+              </ul>
+            </div>
           </Card>
 
           <Card className="overflow-hidden">

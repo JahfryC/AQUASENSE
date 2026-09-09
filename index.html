@@ -1836,10 +1836,13 @@ window.AquaStore = (() => {
       const prev = ud.ownerUid || null;
       if (prev && prev !== uid) { this.wipeLocal(); return true; }
       if (!prev) {
-        // Datos locales sin dueño: adoptarlos solo si el usuario nunca tuvo
-        // nada guardado en este navegador (primer inicio de sesión real).
+        // Datos locales sin dueño: adoptarlos.
+        // OJO: escribir SIN tocar updatedAt. Si aquí se llamara a persist(),
+        // updatedAt saltaría a "ahora" y la copia de la nube (más antigua en
+        // el reloj) se descartaría por vieja — el usuario iniciaba sesión y
+        // veía su acuario vacío.
         ud.ownerUid = uid;
-        persist();
+        try { localStorage.setItem(KEY, JSON.stringify(ud)); } catch (e) { /* ignorar */ }
       }
       return false;
     },
@@ -1856,10 +1859,26 @@ window.AquaStore = (() => {
     // ---- sincronización nube → local ----
     // Solo se aplica un blob remoto si pertenece a la misma cuenta y es más
     // reciente. Si falla la escritura, se avisa en vez de fallar en silencio.
+    // ¿Este conjunto de datos tiene contenido real del usuario?
+    isEmptyData(d) {
+      if (!d) return true;
+      return !(d.customTanks || []).length
+        && !(d.customInhabitants || []).length
+        && !(d.supplements || []).length
+        && !(d.customRoutines || []).length
+        && !Object.keys(d.photos || {}).length
+        && !(d.readingsLogged || 0)
+        && !d.lightFixture;
+    },
     applyRemote(remote, uid) {
       if (!remote || typeof remote.updatedAt !== "number") return;
       if (uid && remote.ownerUid && remote.ownerUid !== uid) return;
-      if (remote.updatedAt <= ud.updatedAt) return;
+      // Red de seguridad: si en este dispositivo no hay nada propio pero la
+      // nube sí tiene datos, traerlos aunque el reloj diga lo contrario.
+      // (Relojes desajustados no deben esconderle el acuario al usuario.)
+      const localVacio = this.isEmptyData(ud);
+      const remotoConDatos = !this.isEmptyData(remote);
+      if (remote.updatedAt <= ud.updatedAt && !(localVacio && remotoConDatos)) return;
       try {
         localStorage.setItem(KEY, JSON.stringify(remote));
       } catch (e) {
@@ -1873,6 +1892,9 @@ window.AquaStore = (() => {
       location.reload();
     },
 
+    // Datos que el motor de notificaciones necesita consultar
+    get routinesDone() { return ud.routinesDone || {}; },
+
     reset() {
       // Clear all AquaMind localStorage keys so a new account starts truly fresh
       Object.keys(localStorage).filter((k) => k.startsWith("aqua:")).forEach((k) => localStorage.removeItem(k));
@@ -1880,6 +1902,141 @@ window.AquaStore = (() => {
       location.reload();
     },
   };
+})();
+
+// ============ NOTIFICACIONES ============
+// Aviso honesto sobre el alcance: sin un servidor propio, una web no puede
+// despertar el teléfono con la app CERRADA. Lo que sí funciona y es lo que
+// hace esto:
+//   · avisos mientras la app está abierta o en segundo plano reciente
+//   · repaso al abrir la app (rutinas vencidas, parámetros críticos)
+//   · en iPhone requiere instalar la app en la pantalla de inicio (iOS 16.4+)
+// Se usa el service worker para mostrarlas, que es lo que funciona en móvil.
+window.AquaNotify = (() => {
+  const SEEN_KEY = "aqua:notified";
+  const A = window.AQUA;
+
+  const supported = typeof Notification !== "undefined";
+  const permission = () => (supported ? Notification.permission : "unsupported");
+
+  async function request() {
+    if (!supported) return "unsupported";
+    const p = await Notification.requestPermission();
+    return p;
+  }
+
+  // Mostrar vía service worker (funciona en móvil e instalada); si no hay SW,
+  // recurrir a la Notification normal (escritorio con la pestaña abierta).
+  async function show(title, body, tag) {
+    if (permission() !== "granted") return false;
+    const opts = {
+      body, tag, renotify: false,
+      icon: "icon-192.png", badge: "icon-192.png",
+      lang: window.__lang === "en" ? "en" : "es",
+    };
+    try {
+      const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration();
+      if (reg && reg.showNotification) { await reg.showNotification(title, opts); return true; }
+    } catch (e) { /* seguir con el plan B */ }
+    try { new Notification(title, opts); return true; } catch (e) { return false; }
+  }
+
+  // Evita repetir el mismo aviso el mismo día
+  function alreadySent(key) {
+    const today = new Date().toISOString().slice(0, 10);
+    let seen = {};
+    try { seen = JSON.parse(localStorage.getItem(SEEN_KEY) || "{}"); } catch (e) {}
+    if (seen.day !== today) seen = { day: today, keys: [] };
+    return { seen, hit: (seen.keys || []).includes(key) };
+  }
+  function markSent(key) {
+    const { seen } = alreadySent(key);
+    seen.keys = [...new Set([...(seen.keys || []), key])];
+    try { localStorage.setItem(SEEN_KEY, JSON.stringify(seen)); } catch (e) {}
+  }
+
+  const T2 = (es, en) => (window.__lang === "en" ? en : es);
+
+  // Revisa el estado real del acuario y avisa de lo que importa
+  async function check({ force = false } = {}) {
+    if (permission() !== "granted") return 0;
+    if (localStorage.getItem("aqua:notify_enabled") === "false") return 0;
+    let sent = 0;
+
+    // 1) Parámetros en estado crítico
+    const bad = Object.entries(A.CURRENT_PARAMETERS || {})
+      .filter(([, p]) => p.status === "danger")
+      .map(([k, p]) => `${p.label} ${p.value}${p.unit ? " " + p.unit : ""}`);
+    if (bad.length) {
+      const key = "param:" + bad.join("|");
+      const { hit } = alreadySent(key);
+      if (force || !hit) {
+        await show(
+          T2("⚠️ Parámetro fuera de rango", "⚠️ Parameter out of range"),
+          bad.join(" · ") + T2(" — revisa tu acuario", " — check your tank"),
+          "aqua-param"
+        );
+        markSent(key); sent++;
+      }
+    }
+
+    // 2) Rutinas pendientes de hoy
+    const done = window.AquaStore?.routinesDone || {};
+    const due = (A.ROUTINES || []).filter((r) => r.nextDue === "today" && !done[r.id]);
+    if (due.length) {
+      const key = "routine:" + due.map((r) => r.id).join("|");
+      const { hit } = alreadySent(key);
+      if (force || !hit) {
+        await show(
+          T2(`Tienes ${due.length} tarea(s) de mantenimiento hoy`, `You have ${due.length} maintenance task(s) today`),
+          due.map((r) => r.task || r.name).join(" · "),
+          "aqua-routine"
+        );
+        markSent(key); sent++;
+      }
+    }
+
+    // 3) Alertas críticas activas
+    const alerts = (window.AquaStore?.activeAlerts?.() || []).filter((a) => a.severity === "danger");
+    if (alerts.length) {
+      const key = "alert:" + alerts.map((a) => a.id).join("|");
+      const { hit } = alreadySent(key);
+      if (force || !hit) {
+        await show("⚠️ " + (alerts[0].title || T2("Alerta crítica", "Critical alert")), alerts[0].body || "", "aqua-alert");
+        markSent(key); sent++;
+      }
+    }
+    return sent;
+  }
+
+  // Notificación de prueba con el estado REAL del acuario (antes mostraba un
+  // texto inventado sobre un coral que el usuario podía no tener).
+  async function test() {
+    const p = A.CURRENT_PARAMETERS || {};
+    const n = (A.INHABITANTS?.fish?.length || 0) + (A.INHABITANTS?.corals?.length || 0) + (A.INHABITANTS?.cuc?.length || 0);
+    const bits = [];
+    if (p.temperature?.value) bits.push(`${p.temperature.value}°F`);
+    if (p.ph?.value) bits.push(`pH ${p.ph.value}`);
+    if (n) bits.push(T2(`${n} habitantes`, `${n} inhabitants`));
+    return show(
+      "AquaMind · " + (A.TANK_CONFIG?.name || T2("Tu acuario", "Your tank")),
+      bits.length ? bits.join(" · ") : T2("Notificaciones activadas correctamente.", "Notifications enabled successfully."),
+      "aqua-test"
+    );
+  }
+
+  // Revisar al abrir y cada 30 min mientras la app siga abierta
+  let timer = null;
+  function start() {
+    if (timer) return;
+    setTimeout(() => check(), 4000);
+    timer = setInterval(() => check(), 30 * 60 * 1000);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") check();
+    });
+  }
+
+  return { supported, permission, request, show, check, test, start };
 })();
 
 </script>
@@ -1958,16 +2115,23 @@ window.CLOUD = (() => {
     // bindUser los descarta antes de leer o escribir nada en la nube.
     const wiped = window.AquaStore?.bindUser?.(uid);
     if (wiped) { location.reload(); return; }
-    // Pull latest from cloud
+    // Descargar SIEMPRE antes de habilitar las subidas
     try {
-      const { data } = await client
+      const { data, error } = await client
         .from("aquamind_data")
         .select("data")
         .eq("user_id", uid)
-        .single();
+        .maybeSingle();
+      if (error) throw error;
       if (data?.data) window.AquaStore?.applyRemote(data.data, uid);
+      pulled = true;               // a partir de aquí ya es seguro subir
       syncState("ok");
-    } catch (_) { syncState("error"); }
+    } catch (e) {
+      // No se pudo leer la nube: mantener las subidas bloqueadas para no
+      // arriesgar sobrescribir datos que no hemos podido ver.
+      console.warn("[AquaMind] no se pudo leer la nube:", e);
+      syncState("error");
+    }
 
     // Real-time subscription for changes from other devices.
     // "*" cubre INSERT además de UPDATE: la primera vez que un dispositivo
@@ -2001,8 +2165,14 @@ window.CLOUD = (() => {
   }
 
   let pushTimer = null, retryDelay = 2000;
+  // Hasta no haber leído la nube una vez, NO se sube nada. Sin esta barrera,
+  // abrir la app en un dispositivo nuevo (datos locales vacíos) subía ese
+  // vacío y borraba el acuario guardado en la nube antes de descargarlo.
+  let pulled = false;
+
   async function push(ud) {
     if (!client || !user || !ud) return;
+    if (!pulled) return;
     // Nunca subir datos de otra cuenta a esta cuenta
     if (ud.ownerUid && ud.ownerUid !== user.id) return;
     if (!ud.ownerUid) ud.ownerUid = user.id;
@@ -2071,6 +2241,7 @@ window.CLOUD = (() => {
 
   async function signOut() {
     stopSync();
+    pulled = false;
     clearTimeout(pushTimer);
     try { await client?.auth.signOut(); } catch (_) {}
     user = null;
@@ -13526,21 +13697,38 @@ function SettingsPage({
     window.AquaStore?.reset();
   };
   const askPermission = async () => {
-    if (typeof Notification === "undefined") return;
-    const p = await Notification.requestPermission();
+    const N = window.AquaNotify;
+    if (!N?.supported) {
+      window.toast?.(T("Este navegador no soporta notificaciones", "This browser doesn't support notifications"), {
+        tone: "warn",
+        icon: "BellOff"
+      });
+      return;
+    }
+    const p = await N.request();
     setPerm(p);
     if (p === "granted") {
-      new Notification("AquaMind", {
-        body: T("Notificaciones activadas — te avisaremos de alertas críticas y rutinas.", "Notifications on — we'll ping you about critical alerts and routines.")
+      localStorage.setItem("aqua:notify_enabled", "true");
+      await N.show("AquaMind", T("Notificaciones activadas — te avisaré de parámetros críticos y rutinas pendientes.", "Notifications on — I'll ping you about critical parameters and pending routines."), "aqua-welcome");
+      N.start();
+      N.check({
+        force: false
+      });
+    } else if (p === "denied") {
+      window.toast?.(T("Permiso denegado. Actívalo en los ajustes del navegador para este sitio.", "Permission denied. Enable it in your browser settings for this site."), {
+        tone: "warn",
+        icon: "BellOff"
       });
     }
   };
-  const testNotification = () => {
-    if (perm === "granted") {
-      new Notification("AquaMind · " + T("Alerta crítica", "Critical alert"), {
-        body: T("Birdsnest blanqueando — KH 7.0 dKH. Dosifica 7 ml de Reef Buffer.", "Birdsnest bleaching — KH 7.0 dKH. Dose 7 ml Reef Buffer.")
-      });
-    }
+
+  // Prueba con el estado REAL del tanque (antes mostraba un coral inventado)
+  const testNotification = async () => {
+    const ok = await window.AquaNotify?.test();
+    if (!ok) window.toast?.(T("No se pudo mostrar la notificación — revisa el permiso", "Couldn't show the notification — check the permission"), {
+      tone: "warn",
+      icon: "BellOff"
+    });
   };
   const exportICS = kind => {
     downloadICS(kind);
@@ -13884,7 +14072,23 @@ function SettingsPage({
       border: "1px solid rgba(225,29,72,0.28)",
       color: "#DC4458"
     }
-  }, T("Bloqueaste las notificaciones. Actívalas desde los ajustes del sitio en tu navegador (icono del candado en la barra de direcciones).", "You blocked notifications. Re-enable them in your browser's site settings (lock icon in the address bar)."))), /*#__PURE__*/React.createElement(Card, {
+  }, T("Bloqueaste las notificaciones. Actívalas desde los ajustes del sitio en tu navegador (icono del candado en la barra de direcciones).", "You blocked notifications. Re-enable them in your browser's site settings (lock icon in the address bar).")), /*#__PURE__*/React.createElement("div", {
+    className: "mt-3 rounded-xl px-3 py-2.5",
+    style: {
+      background: "var(--well)",
+      border: "1px solid var(--hairline)"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-[10.5px] font-semibold text-[var(--ink)] mb-1 flex items-center gap-1.5"
+  }, /*#__PURE__*/React.createElement(L, {
+    name: "Info",
+    size: 11,
+    style: {
+      color: "var(--accent)"
+    }
+  }), " ", T("Qué puede y qué no puede hacer", "What it can and can't do")), /*#__PURE__*/React.createElement("ul", {
+    className: "text-[10.5px] text-[var(--ink-2)] leading-relaxed space-y-0.5"
+  }, /*#__PURE__*/React.createElement("li", null, "\u2713 ", T("Te avisa de parámetros críticos y rutinas pendientes al abrir la app y mientras la tengas abierta.", "Alerts you to critical parameters and pending routines when you open the app and while it's open.")), /*#__PURE__*/React.createElement("li", null, "\u2713 ", T("En iPhone funciona si instalas AquaMind en tu pantalla de inicio (Compartir → Añadir a inicio).", "On iPhone it works if you install AquaMind to your Home Screen (Share → Add to Home Screen).")), /*#__PURE__*/React.createElement("li", null, "\u2717 ", T("Al ser una app web sin servidor propio, no puede despertar tu teléfono con la app completamente cerrada.", "Being a web app with no server of its own, it can't wake your phone while the app is fully closed."))))), /*#__PURE__*/React.createElement(Card, {
     className: "overflow-hidden"
   }, /*#__PURE__*/React.createElement(SettingRow, {
     icon: "AlertOctagon",
@@ -14561,6 +14765,11 @@ function App() {
     const nowDone = window.AquaStore.toggleRoutine(id);
     if (nowDone) window.toast?.(T("Rutina completada", "Routine completed"));
   };
+
+  // ---- notificaciones: revisar al abrir y cada 30 min ----
+  React.useEffect(() => {
+    if (window.AquaNotify?.permission() === "granted") window.AquaNotify.start();
+  }, []);
 
   // ---- onboarding check ----
   const [onboarded, setOnboarded] = React.useState(() => !!localStorage.getItem("aqua:onboarded"));

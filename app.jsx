@@ -131,6 +131,11 @@ function App() {
     if (nowDone) window.toast?.(T("Rutina completada", "Routine completed"));
   };
 
+  // ---- notificaciones: revisar al abrir y cada 30 min ----
+  React.useEffect(() => {
+    if (window.AquaNotify?.permission() === "granted") window.AquaNotify.start();
+  }, []);
+
   // ---- onboarding check ----
   const [onboarded, setOnboarded] = React.useState(() => !!localStorage.getItem("aqua:onboarded"));
 

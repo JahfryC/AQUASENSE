@@ -72,16 +72,23 @@ window.CLOUD = (() => {
     // bindUser los descarta antes de leer o escribir nada en la nube.
     const wiped = window.AquaStore?.bindUser?.(uid);
     if (wiped) { location.reload(); return; }
-    // Pull latest from cloud
+    // Descargar SIEMPRE antes de habilitar las subidas
     try {
-      const { data } = await client
+      const { data, error } = await client
         .from("aquamind_data")
         .select("data")
         .eq("user_id", uid)
-        .single();
+        .maybeSingle();
+      if (error) throw error;
       if (data?.data) window.AquaStore?.applyRemote(data.data, uid);
+      pulled = true;               // a partir de aquí ya es seguro subir
       syncState("ok");
-    } catch (_) { syncState("error"); }
+    } catch (e) {
+      // No se pudo leer la nube: mantener las subidas bloqueadas para no
+      // arriesgar sobrescribir datos que no hemos podido ver.
+      console.warn("[AquaMind] no se pudo leer la nube:", e);
+      syncState("error");
+    }
 
     // Real-time subscription for changes from other devices.
     // "*" cubre INSERT además de UPDATE: la primera vez que un dispositivo
@@ -115,8 +122,14 @@ window.CLOUD = (() => {
   }
 
   let pushTimer = null, retryDelay = 2000;
+  // Hasta no haber leído la nube una vez, NO se sube nada. Sin esta barrera,
+  // abrir la app en un dispositivo nuevo (datos locales vacíos) subía ese
+  // vacío y borraba el acuario guardado en la nube antes de descargarlo.
+  let pulled = false;
+
   async function push(ud) {
     if (!client || !user || !ud) return;
+    if (!pulled) return;
     // Nunca subir datos de otra cuenta a esta cuenta
     if (ud.ownerUid && ud.ownerUid !== user.id) return;
     if (!ud.ownerUid) ud.ownerUid = user.id;
@@ -185,6 +198,7 @@ window.CLOUD = (() => {
 
   async function signOut() {
     stopSync();
+    pulled = false;
     clearTimeout(pushTimer);
     try { await client?.auth.signOut(); } catch (_) {}
     user = null;
