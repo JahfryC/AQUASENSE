@@ -475,10 +475,11 @@ async function groqJSON(system, user, maxTokens = 500) {
         messages: [{ role: "system", content: system }, { role: "user", content: user }],
         max_tokens: maxTokens, temperature: 0.2,
       }),
+      signal: AbortSignal.timeout(30000),
     });
     if (!resp.ok) return { _error: resp.status };
     return parseGroqJSON(await resp.json()) || { _parseError: true };
-  } catch (e) { return { _error: "network" }; }
+  } catch (e) { return { _error: e?.name === "TimeoutError" ? "timeout" : "network" }; }
 }
 
 // Full care sheet for a species. kind: fish | corals | cuc

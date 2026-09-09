@@ -18,6 +18,53 @@ function GoogleG({ size = 18 }) {
   );
 }
 
+// ---------- Estado real de sincronización ----------
+// Antes el badge decía "Nube sincronizada" con solo existir una sesión, aunque
+// todas las subidas estuvieran fallando (proyecto pausado, sin internet…).
+// Ahora refleja el resultado real de la última subida.
+function SyncStatusBlock() {
+  const [sync, setSync] = React.useState(() => window.CLOUD?.syncStatus || { state: "off" });
+  React.useEffect(() => {
+    const fn = (e) => setSync(e.detail);
+    window.addEventListener("aqua:sync", fn);
+    return () => window.removeEventListener("aqua:sync", fn);
+  }, []);
+
+  const signedIn = !!window.CLOUD?.user;
+  const meta = !signedIn
+    ? { status: "info", label: T("Guardados en este dispositivo", "Saved on this device"),
+        body: T("Todo se guarda automáticamente en este navegador. Inicia sesión para activar la sincronización entre dispositivos.",
+                "Everything saves automatically in this browser. Sign in to enable cross-device sync.") }
+    : sync.state === "error"
+      ? { status: "warn", label: T("Cambios pendientes de subir", "Changes pending upload"),
+          body: T("Tus datos están guardados en este dispositivo, pero no se pudieron subir a la nube. Se reintenta solo; revisa tu conexión.",
+                  "Your data is saved on this device but couldn't reach the cloud. It retries automatically; check your connection.") }
+      : sync.state === "syncing"
+        ? { status: "info", label: T("Sincronizando…", "Syncing…"),
+            body: T("Subiendo tus últimos cambios a la nube.", "Uploading your latest changes to the cloud.") }
+        : { status: "ok", label: T("Nube sincronizada", "Cloud synced"),
+            body: T("Lecturas, fotos, rutinas y alertas se sincronizan con tu cuenta. Abre la app en otro dispositivo e inicia sesión para ver lo mismo.",
+                    "Readings, photos, routines and alerts sync with your account. Open the app on another device and sign in to see the same data.") };
+
+  const ago = sync.lastOk ? Math.round((Date.now() - sync.lastOk) / 60000) : null;
+
+  return (
+    <>
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-[14px] font-semibold text-[var(--ink)]">{T("Tus datos", "Your data")}</span>
+        <StatusPill status={meta.status} label={meta.label} />
+      </div>
+      <p className="text-[11.5px] text-[var(--ink-2)] mt-1 leading-relaxed">{meta.body}</p>
+      {signedIn && sync.lastOk && (
+        <p className="text-[10.5px] text-[var(--ink-3)] mt-1">
+          {ago < 1 ? T("Última sincronización: hace unos segundos", "Last synced: seconds ago")
+                   : T(`Última sincronización: hace ${ago} min`, `Last synced: ${ago} min ago`)}
+        </p>
+      )}
+    </>
+  );
+}
+
 // ---------- Recovery: set new password (arrives from reset email link) ----------
 function RecoveryPasswordModal({ onDone }) {
   const [pw, setPw] = React.useState("");
@@ -472,7 +519,7 @@ function AquaBuddyKeyRow() {
         <div className="flex-1 flex items-center gap-2 rounded-xl px-3 py-2" style={{ background: "var(--well)", border: "1px solid var(--hairline)" }}>
           <L name="KeyRound" size={12} className="text-[var(--ink-3)] shrink-0" />
           <input type={show ? "text" : "password"} value={key} onChange={(e) => setKey(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") save(); }}
-            placeholder="AIza..."
+            placeholder="gsk_..."
             className="flex-1 bg-transparent border-0 outline-none text-[11.5px] text-[var(--ink)] placeholder:text-[var(--ink-3)] font-mono" />
           <button onClick={() => setShow((s) => !s)} className="text-[var(--ink-3)] hover:text-[var(--ink-2)]"><L name={show ? "EyeOff" : "Eye"} size={12} /></button>
         </div>
@@ -764,20 +811,7 @@ function SettingsPage({ session, onSignOut, tweaks, setTweak }) {
                 <L name={window.CLOUD?.user ? "CloudUpload" : "HardDrive"} size={17} style={{ color: "var(--accent)" }} />
               </div>
               <div className="flex-1 min-w-[220px]">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[14px] font-semibold text-[var(--ink)]">{T("Tus datos", "Your data")}</span>
-                  <StatusPill
-                    status={window.CLOUD?.user ? "ok" : "info"}
-                    label={window.CLOUD?.user ? T("Nube sincronizada", "Cloud synced") : T("Guardados en este dispositivo", "Saved on this device")}
-                  />
-                </div>
-                <p className="text-[11.5px] text-[var(--ink-2)] mt-1 leading-relaxed">
-                  {window.CLOUD?.user
-                    ? T("Lecturas, fotos, rutinas y alertas se sincronizan en la nube con tu cuenta. Abre la app en otro dispositivo e inicia sesión para ver lo mismo.",
-                        "Readings, photos, routines and alerts sync to the cloud with your account. Open the app on another device and sign in to see the same data.")
-                    : T("Todo se guarda automáticamente en este navegador. Inicia sesión para activar la sincronización entre dispositivos con Supabase.",
-                        "Everything saves automatically in this browser. Sign in to enable cross-device sync with Supabase.")}
-                </p>
+                <SyncStatusBlock />
               </div>
             </div>
           </Card>
@@ -791,7 +825,11 @@ function SettingsPage({ session, onSignOut, tweaks, setTweak }) {
               <div className="flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <div className="text-[14px] font-semibold text-[var(--ink)]">Aqua Buddy · Groq AI</div>
-                  <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-md font-semibold" style={{ background: "rgba(16,185,129,0.13)", color: "#0E9F6E", border: "1px solid rgba(16,185,129,0.3)" }}>ACTIVO</span>
+                  {/* El badge refleja si hay key de verdad; antes decía ACTIVO
+                      aunque abajo dijera "Sin key". */}
+                  {(window.AQUAMIND_AI_KEY || localStorage.getItem("aqua:ai_key"))
+                    ? <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-md font-semibold" style={{ background: "rgba(16,185,129,0.13)", color: "#0E9F6E", border: "1px solid rgba(16,185,129,0.3)" }}>{T("ACTIVO", "ACTIVE")}</span>
+                    : <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-md font-semibold" style={{ background: "rgba(245,158,11,0.14)", color: "#C77F00", border: "1px solid rgba(245,158,11,0.32)" }}>{T("SIN KEY", "NO KEY")}</span>}
                 </div>
                 <div className="text-[11.5px] text-[var(--ink-2)] mt-0.5">
                   {T("Llama 3.3 70B vía Groq · contexto de tu tanque + acciones directas", "Llama 3.3 70B via Groq · your tank context + direct actions")}

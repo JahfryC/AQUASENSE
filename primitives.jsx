@@ -18,6 +18,55 @@ const STATUS_COLOR = {
   indigo: { fg: "#6366F1", border: "rgba(99,102,241,0.30)", bg: "rgba(99,102,241,0.12)", text: "text-[#6366F1]" },
 };
 
+// Red de seguridad: si cualquier pantalla lanza (p. ej. la IA devuelve un
+// objeto donde se esperaba texto), antes se caía toda la app a una pantalla
+// blanca sin salida. Ahora se muestra un error con opción de recuperarse.
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(error) { return { error }; }
+  componentDidCatch(error, info) { console.error("[AquaMind] render error:", error, info); }
+  render() {
+    if (!this.state.error) return this.props.children;
+    const t = (es, en) => (window.__lang === "en" ? en : es);
+    return (
+      <div style={{ minHeight: "100dvh", display: "grid", placeItems: "center", padding: 24 }}>
+        <div style={{
+          maxWidth: 380, textAlign: "center", padding: 24, borderRadius: 24,
+          background: "var(--surface-strong, rgba(255,255,255,0.8))",
+          border: "1px solid var(--hairline, rgba(0,0,0,0.1))",
+        }}>
+          <div style={{ fontSize: 34, marginBottom: 8 }}>🐠</div>
+          <div style={{ fontSize: 16, fontWeight: 600, color: "var(--ink)", marginBottom: 6 }}>
+            {t("Algo se rompió en esta pantalla", "Something broke on this screen")}
+          </div>
+          <div style={{ fontSize: 12.5, color: "var(--ink-2)", lineHeight: 1.6, marginBottom: 16 }}>
+            {t("Tus datos están a salvo. Puedes volver al inicio y seguir usando la app.",
+               "Your data is safe. You can go back home and keep using the app.")}
+          </div>
+          <button
+            onClick={() => { try { localStorage.setItem("aqua:page", "dashboard"); } catch (e) {} location.reload(); }}
+            style={{
+              padding: "10px 20px", borderRadius: 999, border: "none", cursor: "pointer",
+              fontSize: 13, fontWeight: 600, color: "#fff",
+              background: "linear-gradient(135deg, var(--accent, #0E8C86), var(--accent-strong, #0B6E69))",
+            }}
+          >
+            {t("Volver al inicio", "Back home")}
+          </button>
+          <details style={{ marginTop: 14, textAlign: "left" }}>
+            <summary style={{ fontSize: 11, color: "var(--ink-3)", cursor: "pointer" }}>
+              {t("Detalles técnicos", "Technical details")}
+            </summary>
+            <pre style={{ fontSize: 10, color: "var(--ink-3)", whiteSpace: "pre-wrap", marginTop: 6 }}>
+              {String(this.state.error?.message || this.state.error)}
+            </pre>
+          </details>
+        </div>
+      </div>
+    );
+  }
+}
+
 function L({ name, size = 16, className = "", strokeWidth = 1.6, style, ...rest }) {
   const lib = window.lucide;
   if (!lib) {
@@ -451,7 +500,7 @@ function PhotoSlot({ id, placeholder, radius = 18, className = "", style }) {
 }
 
 Object.assign(window, {
-  STATUS_COLOR, T, L, Card, Button, StatusPill, PulsingDot,
+  STATUS_COLOR, T, L, Card, Button, StatusPill, PulsingDot, ErrorBoundary,
   Sparkline, RangeBar, RingGauge, SectionHeader, Input, AnimatedNumber, Atmosphere,
   ToastHost, demoAction, useEscape, fmtLongDate, fmtShortDate, fmtDue, PhotoSlot
 });

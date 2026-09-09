@@ -2831,6 +2831,101 @@ const STATUS_COLOR = {
     text: "text-[#6366F1]"
   }
 };
+
+// Red de seguridad: si cualquier pantalla lanza (p. ej. la IA devuelve un
+// objeto donde se esperaba texto), antes se caía toda la app a una pantalla
+// blanca sin salida. Ahora se muestra un error con opción de recuperarse.
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      error: null
+    };
+  }
+  static getDerivedStateFromError(error) {
+    return {
+      error
+    };
+  }
+  componentDidCatch(error, info) {
+    console.error("[AquaMind] render error:", error, info);
+  }
+  render() {
+    if (!this.state.error) return this.props.children;
+    const t = (es, en) => window.__lang === "en" ? en : es;
+    return /*#__PURE__*/React.createElement("div", {
+      style: {
+        minHeight: "100dvh",
+        display: "grid",
+        placeItems: "center",
+        padding: 24
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        maxWidth: 380,
+        textAlign: "center",
+        padding: 24,
+        borderRadius: 24,
+        background: "var(--surface-strong, rgba(255,255,255,0.8))",
+        border: "1px solid var(--hairline, rgba(0,0,0,0.1))"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 34,
+        marginBottom: 8
+      }
+    }, "\uD83D\uDC20"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 16,
+        fontWeight: 600,
+        color: "var(--ink)",
+        marginBottom: 6
+      }
+    }, t("Algo se rompió en esta pantalla", "Something broke on this screen")), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 12.5,
+        color: "var(--ink-2)",
+        lineHeight: 1.6,
+        marginBottom: 16
+      }
+    }, t("Tus datos están a salvo. Puedes volver al inicio y seguir usando la app.", "Your data is safe. You can go back home and keep using the app.")), /*#__PURE__*/React.createElement("button", {
+      onClick: () => {
+        try {
+          localStorage.setItem("aqua:page", "dashboard");
+        } catch (e) {}
+        location.reload();
+      },
+      style: {
+        padding: "10px 20px",
+        borderRadius: 999,
+        border: "none",
+        cursor: "pointer",
+        fontSize: 13,
+        fontWeight: 600,
+        color: "#fff",
+        background: "linear-gradient(135deg, var(--accent, #0E8C86), var(--accent-strong, #0B6E69))"
+      }
+    }, t("Volver al inicio", "Back home")), /*#__PURE__*/React.createElement("details", {
+      style: {
+        marginTop: 14,
+        textAlign: "left"
+      }
+    }, /*#__PURE__*/React.createElement("summary", {
+      style: {
+        fontSize: 11,
+        color: "var(--ink-3)",
+        cursor: "pointer"
+      }
+    }, t("Detalles técnicos", "Technical details")), /*#__PURE__*/React.createElement("pre", {
+      style: {
+        fontSize: 10,
+        color: "var(--ink-3)",
+        whiteSpace: "pre-wrap",
+        marginTop: 6
+      }
+    }, String(this.state.error?.message || this.state.error)))));
+  }
+}
 function L({
   name,
   size = 16,
@@ -3498,6 +3593,7 @@ Object.assign(window, {
   Button,
   StatusPill,
   PulsingDot,
+  ErrorBoundary,
   Sparkline,
   RangeBar,
   RingGauge,
@@ -5516,7 +5612,7 @@ const AQUA_TOOLS = [{
 function executeAquaTool(name, args) {
   const A = window.AQUA;
   const S = window.AquaStore;
-  const c1 = s => s.charAt(0).toUpperCase() + s.slice(1);
+  const c1 = s => String(s || "").charAt(0).toUpperCase() + String(s || "").slice(1);
   switch (name) {
     case "add_routine":
       {
@@ -5537,15 +5633,29 @@ function executeAquaTool(name, args) {
       }
     case "log_parameter":
       {
-        S.logReading(args.param, args.value);
-        const p = A.CURRENT_PARAMETERS[args.param];
-        window.toast?.(T(`${p?.label || args.param}: ${args.value} registrado`, `${p?.label || args.param}: ${args.value} logged`), {
+        // Validar SIEMPRE lo que devuelve el modelo antes de tocar el historial:
+        // un {"value": null} (desviación común) pasaba isFinite() y registraba 0,
+        // marcaba el parámetro en rojo y corrompía la serie.
+        const p0 = A.CURRENT_PARAMETERS[args.param];
+        if (!p0) {
+          return T(`No reconozco el parámetro "${args.param}", no registré nada.`, `I don't recognize the parameter "${args.param}", nothing was logged.`);
+        }
+        const v = typeof args.value === "number" ? args.value : parseFloat(args.value);
+        if (!Number.isFinite(v)) {
+          return T(`No recibí un número válido para ${p0.label}, así que no registré nada.`, `I didn't get a valid number for ${p0.label}, so nothing was logged.`);
+        }
+        S.logReading(args.param, v);
+        window.toast?.(T(`${p0.label}: ${v} registrado`, `${p0.label}: ${v} logged`), {
           icon: "Activity"
         });
-        return T(`${p?.label || args.param} = ${args.value}${p?.unit ? " " + p.unit : ""} guardado.`, `${p?.label || args.param} = ${args.value}${p?.unit ? " " + p.unit : ""} saved.`);
+        return T(`${p0.label} = ${v}${p0.unit ? " " + p0.unit : ""} guardado.`, `${p0.label} = ${v}${p0.unit ? " " + p0.unit : ""} saved.`);
       }
     case "add_inhabitant":
       {
+        if (!String(args.name || "").trim()) {
+          return T("No recibí el nombre del habitante, no agregué nada.", "I didn't get the inhabitant's name, nothing was added.");
+        }
+        const kind = ["fish", "corals", "cuc"].includes(args.kind) ? args.kind : "fish";
         const item = {
           id: "ui" + Date.now(),
           name: c1(args.name),
@@ -5554,7 +5664,7 @@ function executeAquaTool(name, args) {
           status: "ok",
           note: args.note || T("Añadido vía Aqua Buddy", "Added via Aqua Buddy")
         };
-        S.addInhabitant(args.kind, item);
+        S.addInhabitant(kind, item);
         window.toast?.(T(`${item.name} agregado`, `${item.name} added`), {
           icon: "Fish"
         });
@@ -5616,13 +5726,17 @@ async function callGroq(messages, system, tools = null) {
       body.tools = tools;
       body.tool_choice = "auto";
     }
+
+    // Timeout obligatorio: sin él, una conexión colgada dejaba el chat
+    // bloqueado para siempre y solo se recuperaba recargando.
     const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${apiKey}`
       },
-      body: JSON.stringify(body)
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(30000)
     });
     if (!resp.ok) {
       const err = await resp.text().catch(() => "");
@@ -5635,7 +5749,9 @@ async function callGroq(messages, system, tools = null) {
     return await resp.json();
   } catch (e) {
     console.warn("[AquaBuddy] fetch error:", e);
-    return null;
+    return {
+      _error: e?.name === "TimeoutError" ? "timeout" : "network"
+    };
   }
 }
 async function callAquaBuddy(userMessage, mode = "personalized", history = []) {
@@ -5658,8 +5774,14 @@ async function callAquaBuddy(userMessage, mode = "personalized", history = []) {
   const groqData = await callGroq(messages, system, AQUA_TOOLS);
   if (groqData && groqData._error) {
     const code = groqData._error;
+    // Nunca disfrazar un fallo de una respuesta real: antes caía a una
+    // plantilla local con el mismo estilo y el usuario creía que la IA había
+    // analizado su tanque.
     if (code === 401 || code === 403) return T("⚠ API key de Groq inválida. Configúrala en Ajustes → Cuenta → Aqua Buddy.", "⚠ Invalid Groq API key. Set it in Settings → Account → Aqua Buddy.");
-    // 429 or 5xx — fall through to local silently
+    if (code === 429) return T("⚠ Límite de Groq alcanzado (plan gratuito). Espera un minuto y vuelve a preguntar.", "⚠ Groq rate limit reached (free tier). Wait a minute and ask again.");
+    if (code === "timeout") return T("⚠ La IA tardó demasiado en responder. Revisa tu conexión e inténtalo de nuevo.", "⚠ The AI took too long to respond. Check your connection and try again.");
+    if (code === "network") return T("⚠ Sin conexión con la IA. Revisa tu internet e inténtalo de nuevo.", "⚠ Can't reach the AI. Check your connection and try again.");
+    if (typeof code === "number" && code >= 500) return T("⚠ Groq tuvo un problema en su servidor. Inténtalo de nuevo en un momento.", "⚠ Groq had a server problem. Try again in a moment.");
   }
   if (groqData) {
     const msg = groqData.choices?.[0]?.message;
@@ -7907,7 +8029,8 @@ async function groqJSON(system, user, maxTokens = 500) {
         }],
         max_tokens: maxTokens,
         temperature: 0.2
-      })
+      }),
+      signal: AbortSignal.timeout(30000)
     });
     if (!resp.ok) return {
       _error: resp.status
@@ -7917,7 +8040,7 @@ async function groqJSON(system, user, maxTokens = 500) {
     };
   } catch (e) {
     return {
-      _error: "network"
+      _error: e?.name === "TimeoutError" ? "timeout" : "network"
     };
   }
 }
@@ -11792,6 +11915,52 @@ function GoogleG({
   }));
 }
 
+// ---------- Estado real de sincronización ----------
+// Antes el badge decía "Nube sincronizada" con solo existir una sesión, aunque
+// todas las subidas estuvieran fallando (proyecto pausado, sin internet…).
+// Ahora refleja el resultado real de la última subida.
+function SyncStatusBlock() {
+  const [sync, setSync] = React.useState(() => window.CLOUD?.syncStatus || {
+    state: "off"
+  });
+  React.useEffect(() => {
+    const fn = e => setSync(e.detail);
+    window.addEventListener("aqua:sync", fn);
+    return () => window.removeEventListener("aqua:sync", fn);
+  }, []);
+  const signedIn = !!window.CLOUD?.user;
+  const meta = !signedIn ? {
+    status: "info",
+    label: T("Guardados en este dispositivo", "Saved on this device"),
+    body: T("Todo se guarda automáticamente en este navegador. Inicia sesión para activar la sincronización entre dispositivos.", "Everything saves automatically in this browser. Sign in to enable cross-device sync.")
+  } : sync.state === "error" ? {
+    status: "warn",
+    label: T("Cambios pendientes de subir", "Changes pending upload"),
+    body: T("Tus datos están guardados en este dispositivo, pero no se pudieron subir a la nube. Se reintenta solo; revisa tu conexión.", "Your data is saved on this device but couldn't reach the cloud. It retries automatically; check your connection.")
+  } : sync.state === "syncing" ? {
+    status: "info",
+    label: T("Sincronizando…", "Syncing…"),
+    body: T("Subiendo tus últimos cambios a la nube.", "Uploading your latest changes to the cloud.")
+  } : {
+    status: "ok",
+    label: T("Nube sincronizada", "Cloud synced"),
+    body: T("Lecturas, fotos, rutinas y alertas se sincronizan con tu cuenta. Abre la app en otro dispositivo e inicia sesión para ver lo mismo.", "Readings, photos, routines and alerts sync with your account. Open the app on another device and sign in to see the same data.")
+  };
+  const ago = sync.lastOk ? Math.round((Date.now() - sync.lastOk) / 60000) : null;
+  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 flex-wrap"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-[14px] font-semibold text-[var(--ink)]"
+  }, T("Tus datos", "Your data")), /*#__PURE__*/React.createElement(StatusPill, {
+    status: meta.status,
+    label: meta.label
+  })), /*#__PURE__*/React.createElement("p", {
+    className: "text-[11.5px] text-[var(--ink-2)] mt-1 leading-relaxed"
+  }, meta.body), signedIn && sync.lastOk && /*#__PURE__*/React.createElement("p", {
+    className: "text-[10.5px] text-[var(--ink-3)] mt-1"
+  }, ago < 1 ? T("Última sincronización: hace unos segundos", "Last synced: seconds ago") : T(`Última sincronización: hace ${ago} min`, `Last synced: ${ago} min ago`)));
+}
+
 // ---------- Recovery: set new password (arrives from reset email link) ----------
 function RecoveryPasswordModal({
   onDone
@@ -12333,7 +12502,7 @@ function AquaBuddyKeyRow() {
     onKeyDown: e => {
       if (e.key === "Enter") save();
     },
-    placeholder: "AIza...",
+    placeholder: "gsk_...",
     className: "flex-1 bg-transparent border-0 outline-none text-[11.5px] text-[var(--ink)] placeholder:text-[var(--ink-3)] font-mono"
   }), /*#__PURE__*/React.createElement("button", {
     onClick: () => setShow(s => !s),
@@ -12716,16 +12885,7 @@ function SettingsPage({
     }
   })), /*#__PURE__*/React.createElement("div", {
     className: "flex-1 min-w-[220px]"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2 flex-wrap"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "text-[14px] font-semibold text-[var(--ink)]"
-  }, T("Tus datos", "Your data")), /*#__PURE__*/React.createElement(StatusPill, {
-    status: window.CLOUD?.user ? "ok" : "info",
-    label: window.CLOUD?.user ? T("Nube sincronizada", "Cloud synced") : T("Guardados en este dispositivo", "Saved on this device")
-  })), /*#__PURE__*/React.createElement("p", {
-    className: "text-[11.5px] text-[var(--ink-2)] mt-1 leading-relaxed"
-  }, window.CLOUD?.user ? T("Lecturas, fotos, rutinas y alertas se sincronizan en la nube con tu cuenta. Abre la app en otro dispositivo e inicia sesión para ver lo mismo.", "Readings, photos, routines and alerts sync to the cloud with your account. Open the app on another device and sign in to see the same data.") : T("Todo se guarda automáticamente en este navegador. Inicia sesión para activar la sincronización entre dispositivos con Supabase.", "Everything saves automatically in this browser. Sign in to enable cross-device sync with Supabase."))))), /*#__PURE__*/React.createElement(Card, {
+  }, /*#__PURE__*/React.createElement(SyncStatusBlock, null)))), /*#__PURE__*/React.createElement(Card, {
     className: "overflow-hidden"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-3 px-5 py-4 border-b border-[var(--hairline)]"
@@ -12747,14 +12907,21 @@ function SettingsPage({
     className: "flex items-center gap-2 flex-wrap"
   }, /*#__PURE__*/React.createElement("div", {
     className: "text-[14px] font-semibold text-[var(--ink)]"
-  }, "Aqua Buddy \xB7 Groq AI"), /*#__PURE__*/React.createElement("span", {
+  }, "Aqua Buddy \xB7 Groq AI"), window.AQUAMIND_AI_KEY || localStorage.getItem("aqua:ai_key") ? /*#__PURE__*/React.createElement("span", {
     className: "text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-md font-semibold",
     style: {
       background: "rgba(16,185,129,0.13)",
       color: "#0E9F6E",
       border: "1px solid rgba(16,185,129,0.3)"
     }
-  }, "ACTIVO")), /*#__PURE__*/React.createElement("div", {
+  }, T("ACTIVO", "ACTIVE")) : /*#__PURE__*/React.createElement("span", {
+    className: "text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-md font-semibold",
+    style: {
+      background: "rgba(245,158,11,0.14)",
+      color: "#C77F00",
+      border: "1px solid rgba(245,158,11,0.32)"
+    }
+  }, T("SIN KEY", "NO KEY"))), /*#__PURE__*/React.createElement("div", {
     className: "text-[11.5px] text-[var(--ink-2)] mt-0.5"
   }, T("Llama 3.3 70B vía Groq · contexto de tu tanque + acciones directas", "Llama 3.3 70B via Groq · your tank context + direct actions"))), /*#__PURE__*/React.createElement(PulsingDot, {
     color: "#0E9F6E",
@@ -13763,7 +13930,7 @@ function App() {
   }), recoveryModal, /*#__PURE__*/React.createElement(ToastHost, null), tweaksPanel);
 }
 const root = ReactDOM.createRoot(document.getElementById("root"));
-root.render(/*#__PURE__*/React.createElement(App, null));
+root.render(/*#__PURE__*/React.createElement(ErrorBoundary, null, /*#__PURE__*/React.createElement(App, null)));
 </script>
 </body>
 </html>

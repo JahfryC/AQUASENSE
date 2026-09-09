@@ -311,7 +311,7 @@ const AQUA_TOOLS = [
 function executeAquaTool(name, args) {
   const A = window.AQUA;
   const S = window.AquaStore;
-  const c1 = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+  const c1 = (s) => String(s || "").charAt(0).toUpperCase() + String(s || "").slice(1);
 
   switch (name) {
     case "add_routine": {
@@ -329,12 +329,28 @@ function executeAquaTool(name, args) {
       return T(`Rutina "${r.task}" agregada (${args.frequency}).`, `Routine "${r.task}" added (${args.frequency}).`);
     }
     case "log_parameter": {
-      S.logReading(args.param, args.value);
-      const p = A.CURRENT_PARAMETERS[args.param];
-      window.toast?.(T(`${p?.label || args.param}: ${args.value} registrado`, `${p?.label || args.param}: ${args.value} logged`), { icon: "Activity" });
-      return T(`${p?.label || args.param} = ${args.value}${p?.unit ? " " + p.unit : ""} guardado.`, `${p?.label || args.param} = ${args.value}${p?.unit ? " " + p.unit : ""} saved.`);
+      // Validar SIEMPRE lo que devuelve el modelo antes de tocar el historial:
+      // un {"value": null} (desviación común) pasaba isFinite() y registraba 0,
+      // marcaba el parámetro en rojo y corrompía la serie.
+      const p0 = A.CURRENT_PARAMETERS[args.param];
+      if (!p0) {
+        return T(`No reconozco el parámetro "${args.param}", no registré nada.`,
+                 `I don't recognize the parameter "${args.param}", nothing was logged.`);
+      }
+      const v = typeof args.value === "number" ? args.value : parseFloat(args.value);
+      if (!Number.isFinite(v)) {
+        return T(`No recibí un número válido para ${p0.label}, así que no registré nada.`,
+                 `I didn't get a valid number for ${p0.label}, so nothing was logged.`);
+      }
+      S.logReading(args.param, v);
+      window.toast?.(T(`${p0.label}: ${v} registrado`, `${p0.label}: ${v} logged`), { icon: "Activity" });
+      return T(`${p0.label} = ${v}${p0.unit ? " " + p0.unit : ""} guardado.`, `${p0.label} = ${v}${p0.unit ? " " + p0.unit : ""} saved.`);
     }
     case "add_inhabitant": {
+      if (!String(args.name || "").trim()) {
+        return T("No recibí el nombre del habitante, no agregué nada.", "I didn't get the inhabitant's name, nothing was added.");
+      }
+      const kind = ["fish", "corals", "cuc"].includes(args.kind) ? args.kind : "fish";
       const item = {
         id: "ui" + Date.now(),
         name: c1(args.name),
@@ -343,7 +359,7 @@ function executeAquaTool(name, args) {
         status: "ok",
         note: args.note || T("Añadido vía Aqua Buddy", "Added via Aqua Buddy"),
       };
-      S.addInhabitant(args.kind, item);
+      S.addInhabitant(kind, item);
       window.toast?.(T(`${item.name} agregado`, `${item.name} added`), { icon: "Fish" });
       return T(`${item.name} añadido a Habitantes.`, `${item.name} added to Livestock.`);
     }
@@ -388,10 +404,13 @@ async function callGroq(messages, system, tools = null) {
     };
     if (tools && tools.length) { body.tools = tools; body.tool_choice = "auto"; }
 
+    // Timeout obligatorio: sin él, una conexión colgada dejaba el chat
+    // bloqueado para siempre y solo se recuperaba recargando.
     const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(30000),
     });
     if (!resp.ok) {
       const err = await resp.text().catch(() => "");
@@ -401,7 +420,7 @@ async function callGroq(messages, system, tools = null) {
     return await resp.json();
   } catch (e) {
     console.warn("[AquaBuddy] fetch error:", e);
-    return null;
+    return { _error: e?.name === "TimeoutError" ? "timeout" : "network" };
   }
 }
 
@@ -423,8 +442,14 @@ async function callAquaBuddy(userMessage, mode = "personalized", history = []) {
   const groqData = await callGroq(messages, system, AQUA_TOOLS);
   if (groqData && groqData._error) {
     const code = groqData._error;
+    // Nunca disfrazar un fallo de una respuesta real: antes caía a una
+    // plantilla local con el mismo estilo y el usuario creía que la IA había
+    // analizado su tanque.
     if (code === 401 || code === 403) return T("⚠ API key de Groq inválida. Configúrala en Ajustes → Cuenta → Aqua Buddy.", "⚠ Invalid Groq API key. Set it in Settings → Account → Aqua Buddy.");
-    // 429 or 5xx — fall through to local silently
+    if (code === 429) return T("⚠ Límite de Groq alcanzado (plan gratuito). Espera un minuto y vuelve a preguntar.", "⚠ Groq rate limit reached (free tier). Wait a minute and ask again.");
+    if (code === "timeout") return T("⚠ La IA tardó demasiado en responder. Revisa tu conexión e inténtalo de nuevo.", "⚠ The AI took too long to respond. Check your connection and try again.");
+    if (code === "network") return T("⚠ Sin conexión con la IA. Revisa tu internet e inténtalo de nuevo.", "⚠ Can't reach the AI. Check your connection and try again.");
+    if (typeof code === "number" && code >= 500) return T("⚠ Groq tuvo un problema en su servidor. Inténtalo de nuevo en un momento.", "⚠ Groq had a server problem. Try again in a moment.");
   }
   if (groqData) {
     const msg = groqData.choices?.[0]?.message;
