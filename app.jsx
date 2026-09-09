@@ -19,9 +19,42 @@ function App() {
     localStorage.setItem("aqua:lang", t.lang);
   }, [t.lang]);
 
-  const [activePage, setActivePage] = React.useState(() => {
-    return new URLSearchParams(location.search).get("page") || localStorage.getItem("aqua:page") || "dashboard";
-  });
+  // ---- routing por hash (#/habitantes) ----
+  // Sin esto, el botón atrás de Android / el gesto de iOS salían de la app
+  // desde cualquier pantalla, y no se podía volver a la pantalla anterior.
+  const PAGES = ["dashboard", "parameters", "inhabitants", "lighting", "routines", "supplements", "ai", "alerts", "settings"];
+  const pageFromHash = () => {
+    const h = (location.hash || "").replace(/^#\/?/, "");
+    return PAGES.includes(h) ? h : null;
+  };
+  const [activePage, setActivePage] = React.useState(() =>
+    pageFromHash()
+    || new URLSearchParams(location.search).get("page")
+    || localStorage.getItem("aqua:page")
+    || "dashboard"
+  );
+
+  // El botón atrás cambia el hash → sincronizar la pantalla con él
+  React.useEffect(() => {
+    const onPop = () => {
+      const p = pageFromHash();
+      if (p) setActivePage(p);
+    };
+    window.addEventListener("popstate", onPop);
+    window.addEventListener("hashchange", onPop);
+    return () => {
+      window.removeEventListener("popstate", onPop);
+      window.removeEventListener("hashchange", onPop);
+    };
+  }, []);
+
+  // Mantener la URL en sincronía con la pantalla (sin ensuciar el historial
+  // cuando el cambio vino del propio hash)
+  React.useEffect(() => {
+    if (pageFromHash() !== activePage) {
+      history.pushState(null, "", `#/${activePage}`);
+    }
+  }, [activePage]);
 
   // ---- session (prototype auth) ----
   const [session, setSession] = React.useState(() => {
@@ -186,7 +219,9 @@ function App() {
         <Sidebar activePage={activePage} onNavigate={navigate} alertCount={alerts.length} session={session} />
         <main className="flex-1 min-w-0 app-main">
           <Header activePage={activePage} onNavigate={navigate} alertCount={alerts.length} />
-          <div className="pb-28 lg:pb-10">
+          {/* Espacio para que la barra inferior flotante (y el área segura del
+              iPhone) nunca tape el último elemento de la página. */}
+          <div className="lg:pb-10" style={{ paddingBottom: "calc(104px + env(safe-area-inset-bottom))" }}>
             <div key={activePage} style={{ animation: "fadeUp 0.35s cubic-bezier(.2,.7,.3,1)" }}>
               {page}
             </div>

@@ -8,6 +8,7 @@
   <meta name="theme-color" content="#DCEAF2" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23D8E8EE'/%3E%3Cpath d='M50 18 C50 18 28 44 28 60 a22 22 0 0 0 44 0 C72 44 50 18 50 18 Z' fill='%230E8C86'/%3E%3C/svg%3E" />
   <link rel="apple-touch-icon" href="icon-180.png" />
+  <link rel="manifest" href="manifest.webmanifest" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="AquaMind" />
@@ -1390,7 +1391,11 @@ window.AQUA = (() => {
     },
   ];
 
-  const TANK_CONFIG = ALL_TANKS[0];
+  // Copia, NO el mismo objeto que ALL_TANKS[0]: al ser la misma referencia,
+  // cambiar de tanque sobrescribía el tanque por defecto en su lugar (incluido
+  // su id), dejando dos entradas con el mismo id, impidiendo volver al primero
+  // y haciendo que borrar uno borrara los dos.
+  const TANK_CONFIG = { ...ALL_TANKS[0] };
 
   // Parameters — all at ideal values, no owner-specific notes
   const CURRENT_PARAMETERS = {
@@ -1602,6 +1607,10 @@ window.AquaStore = (() => {
         realVolume: c.realVolume, brand: c.brand, filtration: c.filtration,
         dims: c.dims, setupDate: c.setupDate, owner: c.owner,
       };
+      // TANK_CONFIG ya no es el mismo objeto que ALL_TANKS[0]: mantener el
+      // tanque de la lista al día para que el selector muestre el nombre real.
+      const seed = (A.ALL_TANKS || []).find((t) => t.id === "tank-001");
+      if (seed) Object.assign(seed, ud.tankConfig);
     }
     clearTimeout(saveTimer);
     saveTimer = setTimeout(flush, 250);
@@ -1718,7 +1727,14 @@ window.AquaStore = (() => {
     },
 
     // ---- lecturas ----
-    logReading(k, v) { A.logReading(k, v); touch(); },
+    logReading(k, v) {
+      A.logReading(k, v);
+      ud.readingsLogged = (ud.readingsLogged || 0) + 1;
+      touch();
+    },
+    // ¿El usuario ha registrado alguna lectura propia? Si no, la app no debe
+    // presentar un "Salud 100/100" que en realidad son los valores semilla.
+    get hasRealReadings() { return (ud.readingsLogged || 0) > 0; },
 
     // ---- iluminación ----
     get lightingWeek() { return ud.lightingWeek || 1; },
@@ -5160,7 +5176,7 @@ function Header({
     className: "flex-1"
   }), /*#__PURE__*/React.createElement(TankSelector, null), /*#__PURE__*/React.createElement("button", {
     onClick: () => onNavigate("alerts"),
-    className: "relative p-2 rounded-full hover:bg-[var(--hover)] transition-colors text-[var(--ink-2)] hover:text-[var(--ink)]",
+    className: "relative p-2.5 rounded-full hover:bg-[var(--hover)] transition-colors text-[var(--ink-2)] hover:text-[var(--ink)]",
     "aria-label": T("Notificaciones", "Notifications")
   }, /*#__PURE__*/React.createElement(L, {
     name: "Bell",
@@ -5173,7 +5189,7 @@ function Header({
     }
   })), /*#__PURE__*/React.createElement("button", {
     onClick: () => onNavigate("settings"),
-    className: "p-2 rounded-full hover:bg-[var(--hover)] transition-colors text-[var(--ink-2)] hover:text-[var(--ink)]",
+    className: "p-2.5 rounded-full hover:bg-[var(--hover)] transition-colors text-[var(--ink-2)] hover:text-[var(--ink)]",
     "aria-label": T("Ajustes", "Settings")
   }, /*#__PURE__*/React.createElement(L, {
     name: "Settings",
@@ -5182,6 +5198,8 @@ function Header({
 }
 
 // ---- Mobile tab bar ----
+// Las pestañas se nombran por su contenido, no por la tecnología:
+// "Vida" era vago y "IA" nombraba el motor, no el destino.
 const MOBILE_TABS = () => [{
   id: "dashboard",
   label: T("Inicio", "Home"),
@@ -5191,16 +5209,16 @@ const MOBILE_TABS = () => [{
   label: T("Bitácora", "Logbook"),
   icon: "NotebookPen"
 }, {
-  id: "supplements",
-  label: T("Suplementos", "Suppl."),
-  icon: "FlaskConical"
-}, {
   id: "inhabitants",
-  label: T("Vida", "Livestock"),
+  label: T("Habitantes", "Livestock"),
   icon: "Fish"
 }, {
+  id: "supplements",
+  label: T("Comida", "Food"),
+  icon: "FlaskConical"
+}, {
   id: "ai",
-  label: "IA",
+  label: T("Asistente", "Assistant"),
   icon: "Sparkles"
 }];
 function MobileTabBar({
@@ -5214,13 +5232,15 @@ function MobileTabBar({
     return /*#__PURE__*/React.createElement("button", {
       key: t.id,
       onClick: () => onNavigate(t.id),
-      className: `relative flex flex-col items-center gap-1 py-1.5 rounded-2xl transition-colors ${active ? "text-[var(--accent)]" : "text-[var(--ink-3)] hover:text-[var(--ink-2)]"}`
+      "aria-label": t.label,
+      "aria-current": active ? "page" : undefined,
+      className: `relative flex flex-col items-center justify-center gap-1 py-1.5 min-h-[48px] rounded-2xl transition-colors ${active ? "text-[var(--accent)]" : "text-[var(--ink-3)] hover:text-[var(--ink-2)]"}`
     }, /*#__PURE__*/React.createElement(L, {
       name: t.icon,
       size: 18,
       strokeWidth: active ? 2 : 1.6
     }), /*#__PURE__*/React.createElement("span", {
-      className: "text-[9.5px] font-medium"
+      className: "text-[9.5px] font-medium leading-none"
     }, t.label));
   }));
 }
@@ -5981,7 +6001,7 @@ function ReefStatusHero({
     className: "flex items-center gap-2 mt-2.5"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => onNavigate("ai"),
-    className: "ml-auto text-[11.5px] text-[var(--accent)] hover:opacity-80 inline-flex items-center gap-1"
+    className: "ml-auto text-[11.5px] text-[var(--accent)] hover:opacity-80 inline-flex items-center gap-1 py-2 -my-2"
   }, T("Abrir chat completo", "Open full chat"), " ", /*#__PURE__*/React.createElement(L, {
     name: "ArrowRight",
     size: 11
@@ -6070,16 +6090,20 @@ function TankVitalsStrip() {
   const cycleLabel = daysRunning === 0 ? T("Nuevo", "New") : cycled ? T("Completo", "Complete") : T("En proceso", "In progress");
   const cycleColor = cycled ? "#0E9F6E" : daysRunning === 0 ? "var(--ink-3)" : "#C77F00";
   const cycleIcon = cycled ? "CheckCircle2" : daysRunning === 0 ? "Clock" : "RefreshCw";
+
+  // Sin lecturas propias, los parámetros son solo valores semilla: mostrar
+  // "Salud 100/100" en un tanque recién creado es información inventada.
+  const hasReadings = window.AquaStore?.hasRealReadings;
   const stats = [{
     label: "Temp",
-    value: `${CURRENT_PARAMETERS.temperature.value}°F`,
+    value: hasReadings ? `${CURRENT_PARAMETERS.temperature.value}°F` : "—",
     icon: "Thermometer",
-    color: "#0E9F6E"
+    color: hasReadings ? "#0E9F6E" : "var(--ink-3)"
   }, {
     label: T("Salinidad", "Salinity"),
-    value: CURRENT_PARAMETERS.salinity.value,
+    value: hasReadings ? CURRENT_PARAMETERS.salinity.value : "—",
     icon: "Sailboat",
-    color: "#0E9F6E"
+    color: hasReadings ? "#0E9F6E" : "var(--ink-3)"
   }, {
     label: T("Volumen", "Volume"),
     value: TANK_CONFIG.realVolume ? `${TANK_CONFIG.realVolume} gal` : "—",
@@ -6092,9 +6116,9 @@ function TankVitalsStrip() {
     color: "var(--ink-2)"
   }, {
     label: T("Salud", "Health"),
-    value: `${healthScore} / 100`,
+    value: hasReadings ? `${healthScore} / 100` : T("Sin datos", "No data"),
     icon: "Heart",
-    color: healthColor
+    color: hasReadings ? healthColor : "var(--ink-3)"
   }, {
     label: T("Ciclado", "Cycle"),
     value: cycleLabel,
@@ -6173,7 +6197,7 @@ function WaterParamsCard({
     title: T("Parámetros del agua", "Water Parameters Log"),
     action: /*#__PURE__*/React.createElement("button", {
       onClick: () => onNavigate("parameters"),
-      className: "text-[11.5px] text-[var(--accent)] hover:opacity-80 inline-flex items-center gap-1"
+      className: "text-[11.5px] text-[var(--accent)] hover:opacity-80 inline-flex items-center gap-1 py-2 -my-2"
     }, T("Historial completo", "Full history"), " ", /*#__PURE__*/React.createElement(L, {
       name: "ArrowRight",
       size: 11
@@ -6274,7 +6298,7 @@ function LightingScheduleCard({
     title: T("Programa de luz", "Lighting Schedule"),
     action: /*#__PURE__*/React.createElement("button", {
       onClick: () => onNavigate("lighting"),
-      className: "text-[11.5px] text-[var(--accent)] hover:opacity-80 inline-flex items-center gap-1"
+      className: "text-[11.5px] text-[var(--accent)] hover:opacity-80 inline-flex items-center gap-1 py-2 -my-2"
     }, T("Ajustar", "Adjust"), " ", /*#__PURE__*/React.createElement(L, {
       name: "Sliders",
       size: 11
@@ -6489,7 +6513,7 @@ function LivestockInventory({
     title: T("Inventario de vida", "Livestock Inventory"),
     action: /*#__PURE__*/React.createElement("button", {
       onClick: () => onNavigate("inhabitants"),
-      className: "text-[11.5px] text-[var(--accent)] hover:opacity-80 inline-flex items-center gap-1"
+      className: "text-[11.5px] text-[var(--accent)] hover:opacity-80 inline-flex items-center gap-1 py-2 -my-2"
     }, T("Ver todos", "View All"), " (", total, ") ", /*#__PURE__*/React.createElement(L, {
       name: "ArrowRight",
       size: 11
@@ -7215,7 +7239,7 @@ function Dashboard({
     title: T("Lo que necesita acción", "What needs action"),
     action: /*#__PURE__*/React.createElement("button", {
       onClick: () => onNavigate("alerts"),
-      className: "text-[11.5px] text-[var(--ink-2)] hover:text-[var(--ink)] inline-flex items-center gap-1"
+      className: "text-[11.5px] text-[var(--ink-2)] hover:text-[var(--ink)] inline-flex items-center gap-1 py-2 -my-2"
     }, T("Ver todas", "View all"), " ", /*#__PURE__*/React.createElement(L, {
       name: "ArrowRight",
       size: 11
@@ -7259,7 +7283,7 @@ function Dashboard({
     title: T("Hoy y próximos días", "Today & coming days"),
     action: /*#__PURE__*/React.createElement("button", {
       onClick: () => onNavigate("routines"),
-      className: "text-[11.5px] text-[var(--accent)] hover:opacity-80 inline-flex items-center gap-1"
+      className: "text-[11.5px] text-[var(--accent)] hover:opacity-80 inline-flex items-center gap-1 py-2 -my-2"
     }, T("Calendario", "Calendar"), " ", /*#__PURE__*/React.createElement(L, {
       name: "ArrowRight",
       size: 11
@@ -7840,7 +7864,7 @@ function InhabitantCard({
   }, /*#__PURE__*/React.createElement(L, {
     name: "Calendar",
     size: 10
-  }), " ", item.added, logCount > 0 && /*#__PURE__*/React.createElement("span", {
+  }), " ", fmtDate(item.added), logCount > 0 && /*#__PURE__*/React.createElement("span", {
     className: "inline-flex items-center gap-0.5",
     style: {
       color: "var(--accent)"
@@ -8561,6 +8585,23 @@ const HEALTH_OPTS = [{
   label: T("Problema", "Problem"),
   icon: "AlertTriangle"
 }];
+
+// Fechas legibles: "2026-08-01" se leía como dato de base de datos y además
+// se partía en dos líneas en las tarjetas.
+const MONTHS_ES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+const MONTHS_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function fmtDate(iso) {
+  if (!iso) return "";
+  const d = new Date(iso.length <= 10 ? `${iso}T12:00:00` : iso);
+  if (isNaN(d)) return iso;
+  const days = Math.floor((Date.now() - d.getTime()) / 86400000);
+  if (days <= 0) return T("hoy", "today");
+  if (days === 1) return T("ayer", "yesterday");
+  if (days < 30) return T(`hace ${days} d`, `${days}d ago`);
+  const m = window.__lang === "en" ? MONTHS_EN[d.getMonth()] : MONTHS_ES[d.getMonth()];
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  return window.__lang === "en" ? `${m} ${d.getDate()}${sameYear ? "" : ` ${d.getFullYear()}`}` : `${d.getDate()} ${m}${sameYear ? "" : ` ${d.getFullYear()}`}`;
+}
 function fmtLogDate(ts) {
   const d = new Date(ts);
   const day = String(d.getDate()).padStart(2, "0");
@@ -8994,7 +9035,7 @@ function InhabitantsPage() {
     className: "mt-5"
   }, /*#__PURE__*/React.createElement(SectionHeader, {
     kicker: T("Corales", "Corals"),
-    title: `${INHABITANTS.corals.length} ${T("colonias", "colonies")}`
+    title: `${INHABITANTS.corals.length} ${INHABITANTS.corals.length === 1 ? T("colonia", "colony") : T("colonias", "colonies")}`
   }), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3"
   }, INHABITANTS.corals.map(c => /*#__PURE__*/React.createElement(InhabitantCard, {
@@ -9009,7 +9050,7 @@ function InhabitantsPage() {
     className: "mt-5"
   }, /*#__PURE__*/React.createElement(SectionHeader, {
     kicker: "Clean-up Crew",
-    title: `${INHABITANTS.cuc.length} ${T("ayudantes", "helpers")}`
+    title: `${INHABITANTS.cuc.length} ${INHABITANTS.cuc.length === 1 ? T("ayudante", "helper") : T("ayudantes", "helpers")}`
   }), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3"
   }, INHABITANTS.cuc.map(c => /*#__PURE__*/React.createElement(InhabitantCard, {
@@ -13671,33 +13712,34 @@ function SettingsPage({
   }, T("Editar", "Edit"))), /*#__PURE__*/React.createElement(SettingRow, {
     icon: "ShieldCheck",
     title: T("Verificación en dos pasos", "Two-step verification"),
-    sub: T("Código por app de autenticación al iniciar sesión en un dispositivo nuevo", "Authenticator code when signing in on a new device")
-  }, /*#__PURE__*/React.createElement(GlassToggle, {
-    on: twoFA,
-    onChange: setTwoFA
-  })), /*#__PURE__*/React.createElement(SettingRow, {
+    sub: T("Aún no disponible — por ahora protege tu cuenta con una contraseña larga y única", "Not available yet — for now protect your account with a long, unique password")
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-[9.5px] uppercase tracking-wider px-2 py-1 rounded-md font-semibold shrink-0",
+    style: {
+      background: "var(--well)",
+      color: "var(--ink-3)",
+      border: "1px solid var(--hairline)"
+    }
+  }, T("Próximamente", "Soon"))), /*#__PURE__*/React.createElement(SettingRow, {
     icon: "KeyRound",
     title: T("Llaves de acceso (passkeys)", "Passkeys"),
     sub: T("Face ID / Touch ID en este dispositivo", "Face ID / Touch ID on this device")
-  }, /*#__PURE__*/React.createElement(Button, {
-    variant: "secondary",
-    size: "sm",
-    onClick: () => window.toast?.(T("Próximamente en tu dispositivo", "Coming soon on your device"), {
-      icon: "KeyRound",
-      tone: "info"
-    })
-  }, T("Añadir", "Add"))), /*#__PURE__*/React.createElement(SettingRow, {
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-[9.5px] uppercase tracking-wider px-2 py-1 rounded-md font-semibold shrink-0",
+    style: {
+      background: "var(--well)",
+      color: "var(--ink-3)",
+      border: "1px solid var(--hairline)"
+    }
+  }, T("Próximamente", "Soon"))), /*#__PURE__*/React.createElement(SettingRow, {
     icon: "MonitorSmartphone",
-    title: T("Sesiones activas", "Active sessions"),
-    sub: T("iPhone 15 Pro · Columbus, OH (esta) — MacBook Air · hace 2 días", "iPhone 15 Pro · Columbus, OH (this) — MacBook Air · 2 days ago")
+    title: T("Esta sesión", "This session"),
+    sub: session?.email ? T(`Conectado como ${session.email} en este navegador`, `Signed in as ${session.email} in this browser`) : T("Modo invitado — los datos solo viven en este navegador", "Guest mode — data lives only in this browser")
   }, /*#__PURE__*/React.createElement(Button, {
     variant: "ghost",
     size: "sm",
-    onClick: () => window.toast?.(T("Sesión activa en este dispositivo", "Active session on this device"), {
-      icon: "MonitorSmartphone",
-      tone: "info"
-    })
-  }, T("Gestionar", "Manage"))), /*#__PURE__*/React.createElement(SettingRow, {
+    onClick: onSignOut
+  }, T("Cerrar sesión", "Sign out"))), /*#__PURE__*/React.createElement(SettingRow, {
     icon: "Download",
     title: T("Exportar mis datos", "Export my data"),
     sub: T("Parámetros, habitantes y bitácora en CSV/JSON", "Parameters, livestock and logbook as CSV/JSON")
@@ -14409,9 +14451,38 @@ function App() {
   React.useEffect(() => {
     localStorage.setItem("aqua:lang", t.lang);
   }, [t.lang]);
-  const [activePage, setActivePage] = React.useState(() => {
-    return new URLSearchParams(location.search).get("page") || localStorage.getItem("aqua:page") || "dashboard";
-  });
+
+  // ---- routing por hash (#/habitantes) ----
+  // Sin esto, el botón atrás de Android / el gesto de iOS salían de la app
+  // desde cualquier pantalla, y no se podía volver a la pantalla anterior.
+  const PAGES = ["dashboard", "parameters", "inhabitants", "lighting", "routines", "supplements", "ai", "alerts", "settings"];
+  const pageFromHash = () => {
+    const h = (location.hash || "").replace(/^#\/?/, "");
+    return PAGES.includes(h) ? h : null;
+  };
+  const [activePage, setActivePage] = React.useState(() => pageFromHash() || new URLSearchParams(location.search).get("page") || localStorage.getItem("aqua:page") || "dashboard");
+
+  // El botón atrás cambia el hash → sincronizar la pantalla con él
+  React.useEffect(() => {
+    const onPop = () => {
+      const p = pageFromHash();
+      if (p) setActivePage(p);
+    };
+    window.addEventListener("popstate", onPop);
+    window.addEventListener("hashchange", onPop);
+    return () => {
+      window.removeEventListener("popstate", onPop);
+      window.removeEventListener("hashchange", onPop);
+    };
+  }, []);
+
+  // Mantener la URL en sincronía con la pantalla (sin ensuciar el historial
+  // cuando el cambio vino del propio hash)
+  React.useEffect(() => {
+    if (pageFromHash() !== activePage) {
+      history.pushState(null, "", `#/${activePage}`);
+    }
+  }, [activePage]);
 
   // ---- session (prototype auth) ----
   const [session, setSession] = React.useState(() => {
@@ -14616,7 +14687,10 @@ function App() {
     onNavigate: navigate,
     alertCount: alerts.length
   }), /*#__PURE__*/React.createElement("div", {
-    className: "pb-28 lg:pb-10"
+    className: "lg:pb-10",
+    style: {
+      paddingBottom: "calc(104px + env(safe-area-inset-bottom))"
+    }
   }, /*#__PURE__*/React.createElement("div", {
     key: activePage,
     style: {
@@ -14629,6 +14703,14 @@ function App() {
 }
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(/*#__PURE__*/React.createElement(ErrorBoundary, null, /*#__PURE__*/React.createElement(App, null)));
+</script>
+<script>
+  /* Service worker: la app abre sin internet. Falla en silencio donde no se soporta. */
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("sw.js").catch(function () { /* sin offline, la app sigue funcionando */ });
+    });
+  }
 </script>
 </body>
 </html>

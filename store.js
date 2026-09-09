@@ -129,6 +129,10 @@ window.AquaStore = (() => {
         realVolume: c.realVolume, brand: c.brand, filtration: c.filtration,
         dims: c.dims, setupDate: c.setupDate, owner: c.owner,
       };
+      // TANK_CONFIG ya no es el mismo objeto que ALL_TANKS[0]: mantener el
+      // tanque de la lista al día para que el selector muestre el nombre real.
+      const seed = (A.ALL_TANKS || []).find((t) => t.id === "tank-001");
+      if (seed) Object.assign(seed, ud.tankConfig);
     }
     clearTimeout(saveTimer);
     saveTimer = setTimeout(flush, 250);
@@ -245,7 +249,14 @@ window.AquaStore = (() => {
     },
 
     // ---- lecturas ----
-    logReading(k, v) { A.logReading(k, v); touch(); },
+    logReading(k, v) {
+      A.logReading(k, v);
+      ud.readingsLogged = (ud.readingsLogged || 0) + 1;
+      touch();
+    },
+    // ¿El usuario ha registrado alguna lectura propia? Si no, la app no debe
+    // presentar un "Salud 100/100" que en realidad son los valores semilla.
+    get hasRealReadings() { return (ud.readingsLogged || 0) > 0; },
 
     // ---- iluminación ----
     get lightingWeek() { return ud.lightingWeek || 1; },

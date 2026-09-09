@@ -589,7 +589,7 @@ function ReefStatusHero({ onNavigate }) {
         </div>
 
         <div className="flex items-center gap-2 mt-2.5">
-          <button onClick={() => onNavigate("ai")} className="ml-auto text-[11.5px] text-[var(--accent)] hover:opacity-80 inline-flex items-center gap-1">
+          <button onClick={() => onNavigate("ai")} className="ml-auto text-[11.5px] text-[var(--accent)] hover:opacity-80 inline-flex items-center gap-1 py-2 -my-2">
             {T("Abrir chat completo", "Open full chat")} <L name="ArrowRight" size={11} />
           </button>
         </div>
@@ -656,12 +656,16 @@ function TankVitalsStrip() {
   const cycleColor = cycled ? "#0E9F6E" : daysRunning === 0 ? "var(--ink-3)" : "#C77F00";
   const cycleIcon = cycled ? "CheckCircle2" : daysRunning === 0 ? "Clock" : "RefreshCw";
 
+  // Sin lecturas propias, los parámetros son solo valores semilla: mostrar
+  // "Salud 100/100" en un tanque recién creado es información inventada.
+  const hasReadings = window.AquaStore?.hasRealReadings;
+
   const stats = [
-    { label: "Temp", value: `${CURRENT_PARAMETERS.temperature.value}°F`, icon: "Thermometer", color: "#0E9F6E" },
-    { label: T("Salinidad", "Salinity"), value: CURRENT_PARAMETERS.salinity.value, icon: "Sailboat", color: "#0E9F6E" },
+    { label: "Temp", value: hasReadings ? `${CURRENT_PARAMETERS.temperature.value}°F` : "—", icon: "Thermometer", color: hasReadings ? "#0E9F6E" : "var(--ink-3)" },
+    { label: T("Salinidad", "Salinity"), value: hasReadings ? CURRENT_PARAMETERS.salinity.value : "—", icon: "Sailboat", color: hasReadings ? "#0E9F6E" : "var(--ink-3)" },
     { label: T("Volumen", "Volume"), value: TANK_CONFIG.realVolume ? `${TANK_CONFIG.realVolume} gal` : "—", icon: "Container", color: "var(--ink-2)" },
     { label: T("Días activo", "Days running"), value: String(daysRunning), icon: "Calendar", color: "var(--ink-2)" },
-    { label: T("Salud", "Health"), value: `${healthScore} / 100`, icon: "Heart", color: healthColor },
+    { label: T("Salud", "Health"), value: hasReadings ? `${healthScore} / 100` : T("Sin datos", "No data"), icon: "Heart", color: hasReadings ? healthColor : "var(--ink-3)" },
     { label: T("Ciclado", "Cycle"), value: cycleLabel, icon: cycleIcon, color: cycleColor },
   ];
   return (
@@ -702,7 +706,7 @@ function WaterParamsCard({ onNavigate }) {
         kicker={T("Registro de agua", "Water Log")}
         title={T("Parámetros del agua", "Water Parameters Log")}
         action={
-          <button onClick={() => onNavigate("parameters")} className="text-[11.5px] text-[var(--accent)] hover:opacity-80 inline-flex items-center gap-1">
+          <button onClick={() => onNavigate("parameters")} className="text-[11.5px] text-[var(--accent)] hover:opacity-80 inline-flex items-center gap-1 py-2 -my-2">
             {T("Historial completo", "Full history")} <L name="ArrowRight" size={11} />
           </button>
         }
@@ -778,7 +782,7 @@ function LightingScheduleCard({ onNavigate }) {
         kicker={T("Iluminación", "Lighting")}
         title={T("Programa de luz", "Lighting Schedule")}
         action={
-          <button onClick={() => onNavigate("lighting")} className="text-[11.5px] text-[var(--accent)] hover:opacity-80 inline-flex items-center gap-1">
+          <button onClick={() => onNavigate("lighting")} className="text-[11.5px] text-[var(--accent)] hover:opacity-80 inline-flex items-center gap-1 py-2 -my-2">
             {T("Ajustar", "Adjust")} <L name="Sliders" size={11} />
           </button>
         }
@@ -914,7 +918,7 @@ function LivestockInventory({ onNavigate }) {
         kicker={T("Habitantes", "Livestock")}
         title={T("Inventario de vida", "Livestock Inventory")}
         action={
-          <button onClick={() => onNavigate("inhabitants")} className="text-[11.5px] text-[var(--accent)] hover:opacity-80 inline-flex items-center gap-1">
+          <button onClick={() => onNavigate("inhabitants")} className="text-[11.5px] text-[var(--accent)] hover:opacity-80 inline-flex items-center gap-1 py-2 -my-2">
             {T("Ver todos", "View All")} ({total}) <L name="ArrowRight" size={11} />
           </button>
         }
@@ -1441,7 +1445,7 @@ function Dashboard({ onNavigate, alerts: allAlerts, onDismissAlert, routinesDone
               kicker={T("Centro de alertas", "Alert center")}
               title={T("Lo que necesita acción", "What needs action")}
               action={
-                <button onClick={() => onNavigate("alerts")} className="text-[11.5px] text-[var(--ink-2)] hover:text-[var(--ink)] inline-flex items-center gap-1">
+                <button onClick={() => onNavigate("alerts")} className="text-[11.5px] text-[var(--ink-2)] hover:text-[var(--ink)] inline-flex items-center gap-1 py-2 -my-2">
                   {T("Ver todas", "View all")} <L name="ArrowRight" size={11} />
                 </button>
               }
@@ -1479,7 +1483,7 @@ function Dashboard({ onNavigate, alerts: allAlerts, onDismissAlert, routinesDone
               kicker={T("Rutinas", "Routines")}
               title={T("Hoy y próximos días", "Today & coming days")}
               action={
-                <button onClick={() => onNavigate("routines")} className="text-[11.5px] text-[var(--accent)] hover:opacity-80 inline-flex items-center gap-1">
+                <button onClick={() => onNavigate("routines")} className="text-[11.5px] text-[var(--accent)] hover:opacity-80 inline-flex items-center gap-1 py-2 -my-2">
                   {T("Calendario", "Calendar")} <L name="ArrowRight" size={11} />
                 </button>
               }

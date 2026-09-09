@@ -875,17 +875,29 @@ function SettingsPage({ session, onSignOut, tweaks, setTweak }) {
                 <Button variant="secondary" size="sm" icon="Pencil" onClick={() => { setEditName(localStorage.getItem("aqua:display_name") || session?.name || ""); setEditingName(true); }}>{T("Editar", "Edit")}</Button>
               )}
             </div>
+            {/* Estas dos aún no están implementadas: se marcan como tales en
+                vez de fingir que funcionan con un toggle que no hace nada. */}
             <SettingRow icon="ShieldCheck" title={T("Verificación en dos pasos", "Two-step verification")}
-              sub={T("Código por app de autenticación al iniciar sesión en un dispositivo nuevo", "Authenticator code when signing in on a new device")}>
-              <GlassToggle on={twoFA} onChange={setTwoFA} />
+              sub={T("Aún no disponible — por ahora protege tu cuenta con una contraseña larga y única", "Not available yet — for now protect your account with a long, unique password")}>
+              <span className="text-[9.5px] uppercase tracking-wider px-2 py-1 rounded-md font-semibold shrink-0"
+                style={{ background: "var(--well)", color: "var(--ink-3)", border: "1px solid var(--hairline)" }}>
+                {T("Próximamente", "Soon")}
+              </span>
             </SettingRow>
             <SettingRow icon="KeyRound" title={T("Llaves de acceso (passkeys)", "Passkeys")}
               sub={T("Face ID / Touch ID en este dispositivo", "Face ID / Touch ID on this device")}>
-              <Button variant="secondary" size="sm" onClick={() => window.toast?.(T("Próximamente en tu dispositivo", "Coming soon on your device"), { icon: "KeyRound", tone: "info" })}>{T("Añadir", "Add")}</Button>
+              <span className="text-[9.5px] uppercase tracking-wider px-2 py-1 rounded-md font-semibold shrink-0"
+                style={{ background: "var(--well)", color: "var(--ink-3)", border: "1px solid var(--hairline)" }}>
+                {T("Próximamente", "Soon")}
+              </span>
             </SettingRow>
-            <SettingRow icon="MonitorSmartphone" title={T("Sesiones activas", "Active sessions")}
-              sub={T("iPhone 15 Pro · Columbus, OH (esta) — MacBook Air · hace 2 días", "iPhone 15 Pro · Columbus, OH (this) — MacBook Air · 2 days ago")}>
-              <Button variant="ghost" size="sm" onClick={() => window.toast?.(T("Sesión activa en este dispositivo", "Active session on this device"), { icon: "MonitorSmartphone", tone: "info" })}>{T("Gestionar", "Manage")}</Button>
+            {/* Sesión real de este dispositivo — antes se mostraba un
+                "iPhone 15 Pro · Columbus, OH" inventado. */}
+            <SettingRow icon="MonitorSmartphone" title={T("Esta sesión", "This session")}
+              sub={session?.email
+                ? T(`Conectado como ${session.email} en este navegador`, `Signed in as ${session.email} in this browser`)
+                : T("Modo invitado — los datos solo viven en este navegador", "Guest mode — data lives only in this browser")}>
+              <Button variant="ghost" size="sm" onClick={onSignOut}>{T("Cerrar sesión", "Sign out")}</Button>
             </SettingRow>
             <SettingRow icon="Download" title={T("Exportar mis datos", "Export my data")}
               sub={T("Parámetros, habitantes y bitácora en CSV/JSON", "Parameters, livestock and logbook as CSV/JSON")}>

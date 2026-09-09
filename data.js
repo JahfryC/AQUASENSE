@@ -19,7 +19,11 @@ window.AQUA = (() => {
     },
   ];
 
-  const TANK_CONFIG = ALL_TANKS[0];
+  // Copia, NO el mismo objeto que ALL_TANKS[0]: al ser la misma referencia,
+  // cambiar de tanque sobrescribía el tanque por defecto en su lugar (incluido
+  // su id), dejando dos entradas con el mismo id, impidiendo volver al primero
+  // y haciendo que borrar uno borrara los dos.
+  const TANK_CONFIG = { ...ALL_TANKS[0] };
 
   // Parameters — all at ideal values, no owner-specific notes
   const CURRENT_PARAMETERS = {

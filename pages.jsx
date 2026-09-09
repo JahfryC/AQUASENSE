@@ -324,7 +324,7 @@ function InhabitantCard({ item, kind, onOpen }) {
         {item.note && <div className="text-[11px] text-[var(--ink-2)] mt-2 line-clamp-2 leading-relaxed">{item.note}</div>}
         <div className="flex items-center justify-between mt-3">
           <span className="text-[10px] text-[var(--ink-3)] inline-flex items-center gap-1.5">
-            <L name="Calendar" size={10} /> {item.added}
+            <L name="Calendar" size={10} /> {fmtDate(item.added)}
             {logCount > 0 && <span className="inline-flex items-center gap-0.5" style={{ color: "var(--accent)" }}><L name="NotebookPen" size={10} /> {logCount}</span>}
           </span>
           <span className="text-[10.5px] font-medium inline-flex items-center gap-1" style={{ color: "var(--accent)" }}>
@@ -842,6 +842,25 @@ const HEALTH_OPTS = [
   { id: "danger", label: T("Problema", "Problem"),  icon: "AlertTriangle" },
 ];
 
+// Fechas legibles: "2026-08-01" se leía como dato de base de datos y además
+// se partía en dos líneas en las tarjetas.
+const MONTHS_ES = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+const MONTHS_EN = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function fmtDate(iso) {
+  if (!iso) return "";
+  const d = new Date(iso.length <= 10 ? `${iso}T12:00:00` : iso);
+  if (isNaN(d)) return iso;
+  const days = Math.floor((Date.now() - d.getTime()) / 86400000);
+  if (days <= 0) return T("hoy", "today");
+  if (days === 1) return T("ayer", "yesterday");
+  if (days < 30) return T(`hace ${days} d`, `${days}d ago`);
+  const m = window.__lang === "en" ? MONTHS_EN[d.getMonth()] : MONTHS_ES[d.getMonth()];
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  return window.__lang === "en"
+    ? `${m} ${d.getDate()}${sameYear ? "" : ` ${d.getFullYear()}`}`
+    : `${d.getDate()} ${m}${sameYear ? "" : ` ${d.getFullYear()}`}`;
+}
+
 function fmtLogDate(ts) {
   const d = new Date(ts);
   const day = String(d.getDate()).padStart(2, "0");
@@ -1104,7 +1123,7 @@ function InhabitantsPage() {
       )}
       {(tab === "all" || tab === "corals") && INHABITANTS.corals.length > 0 && (
         <div className="mt-5">
-          <SectionHeader kicker={T("Corales","Corals")} title={`${INHABITANTS.corals.length} ${T("colonias","colonies")}`} />
+          <SectionHeader kicker={T("Corales","Corals")} title={`${INHABITANTS.corals.length} ${INHABITANTS.corals.length === 1 ? T("colonia","colony") : T("colonias","colonies")}`} />
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             {INHABITANTS.corals.map((c) => <InhabitantCard key={c.id} item={c} kind="coral" onOpen={() => setDetail({ item: c, kind: "corals" })} />)}
           </div>
@@ -1112,7 +1131,7 @@ function InhabitantsPage() {
       )}
       {(tab === "all" || tab === "cuc") && INHABITANTS.cuc.length > 0 && (
         <div className="mt-5">
-          <SectionHeader kicker="Clean-up Crew" title={`${INHABITANTS.cuc.length} ${T("ayudantes","helpers")}`} />
+          <SectionHeader kicker="Clean-up Crew" title={`${INHABITANTS.cuc.length} ${INHABITANTS.cuc.length === 1 ? T("ayudante","helper") : T("ayudantes","helpers")}`} />
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             {INHABITANTS.cuc.map((c) => <InhabitantCard key={c.id} item={c} kind="cuc" onOpen={() => setDetail({ item: c, kind: "cuc" })} />)}
           </div>

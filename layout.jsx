@@ -678,7 +678,7 @@ function Header({ activePage, onNavigate, alertCount }) {
 
         <button
           onClick={() => onNavigate("alerts")}
-          className="relative p-2 rounded-full hover:bg-[var(--hover)] transition-colors text-[var(--ink-2)] hover:text-[var(--ink)]"
+          className="relative p-2.5 rounded-full hover:bg-[var(--hover)] transition-colors text-[var(--ink-2)] hover:text-[var(--ink)]"
           aria-label={T("Notificaciones", "Notifications")}
         >
           <L name="Bell" size={16} />
@@ -688,7 +688,7 @@ function Header({ activePage, onNavigate, alertCount }) {
         </button>
         <button
           onClick={() => onNavigate("settings")}
-          className="p-2 rounded-full hover:bg-[var(--hover)] transition-colors text-[var(--ink-2)] hover:text-[var(--ink)]"
+          className="p-2.5 rounded-full hover:bg-[var(--hover)] transition-colors text-[var(--ink-2)] hover:text-[var(--ink)]"
           aria-label={T("Ajustes", "Settings")}
         >
           <L name="Settings" size={16} />
@@ -699,12 +699,14 @@ function Header({ activePage, onNavigate, alertCount }) {
 }
 
 // ---- Mobile tab bar ----
+// Las pestañas se nombran por su contenido, no por la tecnología:
+// "Vida" era vago y "IA" nombraba el motor, no el destino.
 const MOBILE_TABS = () => [
-  { id: "dashboard",   label: T("Inicio", "Home"),         icon: "Home" },
-  { id: "parameters",  label: T("Bitácora", "Logbook"),    icon: "NotebookPen" },
-  { id: "supplements", label: T("Suplementos", "Suppl."),  icon: "FlaskConical" },
-  { id: "inhabitants", label: T("Vida", "Livestock"),      icon: "Fish" },
-  { id: "ai",          label: "IA",                        icon: "Sparkles" },
+  { id: "dashboard",   label: T("Inicio", "Home"),          icon: "Home" },
+  { id: "parameters",  label: T("Bitácora", "Logbook"),     icon: "NotebookPen" },
+  { id: "inhabitants", label: T("Habitantes", "Livestock"), icon: "Fish" },
+  { id: "supplements", label: T("Comida", "Food"),          icon: "FlaskConical" },
+  { id: "ai",          label: T("Asistente", "Assistant"),  icon: "Sparkles" },
 ];
 
 function MobileTabBar({ activePage, onNavigate }) {
@@ -716,12 +718,14 @@ function MobileTabBar({ activePage, onNavigate }) {
           <button
             key={t.id}
             onClick={() => onNavigate(t.id)}
-            className={`relative flex flex-col items-center gap-1 py-1.5 rounded-2xl transition-colors ${
+            aria-label={t.label}
+            aria-current={active ? "page" : undefined}
+            className={`relative flex flex-col items-center justify-center gap-1 py-1.5 min-h-[48px] rounded-2xl transition-colors ${
               active ? "text-[var(--accent)]" : "text-[var(--ink-3)] hover:text-[var(--ink-2)]"
             }`}
           >
             <L name={t.icon} size={18} strokeWidth={active ? 2 : 1.6} />
-            <span className="text-[9.5px] font-medium">{t.label}</span>
+            <span className="text-[9.5px] font-medium leading-none">{t.label}</span>
           </button>
         );
       })}
