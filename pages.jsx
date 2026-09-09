@@ -2698,6 +2698,460 @@ function SupplementCard({ item, onEdit, onRemove, onLog }) {
   );
 }
 
+// ============ PLAN DE ALIMENTACIÓN ============
+// Clasifica a cada habitante en un perfil alimenticio y arma un plan con dos
+// presupuestos. Funciona 100% sin key de IA; la IA solo lo personaliza más.
+
+// Palabras clave (español, inglés y nombre científico) → perfil alimenticio
+const DIET_KB = [
+  // --- peces ---
+  { k: ["cirujano","tang","zebrasoma","acanthurus","naso","hippo","yellow tang"], p: "herbivoro" },
+  { k: ["blenio","blenny","salarias","lawnmower"],                                 p: "herbivoro" },
+  { k: ["erizo","urchin","diadema","tuxedo"],                                      p: "herbivoro" },
+  { k: ["mandarin","mandarín","synchiropus","dragonet"],                           p: "copepodos" },
+  { k: ["anthias","pseudanthias","lyretail"],                                      p: "carnivoro_frecuente" },
+  { k: ["labrido","lábrido","wrasse","halichoeres","labroides","cirrhilabrus"],    p: "carnivoro" },
+  { k: ["gobio","goby","nemateleotris","valenciennea","firefish","fuego"],         p: "carnivoro" },
+  { k: ["cardenal","cardinal","pterapogon","banggai"],                             p: "carnivoro" },
+  { k: ["leon","león","lionfish","pterois","escorpion"],                           p: "carnivoro" },
+  { k: ["hawkfish","halcon","halcón","oxycirrhites"],                              p: "carnivoro" },
+  { k: ["dottyback","pseudochromis","gramma","royal gramma"],                      p: "carnivoro" },
+  { k: ["angel","ángel","centropyge","pomacanthus","emperador"],                   p: "omnivoro_esponja" },
+  { k: ["payaso","clown","amphiprion","ocellaris","percula"],                      p: "omnivoro" },
+  { k: ["damisela","damsel","chromis","chrysiptera"],                              p: "omnivoro" },
+  { k: ["mariposa","butterfly","chaetodon"],                                       p: "omnivoro" },
+  { k: ["pez","fish","tetra","guppy","betta","molly","platy","corydora","pleco"],  p: "omnivoro" },
+  // --- corales que se alimentan ---
+  { k: ["tubastraea","sun coral","coral sol","dendronephthya","gorgonia no foto"], p: "coral_nofoto" },
+  { k: ["euphyllia","hammer","torch","frogspawn","martillo","antorcha"],           p: "coral_lps" },
+  { k: ["acan","acanthastrea","favia","chalice","duncan","blastomussa","lobo","lobophyllia","scoly","cerebro","brain"], p: "coral_lps" },
+  { k: ["acropora","montipora","stylophora","seriatopora","birdsnest","pocillopora","sps"], p: "coral_sps" },
+  { k: ["zoa","zoanthus","palythoa","paly"],                                       p: "coral_blando" },
+  { k: ["hongo","mushroom","discosoma","rhodactis","ricordea"],                    p: "coral_blando" },
+  { k: ["xenia","sinularia","cuero","leather","kenya","capnella","nephthea"],      p: "coral_blando" },
+  { k: ["anemona","anémona","anemone","entacmaea","heteractis","burbuja"],         p: "anemona" },
+  { k: ["almeja","clam","tridacna","maxima","derasa"],                             p: "filtrador" },
+  { k: ["esponja","sponge","gorgonia"],                                            p: "filtrador" },
+  // --- limpiadores ---
+  { k: ["caracol","snail","turbo","trochus","astraea","nassarius","cerith"],       p: "algivoro" },
+  { k: ["ermitano","ermitaño","hermit","clibanarius","calcinus"],                  p: "detritivoro" },
+  { k: ["pepino","cucumber","holothuria"],                                         p: "detritivoro" },
+  { k: ["estrella","starfish","asterina","fromia","linckia"],                      p: "detritivoro" },
+  { k: ["camaron","camarón","shrimp","lysmata","stenopus","peppermint","skunk"],   p: "carnivoro" },
+  { k: ["cangrejo","crab","mithrax","emerald","porcelana"],                        p: "algivoro" },
+];
+
+const DIET_META = {
+  herbivoro:            { label: () => T("Herbívoro", "Herbivore"),                  icon: "Leaf",      color: "#0E9F6E" },
+  carnivoro:            { label: () => T("Carnívoro", "Carnivore"),                  icon: "Fish",      color: "#DC4458" },
+  carnivoro_frecuente:  { label: () => T("Carnívoro (come muy seguido)", "Carnivore (frequent feeder)"), icon: "Timer", color: "#DC4458" },
+  omnivoro:             { label: () => T("Omnívoro", "Omnivore"),                    icon: "Utensils",  color: "#C77F00" },
+  omnivoro_esponja:     { label: () => T("Omnívoro (necesita esponja)", "Omnivore (needs sponge)"), icon: "Utensils", color: "#C77F00" },
+  copepodos:            { label: () => T("Solo copépodos vivos", "Live copepods only"), icon: "Bug",    color: "#9F1239" },
+  coral_lps:            { label: () => T("Coral LPS (se alimenta)", "LPS coral (feeds)"), icon: "Flower2", color: "#7C3AED" },
+  coral_sps:            { label: () => T("Coral SPS (partículas finas)", "SPS coral (fine particles)"), icon: "Flower2", color: "#6366F1" },
+  coral_blando:         { label: () => T("Coral blando", "Soft coral"),              icon: "Flower2",   color: "#65a30d" },
+  coral_nofoto:         { label: () => T("Coral NO fotosintético", "Non-photosynthetic coral"), icon: "Moon", color: "#9F1239" },
+  anemona:              { label: () => T("Anémona", "Anemone"),                      icon: "Flower2",   color: "#DC4458" },
+  filtrador:            { label: () => T("Filtrador", "Filter feeder"),              icon: "Droplets",  color: "#3B82F6" },
+  algivoro:             { label: () => T("Comedor de algas", "Algae grazer"),        icon: "Leaf",      color: "#0E9F6E" },
+  detritivoro:          { label: () => T("Detritívoro (limpieza)", "Detritivore (cleanup)"), icon: "Recycle", color: "#7C90A3" },
+};
+
+function dietOf(item, kind) {
+  const hay = `${item.name || ""} ${item.scientific || ""}`.toLowerCase()
+    .normalize("NFD").replace(/[̀-ͯ]/g, "");
+  for (const row of DIET_KB) {
+    if (row.k.some((w) => hay.includes(w.normalize("NFD").replace(/[̀-ͯ]/g, "")))) return row.p;
+  }
+  // Sin coincidencia: usar un perfil razonable según la categoría
+  if (kind === "corals") return "coral_blando";
+  if (kind === "cuc") return "detritivoro";
+  return "omnivoro";
+}
+
+// Analiza el tanque completo → qué perfiles hay y cuántos de cada uno
+function analyzeTankDiet() {
+  const A = window.AQUA;
+  const out = {};
+  const push = (profile, item, kind) => {
+    out[profile] = out[profile] || { profile, count: 0, names: [], kind };
+    out[profile].count++;
+    if (out[profile].names.length < 4) out[profile].names.push(item.name);
+  };
+  ["fish", "corals", "cuc"].forEach((kind) => {
+    (A.INHABITANTS[kind] || []).forEach((it) => push(dietOf(it, kind), it, kind));
+  });
+  return Object.values(out).sort((a, b) => b.count - a.count);
+}
+
+// Catálogo: para cada perfil, qué darle en versión económica y premium.
+// `why` explica el porqué; `how` es la técnica de alimentación.
+const FOOD_CATALOG = {
+  herbivoro: {
+    need: () => T("Algas todos los días", "Algae every day"),
+    budget:  { food: () => T("Alga nori de supermercado (sin condimentar)", "Plain supermarket nori (unseasoned)"),
+               brands: "Nori sushi · Tetra Marine Flakes",
+               cost: () => T("~$3 · dura meses", "~$3 · lasts months") },
+    premium: { food: () => T("Alga marina para acuario + pellets con espirulina", "Aquarium seaweed + spirulina pellets"),
+               brands: "Two Little Fishies SeaVeggies · Ocean Nutrition Formula Two",
+               cost: () => T("~$15–20", "~$15–20") },
+    freq: () => T("Diario", "Daily"),
+    how: () => T("Sujeta la lámina con una pinza o clip cerca de la roca. Retira lo que sobre a las 3 h para no ensuciar el agua.",
+                 "Clip the sheet near the rock. Remove leftovers after 3 h so it doesn't foul the water."),
+  },
+  carnivoro: {
+    need: () => T("Proteína animal", "Animal protein"),
+    budget:  { food: () => T("Artemia y mysis congelados genéricos", "Generic frozen brine shrimp and mysis"),
+               brands: "San Francisco Bay Brand · Aqueon Marine Pellets",
+               cost: () => T("~$6 el blíster", "~$6 per pack") },
+    premium: { food: () => T("Mezcla congelada premium + pellets de alta calidad", "Premium frozen blend + high-grade pellets"),
+               brands: "LRS Reef Frenzy · Rod's Food · PE Mysis · TDO Chroma Boost",
+               cost: () => T("~$18–25", "~$18–25") },
+    freq: () => T("1–2 veces al día", "1–2 times a day"),
+    how: () => T("Descongela en un vasito con agua del tanque y cuela el líquido: ese caldo es fosfato puro y alimenta algas.",
+                 "Thaw in a cup of tank water and strain the juice — that liquid is pure phosphate and feeds algae."),
+  },
+  carnivoro_frecuente: {
+    need: () => T("Comidas pequeñas y frecuentes", "Small, frequent meals"),
+    budget:  { food: () => T("Artemia congelada + pellets pequeños", "Frozen brine shrimp + small pellets"),
+               brands: "San Francisco Bay Brand · Hikari Marine S",
+               cost: () => T("~$8", "~$8") },
+    premium: { food: () => T("Mezcla congelada premium 3 veces al día", "Premium frozen blend 3× daily"),
+               brands: "LRS Fish Frenzy · PE Calanus · TDO Chroma Boost",
+               cost: () => T("~$20–28", "~$20–28") },
+    freq: () => T("3 veces al día (porciones pequeñas)", "3× a day (small portions)"),
+    how: () => T("Los anthias tienen estómagos pequeños y metabolismo rápido: si solo comen una vez al día, adelgazan y se apagan.",
+                 "Anthias have tiny stomachs and fast metabolism: fed once a day they thin out and fade."),
+  },
+  omnivoro: {
+    need: () => T("Mezcla de vegetal y proteína", "Mix of greens and protein"),
+    budget:  { food: () => T("Escamas marinas + artemia congelada", "Marine flakes + frozen brine shrimp"),
+               brands: "TetraMarin · Ocean Nutrition Formula One",
+               cost: () => T("~$8 total", "~$8 total") },
+    premium: { food: () => T("Pellets de color + mezcla congelada", "Color-enhancing pellets + frozen blend"),
+               brands: "TDO Chroma Boost · Fauna Marin Ultra · LRS Reef Frenzy",
+               cost: () => T("~$20", "~$20") },
+    freq: () => T("1–2 veces al día", "1–2 times a day"),
+    how: () => T("Da solo lo que se coman en 2 minutos. La sobrealimentación es la causa #1 de nitratos y algas en tanques nuevos.",
+                 "Feed only what's eaten in 2 minutes. Overfeeding is the #1 cause of nitrates and algae in new tanks."),
+  },
+  omnivoro_esponja: {
+    need: () => T("Vegetal, proteína y esponja", "Greens, protein and sponge"),
+    budget:  { food: () => T("Escamas marinas + nori + artemia", "Marine flakes + nori + brine shrimp"),
+               brands: "Ocean Nutrition Formula Two · nori de supermercado",
+               cost: () => T("~$10", "~$10") },
+    premium: { food: () => T("Fórmula con esponja para ángeles", "Angelfish formula with sponge"),
+               brands: "Ocean Nutrition Angel Formula · LRS Herbivore Frenzy",
+               cost: () => T("~$18", "~$18") },
+    freq: () => T("2 veces al día", "2× a day"),
+    how: () => T("Los Centropyge picotean todo el día: necesitan roca viva madura además de la comida que les des.",
+                 "Centropyge graze all day: they need mature live rock on top of what you feed."),
+  },
+  copepodos: {
+    need: () => T("Copépodos vivos — no come comida preparada", "Live copepods — won't take prepared food"),
+    budget:  { food: () => T("Refugio con roca viva + siembra de copépodos", "Refugium with live rock + copepod seeding"),
+               brands: T("Copépodos locales de tu tienda", "Local fish store copepods"),
+               cost: () => T("~$20 una vez", "~$20 once") },
+    premium: { food: () => T("Copépodos vivos en botella + fitoplancton para mantenerlos", "Bottled live copepods + phyto to sustain them"),
+               brands: "Reef Nutrition Tigger-Pods · AlgaeBarn 5280 Pods · PhytoFeast",
+               cost: () => T("~$35 cada 6–8 semanas", "~$35 every 6–8 weeks") },
+    freq: () => T("Siembra continua", "Continuous seeding"),
+    how: () => T("⚠ Un mandarín necesita un tanque maduro (6+ meses) con población estable de copépodos, o muere de hambre lentamente.",
+                 "⚠ A mandarin needs a mature tank (6+ months) with a stable copepod population, or it slowly starves."),
+  },
+  coral_lps: {
+    need: () => T("Trozos pequeños de proteína 1–2 veces por semana", "Small protein chunks 1–2× a week"),
+    budget:  { food: () => T("Mysis congelada picada muy fina", "Finely chopped frozen mysis"),
+               brands: "San Francisco Bay Brand mysis",
+               cost: () => T("~$6", "~$6") },
+    premium: { food: () => T("Alimento específico para LPS", "Dedicated LPS food"),
+               brands: "Reef-Roids · Benepets BeneReef · Fauna Marin LPS Pellets",
+               cost: () => T("~$25–30", "~$25–30") },
+    freq: () => T("1–2 veces por semana", "1–2× a week"),
+    how: () => T("Apaga las bombas 15 min, deja que saquen los tentáculos y aplica la comida con una pipeta directamente sobre el pólipo.",
+                 "Turn pumps off 15 min, let the tentacles extend, then target-feed with a pipette straight onto the polyp."),
+  },
+  coral_sps: {
+    need: () => T("Partículas muy finas y aminoácidos", "Very fine particles and amino acids"),
+    budget:  { food: () => T("Polvo de coral genérico + agua ligeramente 'sucia'", "Generic coral powder + slightly 'dirty' water"),
+               brands: "Marine Snow · Coral Frenzy",
+               cost: () => T("~$12", "~$12") },
+    premium: { food: () => T("Aminoácidos + alimento en polvo para SPS", "Amino acids + SPS powder food"),
+               brands: "Red Sea Reef Energy AB+ · Acropower · Fauna Marin Ultra Min S",
+               cost: () => T("~$30–40", "~$30–40") },
+    freq: () => T("2–3 veces por semana", "2–3× a week"),
+    how: () => T("Los SPS viven sobre todo de la luz. No los sobrealimentes: con nitratos bajos y estables, un poco de amino basta para dar color.",
+                 "SPS live mostly on light. Don't overfeed: with low, stable nitrates a little amino is enough for color."),
+  },
+  coral_blando: {
+    need: () => T("Casi todo lo obtienen de la luz", "Almost everything comes from light"),
+    budget:  { food: () => T("No necesita alimento dedicado", "No dedicated food needed"),
+               brands: T("Aprovechan los restos de la comida de los peces", "They use fish-food leftovers"),
+               cost: () => T("$0", "$0") },
+    premium: { food: () => T("Alimento en polvo ocasional para más color", "Occasional powder food for extra color"),
+               brands: "Reef-Roids · Benepets",
+               cost: () => T("~$25 (opcional)", "~$25 (optional)") },
+    freq: () => T("Opcional, 1 vez por semana", "Optional, once a week"),
+    how: () => T("Zoas y hongos crecen mejor con algo de nutrientes en el agua: si tus nitratos están en 0, no crecen.",
+                 "Zoas and mushrooms do better with some nutrients in the water: at zero nitrate they stall."),
+  },
+  coral_nofoto: {
+    need: () => T("⚠ Alimentación intensiva — no hace fotosíntesis", "⚠ Heavy feeding — it does not photosynthesize"),
+    budget:  { food: () => T("Mysis picada, todos los pólipos, a mano", "Chopped mysis, every polyp, by hand"),
+               brands: "San Francisco Bay Brand",
+               cost: () => T("~$6 pero mucho tiempo", "~$6 but lots of time") },
+    premium: { food: () => T("Zooplancton y comida específica de no-fotosintéticos", "Zooplankton and NPS-specific food"),
+               brands: "Reef Nutrition Oyster-Feast · Fauna Marin Ultra Sea Fan",
+               cost: () => T("~$30", "~$30") },
+    freq: () => T("3–5 veces por semana", "3–5× a week"),
+    how: () => T("Un coral sol se muere de hambre en semanas si no lo alimentas pólipo por pólipo. Es el coral más exigente en tiempo.",
+                 "A sun coral starves in weeks unless fed polyp by polyp. It is the most time-demanding coral there is."),
+  },
+  anemona: {
+    need: () => T("Trozos de proteína 1–2 veces por semana", "Protein chunks 1–2× a week"),
+    budget:  { food: () => T("Camarón crudo del supermercado, picado", "Raw supermarket shrimp, chopped"),
+               brands: T("Camarón crudo sin condimentar", "Plain raw shrimp"),
+               cost: () => T("~$4", "~$4") },
+    premium: { food: () => T("Mezcla congelada carnívora en trozo", "Chunky carnivore frozen blend"),
+               brands: "LRS Reef Frenzy Nano · Rod's Food",
+               cost: () => T("~$20", "~$20") },
+    freq: () => T("1–2 veces por semana", "1–2× a week"),
+    how: () => T("Trozo del tamaño de su boca, con pinza al centro del disco. Si lo escupe, era demasiado grande.",
+                 "A bite-sized chunk, tweezers to the center of the disc. If it spits it out, it was too big."),
+  },
+  filtrador: {
+    need: () => T("Fitoplancton en el agua", "Phytoplankton in the water"),
+    budget:  { food: () => T("Fitoplancton genérico", "Generic phytoplankton"),
+               brands: "Kent Marine PhytoPlex",
+               cost: () => T("~$10", "~$10") },
+    premium: { food: () => T("Fitoplancton vivo refrigerado", "Live refrigerated phytoplankton"),
+               brands: "Reef Nutrition PhytoFeast · Oyster-Feast",
+               cost: () => T("~$25", "~$25") },
+    freq: () => T("2–3 veces por semana", "2–3× a week"),
+    how: () => T("Las almejas pequeñas (<7 cm) dependen del fito; las grandes ya viven casi solo de la luz.",
+                 "Small clams (<3 in) depend on phyto; large ones live mostly off light."),
+  },
+  algivoro: {
+    need: () => T("Algas del tanque", "Algae in the tank"),
+    budget:  { food: () => T("Nada — comen las algas del vidrio y la roca", "Nothing — they eat glass and rock algae"),
+               brands: T("Si el tanque está muy limpio, añade nori", "If the tank is very clean, add nori"),
+               cost: () => T("$0", "$0") },
+    premium: { food: () => T("Obleas de alga si escasean las algas", "Algae wafers if algae runs short"),
+               brands: "Hikari Algae Wafers · Two Little Fishies SeaVeggies",
+               cost: () => T("~$10", "~$10") },
+    freq: () => T("Solo si falta alga natural", "Only if natural algae runs out"),
+    how: () => T("Si limpias el vidrio a diario y no hay algas, tus caracoles pasan hambre. Deja algo de alga en el vidrio trasero.",
+                 "If you clean the glass daily and there's no algae, your snails starve. Leave some algae on the back pane."),
+  },
+  detritivoro: {
+    need: () => T("Restos de comida y detrito", "Leftovers and detritus"),
+    budget:  { food: () => T("Nada extra — viven de los restos", "Nothing extra — they live off leftovers"),
+               brands: "—",
+               cost: () => T("$0", "$0") },
+    premium: { food: () => T("Pellet que se hunde de vez en cuando", "An occasional sinking pellet"),
+               brands: "Hikari Sinking Wafers",
+               cost: () => T("~$8", "~$8") },
+    freq: () => T("Rara vez", "Rarely"),
+    how: () => T("Son tu equipo de limpieza: si les das de comer aparte, dejan de hacer su trabajo.",
+                 "They're your cleanup crew: feed them separately and they stop doing their job."),
+  },
+};
+
+function buildFeedingPlan(profiles, budget) {
+  return profiles.map(({ profile, count, names }) => {
+    const cat = FOOD_CATALOG[profile];
+    if (!cat) return null;
+    const tier = budget === "premium" ? cat.premium : cat.budget;
+    return {
+      profile, count, names,
+      meta: DIET_META[profile] || DIET_META.omnivoro,
+      need: cat.need(), freq: cat.freq(), how: cat.how(),
+      food: tier.food(), brands: typeof tier.brands === "function" ? tier.brands() : tier.brands, cost: tier.cost(),
+    };
+  }).filter(Boolean);
+}
+
+function FeedingPlanCard() {
+  const S = window.AquaStore;
+  const [budget, setBudget] = React.useState(() => localStorage.getItem("aqua:budget") || "budget");
+  const [aiPlan, setAiPlan] = React.useState(null);
+  const [aiBusy, setAiBusy] = React.useState(false);
+  const [rev, force] = React.useReducer((x) => x + 1, 0);
+
+  React.useEffect(() => {
+    const fn = () => force();
+    window.addEventListener("aqua:data", fn);
+    return () => window.removeEventListener("aqua:data", fn);
+  }, []);
+  React.useEffect(() => { localStorage.setItem("aqua:budget", budget); setAiPlan(null); }, [budget]);
+
+  const profiles = React.useMemo(analyzeTankDiet, [rev]);
+  const plan = React.useMemo(() => buildFeedingPlan(profiles, budget), [profiles, budget]);
+  const A = window.AQUA;
+  const total = A.INHABITANTS.fish.length + A.INHABITANTS.corals.length + A.INHABITANTS.cuc.length;
+
+  const askAI = async () => {
+    setAiBusy(true);
+    const lang = window.__lang === "en" ? "English" : "Spanish";
+    const list = ["fish", "corals", "cuc"].flatMap((k) =>
+      (A.INHABITANTS[k] || []).map((i) => `${i.name}${i.scientific ? ` (${i.scientific})` : ""}`)
+    ).join(", ") || "none";
+    const tier = budget === "premium"
+      ? "HIGH BUDGET: best products regardless of price."
+      : "LOW BUDGET: cheapest that still keeps the animals healthy, including supermarket alternatives.";
+    const res = await groqJSON(
+      "You are a marine/freshwater aquarium feeding expert (Reef2Reef level). Return ONLY a JSON object, no markdown. Be specific with real product names, quantities and frequency.",
+      `Tank: ${A.TANK_CONFIG.realVolume || A.TANK_CONFIG.displayVolume} gal ${A.TANK_CONFIG.type}.
+Livestock: ${list}.
+${tier}
+Return (values in ${lang}):
+{"summary":"one sentence on this tank's feeding needs","schedule":[{"when":"e.g. Lunes/Daily morning","what":"what to feed","amount":"how much for THIS tank volume"}],"products":[{"name":"real product name","price":"approx price","for":"which animals","why":"one line"}],"warnings":["one common mistake for this specific livestock"]}`,
+      900
+    );
+    if (res?._noKey) window.toast?.(T("Agrega tu key de Groq en Ajustes para el plan con IA", "Add your Groq key in Settings for the AI plan"), { tone: "warn", icon: "Key" });
+    else if (!res || res._error || res._parseError) window.toast?.(T("La IA tuvo un problema — el plan local sigue disponible abajo", "AI hiccup — the local plan below still works"), { tone: "warn", icon: "AlertTriangle" });
+    else setAiPlan(res);
+    setAiBusy(false);
+  };
+
+  const addToSupplements = (row) => {
+    S.addSupplement({
+      name: row.food, category: row.profile.startsWith("coral") || row.profile === "filtrador" ? "coral" : "food",
+      schedule: row.freq, note: row.brands,
+    });
+    window.toast?.(T(`"${row.food}" agregado a tus suplementos`, `"${row.food}" added to your supplements`), { icon: "Plus" });
+  };
+
+  if (total === 0) {
+    return (
+      <Card className="p-5">
+        <SectionHeader kicker={T("Alimentación", "Feeding")} title={T("Plan de alimentación", "Feeding plan")} />
+        <div className="flex items-center gap-3">
+          <div className="grid place-items-center w-10 h-10 rounded-xl shrink-0" style={{ background: "var(--well)", border: "1px dashed var(--hairline-strong)" }}>
+            <L name="Utensils" size={16} className="text-[var(--ink-3)]" />
+          </div>
+          <div className="text-[12px] text-[var(--ink-2)]">
+            {T("Agrega tus peces y corales en Habitantes y aquí te armo el plan de comida completo, con opción económica y premium.",
+               "Add your fish and corals under Livestock and I'll build the full feeding plan here, with a budget and a premium option.")}
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="p-5">
+      <SectionHeader
+        kicker={T("Alimentación", "Feeding")}
+        title={T("Plan para tus habitantes", "Plan for your livestock")}
+        action={
+          <Button size="sm" variant="secondary" icon={aiBusy ? undefined : "Sparkles"} loading={aiBusy} onClick={askAI}>
+            {T("Afinar con IA", "Refine with AI")}
+          </Button>
+        }
+      />
+
+      {/* Qué hay en el tanque */}
+      <div className="flex flex-wrap gap-1.5 mb-3">
+        {profiles.map((p) => {
+          const m = DIET_META[p.profile] || DIET_META.omnivoro;
+          return (
+            <span key={p.profile} className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10.5px] font-medium"
+              style={{ background: `${m.color}14`, border: `1px solid ${m.color}35`, color: m.color }}>
+              <L name={m.icon} size={10} /> {m.label()} · {p.count}
+            </span>
+          );
+        })}
+      </div>
+
+      {/* Selector de presupuesto */}
+      <div className="flex p-0.5 rounded-xl mb-4" style={{ background: "var(--well)", border: "1px solid var(--hairline)" }}>
+        {[
+          { id: "budget",  label: T("Económico", "Budget"),  icon: "PiggyBank", sub: T("Lo mínimo que funciona bien", "The cheapest that still works") },
+          { id: "premium", label: T("Premium", "Premium"),   icon: "Gem",       sub: T("Lo mejor sin importar precio", "The best regardless of price") },
+        ].map((o) => (
+          <button key={o.id} onClick={() => setBudget(o.id)}
+            className="flex-1 rounded-lg py-2 px-2 text-center transition-all min-h-[44px]"
+            style={budget === o.id ? { background: "var(--surface-strong)", boxShadow: "0 1px 5px rgba(0,0,0,0.08)" } : {}}>
+            <div className="flex items-center justify-center gap-1.5 text-[12.5px] font-semibold"
+              style={{ color: budget === o.id ? "var(--accent)" : "var(--ink-3)" }}>
+              <L name={o.icon} size={13} /> {o.label}
+            </div>
+            <div className="text-[9.5px] text-[var(--ink-3)] mt-0.5">{o.sub}</div>
+          </button>
+        ))}
+      </div>
+
+      {/* Plan de la IA (si se pidió) */}
+      {aiPlan && (
+        <div className="rounded-2xl p-3.5 mb-3" style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)" }}>
+          <div className="flex items-center gap-1.5 mb-1.5 text-[10px] uppercase tracking-wider font-semibold" style={{ color: "var(--accent)" }}>
+            <L name="Sparkles" size={11} /> {T("Plan personalizado", "Personalized plan")}
+          </div>
+          {aiPlan.summary && <div className="text-[12px] text-[var(--ink)] leading-relaxed mb-2">{String(aiPlan.summary)}</div>}
+          {Array.isArray(aiPlan.schedule) && aiPlan.schedule.filter((s) => s && typeof s === "object").map((s, i) => (
+            <div key={i} className="flex items-start gap-2 text-[11.5px] text-[var(--ink-2)] mb-1">
+              <L name="Clock" size={11} className="shrink-0 mt-0.5" style={{ color: "var(--accent)" }} />
+              <span><b className="text-[var(--ink)]">{String(s.when || "")}</b> — {String(s.what || "")}{s.amount ? ` (${String(s.amount)})` : ""}</span>
+            </div>
+          ))}
+          {Array.isArray(aiPlan.products) && aiPlan.products.filter((p) => p && typeof p === "object").length > 0 && (
+            <div className="mt-2 pt-2 border-t" style={{ borderColor: "var(--accent-border)" }}>
+              {aiPlan.products.filter((p) => p && typeof p === "object").map((pr, i) => (
+                <div key={i} className="text-[11px] text-[var(--ink-2)] mb-0.5">
+                  <b className="text-[var(--ink)]">{String(pr.name || "")}</b>{pr.price ? ` · ${String(pr.price)}` : ""}{pr.for ? ` — ${String(pr.for)}` : ""}
+                </div>
+              ))}
+            </div>
+          )}
+          {Array.isArray(aiPlan.warnings) && aiPlan.warnings.filter(Boolean).map((w, i) => (
+            <div key={i} className="mt-2 flex items-start gap-1.5 text-[11px]" style={{ color: "#C77F00" }}>
+              <L name="AlertTriangle" size={11} className="shrink-0 mt-0.5" /> {String(w)}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Plan local — siempre disponible, sin key */}
+      <div className="space-y-2">
+        {plan.map((row) => (
+          <div key={row.profile} className="rounded-2xl p-3" style={{ background: "var(--surface)", border: "1px solid var(--hairline)" }}>
+            <div className="flex items-start gap-2.5">
+              <div className="grid place-items-center w-7 h-7 rounded-lg shrink-0 mt-0.5"
+                style={{ background: `${row.meta.color}18`, border: `1px solid ${row.meta.color}35` }}>
+                <L name={row.meta.icon} size={13} style={{ color: row.meta.color }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-baseline gap-2 flex-wrap">
+                  <span className="text-[12.5px] font-semibold text-[var(--ink)]">{row.food}</span>
+                  <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full" style={{ background: "var(--well)", color: "var(--ink-2)" }}>{row.cost}</span>
+                </div>
+                <div className="text-[10.5px] text-[var(--ink-3)] mt-0.5">{row.brands}</div>
+                <div className="flex items-center gap-3 mt-1.5 text-[10.5px] text-[var(--ink-2)]">
+                  <span className="inline-flex items-center gap-1"><L name="Repeat" size={10} /> {row.freq}</span>
+                  <span className="inline-flex items-center gap-1 truncate"><L name="Fish" size={10} /> {row.names.join(", ")}</span>
+                </div>
+                <div className="text-[11px] text-[var(--ink-2)] mt-1.5 leading-relaxed">{row.how}</div>
+                <button onClick={() => addToSupplements(row)}
+                  className="mt-2 inline-flex items-center gap-1 text-[10.5px] font-medium min-h-[32px]" style={{ color: "var(--accent)" }}>
+                  <L name="Plus" size={11} /> {T("Añadir a mis suplementos", "Add to my supplements")}
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-3 flex items-start gap-1.5 text-[10px] text-[var(--ink-3)]">
+        <L name="Info" size={11} className="shrink-0 mt-0.5" />
+        {T("Marcas de referencia, no patrocinadas. Ajusta las cantidades observando a tus animales: deben comer todo en ~2 minutos.",
+           "Reference brands, not sponsored. Tune amounts by watching your animals: everything should be eaten in ~2 minutes.")}
+      </div>
+    </Card>
+  );
+}
+
 function SupplementsPage() {
   const S = window.AquaStore;
   const [, forceUpdate] = React.useReducer((x) => x + 1, 0);
@@ -2729,6 +3183,8 @@ function SupplementsPage() {
         </div>
         <Button variant="primary" icon="Plus" onClick={() => setModal("add")}>{T("Agregar","Add")}</Button>
       </div>
+
+      <FeedingPlanCard />
 
       {supplements.length === 0 ? (
         <Card className="p-8 text-center">
