@@ -464,23 +464,12 @@ function parseGroqJSON(data) {
 }
 
 async function groqJSON(system, user, maxTokens = 500) {
-  const apiKey = window.AQUAMIND_AI_KEY || localStorage.getItem("aqua:ai_key");
-  if (!apiKey) return { _noKey: true };
-  try {
-    const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        messages: [{ role: "system", content: system }, { role: "user", content: user }],
-        max_tokens: maxTokens, temperature: 0.2,
-      }),
-      signal: AbortSignal.timeout(30000),
-    });
-    if (!resp.ok) return { _error: resp.status };
-    return parseGroqJSON(await resp.json()) || { _parseError: true };
-  } catch (e) { return { _error: e?.name === "TimeoutError" ? "timeout" : "network" }; }
+  if (!window.AquaAI?.hasKey()) return { _noKey: true };
+  const res = await window.AquaAI.json(system, user, maxTokens);
+  if (res && res._error === "no_key") return { _noKey: true };
+  return res;
 }
+
 
 // Full care sheet for a species. kind: fish | corals | cuc
 async function fetchSpeciesCare(name, scientific, kind) {
@@ -1302,23 +1291,15 @@ function LightFixtureModal({ onClose }) {
     }
     setAiSearching(true);
     try {
-      const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-        body: JSON.stringify({
-          model: "llama-3.3-70b-versatile",
-          messages: [
-            { role: "system", content: "You are a database of aquarium light fixtures with PAR data. Return ONLY a JSON object — no markdown, no explanation. If the fixture is unknown, return {\"notFound\":true}." },
-            { role: "user", content: `Aquarium light fixture specs for: "${query.trim()}"\nReturn: {"n":"full model name","br":"brand","w":watts_number,"type":"led|t5|mh|hybrid","spectrum":"reef|planted|both","par":typical_peak_PAR_number_at_30cm_water_depth_at_100_percent_intensity,"desc":"one short line"}` },
-          ],
-          max_tokens: 160,
-          temperature: 0.1,
-        }),
-      });
-      const data = await resp.json();
-      const raw = data.choices?.[0]?.message?.content?.trim() || "";
-      const jsonStr = raw.replace(/```json|```/g, "").trim();
-      const parsed = JSON.parse(jsonStr);
+      const parsed = await window.AquaAI.json(
+        "You are a database of aquarium light fixtures with PAR data. Return ONLY a JSON object — no markdown, no explanation. If the fixture is unknown, return {\"notFound\":true}.",
+        `Aquarium light fixture specs for: "${query.trim()}"\nReturn: {"n":"full model name","br":"brand","w":watts_number,"type":"led|t5|mh|hybrid","spectrum":"reef|planted|both","par":typical_peak_PAR_number_at_30cm_water_depth_at_100_percent_intensity,"desc":"one short line"}`,
+        160
+      );
+      if (parsed?._error || parsed?._parseError) {
+        window.toast?.(aiErrorMsg(parsed), { tone: "warn", icon: "AlertTriangle" });
+        throw new Error("ai");
+      }
       if (parsed.notFound || !parsed.n) {
         window.toast?.(T("Lámpara no encontrada por IA — intenta con el nombre exacto del modelo", "Fixture not found by AI — try the exact model name"), { tone: "warn", icon: "SearchX" });
       } else {
@@ -1791,22 +1772,15 @@ function ParCalculatorCard({ fixture, onConfigure }) {
     }
     setAiBusy(true);
     try {
-      const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-        body: JSON.stringify({
-          model: "llama-3.3-70b-versatile",
-          messages: [
-            { role: "system", content: "You are a database of aquarium light fixtures with PAR data. Return ONLY a JSON object — no markdown. If unknown, return {\"notFound\":true}." },
-            { role: "user", content: `Typical peak PAR for the aquarium light "${[fixture.brand, fixture.name].filter(Boolean).join(" ")}" at 30cm water depth at 100% intensity.\nReturn: {"par":number}` },
-          ],
-          max_tokens: 60,
-          temperature: 0.1,
-        }),
-      });
-      const data = await resp.json();
-      const raw = data.choices?.[0]?.message?.content?.trim() || "";
-      const parsed = JSON.parse(raw.replace(/```json|```/g, "").trim());
+      const parsed = await window.AquaAI.json(
+        "You are a database of aquarium light fixtures with PAR data. Return ONLY a JSON object — no markdown. If unknown, return {\"notFound\":true}.",
+        `Typical peak PAR for the aquarium light "${[fixture.brand, fixture.name].filter(Boolean).join(" ")}" at 30cm water depth at 100% intensity.\nReturn: {"par":number}`,
+        60
+      );
+      if (parsed?._error || parsed?._parseError) {
+        window.toast?.(aiErrorMsg(parsed), { tone: "warn", icon: "AlertTriangle" });
+        throw new Error("ai");
+      }
       if (parsed.par && parsed.par > 0) {
         setAiPar(parsed.par);
         window.AquaStore?.setLightFixture({ ...fixture, par: parsed.par });

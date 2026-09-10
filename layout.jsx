@@ -1,4 +1,12 @@
 // Layout: Sidebar, Header, MobileTabBar, Logo — Liquid Glass edition
+
+// Mensaje legible para cualquier fallo de la IA. Se define aquí porque
+// layout.jsx se compila antes que pages.jsx y ambos lo usan.
+function aiErrorMsg(res) {
+  if (res?._noKey || res?._error === "no_key") return T("Agrega tu key de Groq en Ajustes para usar la IA", "Add your Groq key in Settings to use AI");
+  if (res?._parseError) return T("La IA respondió en un formato inesperado — inténtalo de nuevo", "The AI replied in an unexpected format — try again");
+  return window.AquaAI?.explain(res?._error) || T("La IA falló — inténtalo de nuevo", "The AI failed — try again");
+}
 const NAV_ITEMS = () => [
   { id: "dashboard",   label: T("Inicio", "Home"),                   icon: "Home" },
   { id: "parameters",  label: T("Bitácora", "Logbook"),              icon: "NotebookPen" },
@@ -291,23 +299,15 @@ function AddTankModal({ onClose, onAdded }) {
     }
     setAiSearching(true);
     try {
-      const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-        body: JSON.stringify({
-          model: "llama-3.3-70b-versatile",
-          messages: [
-            { role: "system", content: "You are a database of aquarium tanks. Return ONLY a JSON object — no markdown, no explanation. If the tank is unknown, return {\"notFound\":true}." },
-            { role: "user", content: `Aquarium tank specs for: "${query.trim()}"\nReturn: {"n":"full name","br":"brand","vol":gallons_number,"t":"reef|saltwater|freshwater|planted","filtration":"sump|aio|canister|none","l":length_inches,"w":width_inches,"h":height_inches}` },
-          ],
-          max_tokens: 160,
-          temperature: 0.1,
-        }),
-      });
-      const data = await resp.json();
-      const raw = data.choices?.[0]?.message?.content?.trim() || "";
-      const jsonStr = raw.replace(/```json|```/g, "").trim();
-      const parsed = JSON.parse(jsonStr);
+      const parsed = await window.AquaAI.json(
+        "You are a database of aquarium tanks. Return ONLY a JSON object — no markdown, no explanation. If the tank is unknown, return {\"notFound\":true}.",
+        `Aquarium tank specs for: "${query.trim()}"\nReturn: {"n":"full name","br":"brand","vol":gallons_number,"t":"reef|saltwater|freshwater|planted","filtration":"sump|aio|canister|none","l":length_inches,"w":width_inches,"h":height_inches}`,
+        160
+      );
+      if (parsed?._error || parsed?._parseError) {
+        window.toast?.(aiErrorMsg(parsed), { tone: "warn", icon: "AlertTriangle" });
+        throw new Error("ai");
+      }
       if (parsed.notFound) {
         window.toast?.(T("Tanque no encontrado en IA — intenta con el nombre exacto del modelo", "Tank not found by AI — try the exact model name"), { tone: "warn", icon: "SearchX" });
       } else {

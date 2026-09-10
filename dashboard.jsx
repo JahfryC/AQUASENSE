@@ -387,41 +387,21 @@ function executeAquaTool(name, args) {
   }
 }
 
-// Call Groq — OpenAI-compatible API, Llama 3.3 70B
+// Llama a Groq a través de window.AquaAI, que centraliza el modelo y cambia
+// solo al siguiente si Groq retira el que estábamos usando.
 async function callGroq(messages, system, tools = null) {
-  const apiKey = window.AQUAMIND_AI_KEY || localStorage.getItem("aqua:ai_key");
-  if (!apiKey) return null;
-  try {
-    const formatted = messages.map((m) => {
-      if (m.role === "tool" || m.tool_calls !== undefined) return m;
-      const role = m.role === "assistant" ? "assistant" : "user";
-      return { role, content: typeof m.content === "string" ? m.content : JSON.stringify(m.content) };
-    });
-    const body = {
-      model: "llama-3.3-70b-versatile",
-      messages: [{ role: "system", content: system }, ...formatted],
-      max_tokens: 600,
-    };
-    if (tools && tools.length) { body.tools = tools; body.tool_choice = "auto"; }
-
-    // Timeout obligatorio: sin él, una conexión colgada dejaba el chat
-    // bloqueado para siempre y solo se recuperaba recargando.
-    const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(30000),
-    });
-    if (!resp.ok) {
-      const err = await resp.text().catch(() => "");
-      console.error("[AquaBuddy] Groq error", resp.status, err.slice(0, 400));
-      return { _error: resp.status, _msg: err.slice(0, 200) };
-    }
-    return await resp.json();
-  } catch (e) {
-    console.warn("[AquaBuddy] fetch error:", e);
-    return { _error: e?.name === "TimeoutError" ? "timeout" : "network" };
+  if (!window.AquaAI?.hasKey()) return null;
+  const formatted = messages.map((m) => {
+    if (m.role === "tool" || m.tool_calls !== undefined) return m;
+    const role = m.role === "assistant" ? "assistant" : "user";
+    return { role, content: typeof m.content === "string" ? m.content : JSON.stringify(m.content) };
+  });
+  const r = await window.AquaAI.chat({ messages: formatted, system, tools, maxTokens: 600 });
+  if (!r.ok) {
+    console.error("[AquaBuddy] Groq:", r.code, r.message);
+    return { _error: r.code, _msg: r.message };
   }
+  return r.data;
 }
 
 async function callAquaBuddy(userMessage, mode = "personalized", history = []) {
@@ -440,17 +420,10 @@ async function callAquaBuddy(userMessage, mode = "personalized", history = []) {
 
   // --- Groq (Llama 3.3 70B, OpenAI-compatible) ---
   const groqData = await callGroq(messages, system, AQUA_TOOLS);
-  if (groqData && groqData._error) {
-    const code = groqData._error;
-    // Nunca disfrazar un fallo de una respuesta real: antes caía a una
-    // plantilla local con el mismo estilo y el usuario creía que la IA había
-    // analizado su tanque.
-    if (code === 401 || code === 403) return T("⚠ API key de Groq inválida. Configúrala en Ajustes → Cuenta → Aqua Buddy.", "⚠ Invalid Groq API key. Set it in Settings → Account → Aqua Buddy.");
-    if (code === 429) return T("⚠ Límite de Groq alcanzado (plan gratuito). Espera un minuto y vuelve a preguntar.", "⚠ Groq rate limit reached (free tier). Wait a minute and ask again.");
-    if (code === "timeout") return T("⚠ La IA tardó demasiado en responder. Revisa tu conexión e inténtalo de nuevo.", "⚠ The AI took too long to respond. Check your connection and try again.");
-    if (code === "network") return T("⚠ Sin conexión con la IA. Revisa tu internet e inténtalo de nuevo.", "⚠ Can't reach the AI. Check your connection and try again.");
-    if (typeof code === "number" && code >= 500) return T("⚠ Groq tuvo un problema en su servidor. Inténtalo de nuevo en un momento.", "⚠ Groq had a server problem. Try again in a moment.");
-  }
+  // Nunca disfrazar un fallo de una respuesta real: antes caía a una plantilla
+  // local con el mismo estilo y el usuario creía que la IA había analizado su
+  // tanque. AquaAI.explain da el motivo exacto.
+  if (groqData && groqData._error) return "⚠ " + window.AquaAI.explain(groqData._error);
   if (groqData) {
     const msg = groqData.choices?.[0]?.message;
     if (msg?.tool_calls?.length > 0) {

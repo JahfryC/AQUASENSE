@@ -493,7 +493,10 @@ function AquaBuddyKeyRow() {
 
   const hasKey = !!localStorage.getItem("aqua:ai_key");
 
-  const save = () => {
+  const [testing, setTesting] = React.useState(false);
+  const [result, setResult] = React.useState(null); // {ok, text}
+
+  const save = async () => {
     const trimmed = key.trim();
     if (trimmed) {
       localStorage.setItem("aqua:ai_key", trimmed);
@@ -501,10 +504,21 @@ function AquaBuddyKeyRow() {
     } else {
       localStorage.removeItem("aqua:ai_key");
       window.AQUAMIND_AI_KEY = null;
+      setResult(null);
     }
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
-    window.toast?.(T("Key de Groq actualizada", "Groq key updated"), { icon: "Sparkles" });
+    if (trimmed) await runTest();
+  };
+
+  // Prueba real contra Groq: dice si la key sirve, y si no, POR QUÉ.
+  const runTest = async () => {
+    setTesting(true); setResult(null);
+    const r = await window.AquaAI.testKey();
+    setResult(r.ok
+      ? { ok: true, text: T(`Funcionando con ${r.model}`, `Working with ${r.model}`) }
+      : { ok: false, text: r.message });
+    setTesting(false);
   };
 
   return (
@@ -523,12 +537,32 @@ function AquaBuddyKeyRow() {
             className="flex-1 bg-transparent border-0 outline-none text-[11.5px] text-[var(--ink)] placeholder:text-[var(--ink-3)] font-mono" />
           <button onClick={() => setShow((s) => !s)} className="text-[var(--ink-3)] hover:text-[var(--ink-2)]"><L name={show ? "EyeOff" : "Eye"} size={12} /></button>
         </div>
-        <button onClick={save}
-          className="px-3 rounded-xl text-[11.5px] font-medium text-white transition-all active:scale-[0.98]"
+        <button onClick={save} disabled={testing}
+          className="px-3 rounded-xl text-[11.5px] font-medium text-white transition-all active:scale-[0.98] disabled:opacity-60 min-h-[38px]"
           style={{ background: saved ? "#0E9F6E" : "linear-gradient(135deg, var(--accent), var(--accent-strong))" }}>
-          {saved ? <L name="Check" size={13} /> : T("Guardar", "Save")}
+          {testing ? <L name="Loader2" size={13} className="animate-spin" /> : saved ? <L name="Check" size={13} /> : T("Guardar", "Save")}
         </button>
       </div>
+
+      {/* Diagnóstico real de la key: antes, cualquier fallo (incluido que Groq
+          hubiera retirado el modelo) se veía igual que "no hay key". */}
+      {hasKey && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <button onClick={runTest} disabled={testing}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[10.5px] font-semibold disabled:opacity-60 min-h-[32px]"
+            style={{ background: "var(--well)", border: "1px solid var(--hairline)", color: "var(--ink-2)" }}>
+            <L name={testing ? "Loader2" : "Activity"} size={11} className={testing ? "animate-spin" : ""} />
+            {testing ? T("Probando…", "Testing…") : T("Probar conexión", "Test connection")}
+          </button>
+          {result && (
+            <span className="inline-flex items-start gap-1.5 text-[10.5px] font-medium flex-1 min-w-[160px]"
+              style={{ color: result.ok ? "#0E9F6E" : "#DC4458" }}>
+              <L name={result.ok ? "CheckCircle2" : "AlertTriangle"} size={11} className="shrink-0 mt-0.5" />
+              {result.text}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -560,3 +560,115 @@ window.AquaNotify = (() => {
 
   return { supported, permission, request, show, check, test, start };
 })();
+
+// ============ MOTOR DE IA (Groq) ============
+// El modelo vivía copiado en 5 archivos. Cuando Groq retiró
+// llama-3.3-70b-versatile (dejó de servirse en agosto de 2026), la IA dejó de
+// funcionar aunque la key fuera válida, y el error se confundía con "sin key".
+// Ahora hay una sola lista, con respaldo automático: si un modelo desaparece,
+// se pasa al siguiente y se recuerda cuál funcionó.
+window.AquaAI = (() => {
+  const ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
+  const PREF_KEY = "aqua:ai_model";
+
+  // En orden de preferencia. El primero que responda se recuerda.
+  const MODELS = [
+    "openai/gpt-oss-120b",   // sucesor recomendado por Groq, admite tool calling
+    "openai/gpt-oss-20b",    // más rápido y barato
+    "qwen/qwen3-32b",        // alternativa
+  ];
+
+  const getKey = () => window.AQUAMIND_AI_KEY || localStorage.getItem("aqua:ai_key") || null;
+  const hasKey = () => !!getKey();
+
+  function modelOrder() {
+    const saved = localStorage.getItem(PREF_KEY);
+    return saved && MODELS.includes(saved) ? [saved, ...MODELS.filter((m) => m !== saved)] : [...MODELS];
+  }
+
+  // ¿El error dice que el modelo ya no existe? Entonces probar el siguiente.
+  function isModelGone(status, text) {
+    if (status !== 400 && status !== 404) return false;
+    return /decommission|deprecat|does not exist|not found|invalid.*model|model_not_found/i.test(text || "");
+  }
+
+  // Llamada única. Devuelve { ok, data } o { ok:false, code, message }.
+  // code: "no_key" | "bad_key" | "rate_limit" | "timeout" | "network" |
+  //       "no_model" | "server" | number
+  async function chat({ messages, system, tools = null, maxTokens = 600, temperature, json = false, timeout = 30000 }) {
+    const key = getKey();
+    if (!key) return { ok: false, code: "no_key", message: "Falta la API key de Groq" };
+
+    let lastErr = null;
+    for (const model of modelOrder()) {
+      const body = {
+        model,
+        messages: system ? [{ role: "system", content: system }, ...messages] : messages,
+        max_tokens: maxTokens,
+      };
+      if (temperature != null) body.temperature = temperature;
+      if (tools && tools.length) { body.tools = tools; body.tool_choice = "auto"; }
+      if (json) body.response_format = { type: "json_object" };
+
+      try {
+        const resp = await fetch(ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(timeout),
+        });
+        if (resp.ok) {
+          localStorage.setItem(PREF_KEY, model);   // recordar el que sí sirve
+          return { ok: true, data: await resp.json(), model };
+        }
+        const text = await resp.text().catch(() => "");
+        if (isModelGone(resp.status, text)) { lastErr = { code: "no_model", message: text.slice(0, 200) }; continue; }
+        if (resp.status === 401 || resp.status === 403) return { ok: false, code: "bad_key", message: text.slice(0, 200) };
+        if (resp.status === 429) return { ok: false, code: "rate_limit", message: text.slice(0, 200) };
+        if (resp.status >= 500) return { ok: false, code: "server", message: text.slice(0, 200) };
+        return { ok: false, code: resp.status, message: text.slice(0, 200) };
+      } catch (e) {
+        return { ok: false, code: e?.name === "TimeoutError" ? "timeout" : "network", message: String(e?.message || e) };
+      }
+    }
+    return lastErr
+      ? { ok: false, code: "no_model", message: "Ningún modelo disponible: " + lastErr.message }
+      : { ok: false, code: "network", message: "Sin respuesta" };
+  }
+
+  // Atajo para respuestas en JSON (fichas, planes, insights…)
+  async function json(system, user, maxTokens = 600) {
+    const r = await chat({
+      messages: [{ role: "user", content: user }],
+      system, maxTokens, temperature: 0.2, json: true,
+    });
+    if (!r.ok) return { _error: r.code, _msg: r.message };
+    const raw = r.data?.choices?.[0]?.message?.content?.trim() || "";
+    try { return JSON.parse(raw.replace(/```json|```/g, "").trim()); }
+    catch (e) { return { _parseError: true, _msg: raw.slice(0, 200) }; }
+  }
+
+  // Mensaje claro para el usuario según el fallo
+  function explain(code) {
+    const es = window.__lang !== "en";
+    switch (code) {
+      case "no_key":     return es ? "Falta tu API key de Groq. Añádela en Ajustes → Cuenta." : "Your Groq API key is missing. Add it in Settings → Account.";
+      case "bad_key":    return es ? "Tu API key de Groq no es válida o fue revocada. Genera una nueva en console.groq.com/keys." : "Your Groq API key is invalid or was revoked. Create a new one at console.groq.com/keys.";
+      case "rate_limit": return es ? "Alcanzaste el límite del plan gratuito de Groq. Espera un minuto e inténtalo otra vez." : "You hit Groq's free-tier rate limit. Wait a minute and try again.";
+      case "timeout":    return es ? "La IA tardó demasiado. Revisa tu conexión e inténtalo de nuevo." : "The AI took too long. Check your connection and try again.";
+      case "network":    return es ? "No se pudo conectar con Groq. Revisa tu internet." : "Couldn't reach Groq. Check your connection.";
+      case "no_model":   return es ? "Groq retiró el modelo que usábamos y no hay ninguno disponible con tu cuenta." : "Groq retired the model we used and none are available on your account.";
+      case "server":     return es ? "Groq tuvo un problema en su servidor. Inténtalo en un momento." : "Groq had a server problem. Try again shortly.";
+      default:           return es ? "La IA falló. Inténtalo de nuevo." : "The AI failed. Try again.";
+    }
+  }
+
+  // Diagnóstico para el botón "Probar" de Ajustes
+  async function testKey() {
+    const r = await chat({ messages: [{ role: "user", content: "Responde solo: OK" }], maxTokens: 5, timeout: 15000 });
+    if (r.ok) return { ok: true, model: r.model, text: r.data?.choices?.[0]?.message?.content?.trim() || "" };
+    return { ok: false, code: r.code, message: explain(r.code), detail: r.message };
+  }
+
+  return { MODELS, chat, json, explain, testKey, hasKey, getKey, get model() { return localStorage.getItem(PREF_KEY) || MODELS[0]; } };
+})();
