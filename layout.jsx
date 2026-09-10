@@ -24,12 +24,12 @@ function Logo({ size = 36 }) {
       className="grid place-items-center rounded-2xl shrink-0"
       style={{
         width: size, height: size,
-        background: "linear-gradient(150deg, rgba(255,255,255,0.85), rgba(255,255,255,0.25))",
-        border: "1px solid var(--glass-border)",
-        boxShadow: "0 4px 14px rgba(13,148,136,0.25), inset 0 1px 0 rgba(255,255,255,0.7)",
+        background: "var(--accent)",
+        border: "none",
+        boxShadow: "none",
       }}
     >
-      <L name="Droplet" size={size * 0.5} style={{ color: "var(--accent)" }} strokeWidth={1.8} />
+      <L name="Droplet" size={size * 0.5} style={{ color: "#fff" }} strokeWidth={2} />
     </div>
   );
 }
@@ -47,7 +47,7 @@ function NavItem({ item, active, onClick, badge }) {
       <L name={item.icon} size={17} strokeWidth={active ? 2 : 1.6} style={active ? { color: "var(--accent)" } : undefined} />
       <span className="text-[13.5px] flex-1">{item.label}</span>
       {badge > 0 && (
-        <span className="text-[10px] font-semibold tabular-nums px-1.5 py-0.5 rounded-full" style={{ background: "rgba(225,29,72,0.13)", color: "#DC4458", border: "1px solid rgba(225,29,72,0.28)" }}>{badge}</span>
+        <span className="text-[10px] font-semibold tabular-nums px-1.5 py-0.5 rounded-full" style={{ background: "rgba(255,59,48,0.13)", color: "var(--ios-red)", border: "1px solid rgba(255,59,48,0.28)" }}>{badge}</span>
       )}
     </button>
   );
@@ -60,7 +60,7 @@ function Sidebar({ activePage, onNavigate, alertCount = 0, session }) {
   const userColor = session?.color || "linear-gradient(150deg, var(--accent), var(--indigo))";
   return (
     <aside className="hidden lg:flex flex-col w-[240px] shrink-0 sticky top-0 h-screen p-4 pr-0">
-      <div className="glass rounded-[28px] flex flex-col flex-1 overflow-hidden">
+      <div className="chrome rounded-[28px] flex flex-col flex-1 overflow-hidden">
         <div className="flex items-center gap-3 px-5 pt-5 pb-4">
           <Logo />
           <div>
@@ -240,7 +240,7 @@ function FieldInput({ label, value, onChange, placeholder, ftype = "text", unit,
 }
 
 const TYPE_META = {
-  reef:       { label: () => T("Reef","Reef"),           icon: "Shell",   bg: "rgba(13,148,136,0.1)",  border: "rgba(13,148,136,0.25)",  color: "var(--accent)" },
+  reef:       { label: () => T("Reef","Reef"),           icon: "Shell",   bg: "rgba(13,148,136,0.1)",  border: "var(--accent-border)",  color: "var(--accent)" },
   saltwater:  { label: () => T("Marino","Saltwater"),    icon: "Waves",   bg: "rgba(59,130,246,0.1)",  border: "rgba(59,130,246,0.25)",  color: "#3B82F6" },
   freshwater: { label: () => T("Dulce","Freshwater"),    icon: "Droplet", bg: "rgba(22,163,74,0.1)",   border: "rgba(22,163,74,0.25)",   color: "#16a34a" },
   planted:    { label: () => T("Plantado","Planted"),    icon: "Leaf",    bg: "rgba(101,163,13,0.1)",  border: "rgba(101,163,13,0.25)",  color: "#65a30d" },
@@ -589,7 +589,7 @@ function TankSelector() {
         aria-expanded={open}
         className="glass-strong inline-flex items-center gap-2 rounded-full pl-2.5 pr-3 py-1.5 text-[12.5px] font-medium text-[var(--ink)] hover:brightness-105 transition-all"
       >
-        <PulsingDot color="#0E9F6E" size={7} />
+        <PulsingDot color="var(--ios-green)" size={7} />
         {activeTank?.name || "Tank"}
         <span className="hidden sm:inline text-[var(--ink-3)]">·</span>
         <span className="hidden sm:inline-flex items-center gap-1 text-[var(--ink-2)] tabular-nums">
@@ -612,7 +612,7 @@ function TankSelector() {
                     onClick={() => switchTank(tank.id)}
                     className="flex-1 flex items-center gap-2.5 px-3 py-2.5 text-left min-w-0"
                   >
-                    <PulsingDot color={tank.type === "freshwater" ? "#16a34a" : "#0E9F6E"} size={7} />
+                    <PulsingDot color={tank.type === "freshwater" ? "#16a34a" : "var(--ios-green)"} size={7} />
                     <span className="flex-1 min-w-0">
                       <span className="block text-[12.5px] font-medium text-[var(--ink)]">{tank.name}</span>
                       <span className="block text-[10.5px] text-[var(--ink-2)]">{typeLabel(tank)} {T("· en línea", "· online")}</span>
@@ -623,7 +623,7 @@ function TankSelector() {
                     <button
                       onClick={(e) => deleteTank(e, tank.id)}
                       aria-label={T("Eliminar tanque", "Delete tank")}
-                      className="p-1.5 mr-1 rounded-lg text-[var(--ink-3)] hover:text-[#DC4458] hover:bg-[rgba(225,29,72,0.1)] transition-all"
+                      className="p-1.5 mr-1 rounded-lg text-[var(--ink-3)] hover:text-[var(--ios-red)] hover:bg-[rgba(225,29,72,0.1)] transition-all"
                       title={T("Eliminar este tanque", "Delete this tank")}
                     >
                       <L name="Trash2" size={13} />
@@ -663,7 +663,7 @@ function Header({ activePage, onNavigate, alertCount }) {
 
   return (
     <header className="sticky top-0 z-30 px-4 lg:px-6 pt-4 pb-2">
-      <div className="glass rounded-full flex items-center gap-2 pl-4 pr-2 py-2">
+      <div className="chrome rounded-full flex items-center gap-2 pl-4 pr-2 py-2">
         <div className="lg:hidden flex items-center gap-2">
           <Logo size={28} />
         </div>
@@ -683,7 +683,7 @@ function Header({ activePage, onNavigate, alertCount }) {
         >
           <L name="Bell" size={16} />
           {alertCount > 0 && (
-            <span className="absolute top-1 right-1 w-2 h-2 rounded-full" style={{ background: "#DC4458", boxShadow: "0 0 0 2px var(--surface-strong)" }} />
+            <span className="absolute top-1 right-1 w-2 h-2 rounded-full" style={{ background: "var(--ios-red)", boxShadow: "0 0 0 2px var(--surface-strong)" }} />
           )}
         </button>
         <button
@@ -711,7 +711,7 @@ const MOBILE_TABS = () => [
 
 function MobileTabBar({ activePage, onNavigate }) {
   return (
-    <nav className="lg:hidden fixed bottom-3 left-3 right-3 z-40 glass rounded-[26px] px-2 pb-[max(6px,env(safe-area-inset-bottom))] pt-2 grid grid-cols-5 gap-1">
+    <nav className="lg:hidden fixed bottom-3 left-3 right-3 z-40 chrome rounded-[26px] px-2 pb-[max(6px,env(safe-area-inset-bottom))] pt-2 grid grid-cols-5 gap-1">
       {MOBILE_TABS().map((t) => {
         const active = activePage === t.id;
         return (

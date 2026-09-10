@@ -396,9 +396,9 @@ function OnboardingFlow({ onDone }) {
               <div key={item.icon} className="flex items-center gap-3 text-[12.5px] text-[var(--ink-2)]">
                 <div
                   className="grid place-items-center w-7 h-7 rounded-lg shrink-0"
-                  style={{ background: "rgba(16,185,129,0.13)", border: "1px solid rgba(16,185,129,0.3)" }}
+                  style={{ background: "var(--ios-green-soft)", border: "1px solid var(--ios-green-border)" }}
                 >
-                  <L name={item.icon} size={13} style={{ color: "#0E9F6E" }} />
+                  <L name={item.icon} size={13} style={{ color: "var(--ios-green)" }} />
                 </div>
                 {item.label}
               </div>

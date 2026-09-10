@@ -123,7 +123,7 @@ function exportParamsCSV() {
 }
 
 // ---------------------------- PARAMETERS PAGE ----------------------------
-function LineChartFull({ data, color = "#0E9F6E", idealMin, idealMax, height = 220, width = 760 }) {
+function LineChartFull({ data, color = "var(--ios-green)", idealMin, idealMax, height = 220, width = 760 }) {
   // SVG line chart with ideal band
   const pad = { top: 16, right: 12, bottom: 24, left: 36 };
   const W = width - pad.left - pad.right;
@@ -150,9 +150,9 @@ function LineChartFull({ data, color = "#0E9F6E", idealMin, idealMax, height = 2
         </linearGradient>
       </defs>
       {/* ideal band */}
-      <rect x={pad.left} y={idealTop} width={W} height={Math.max(0, idealBottom - idealTop)} fill="#0E9F6E" opacity="0.06" />
-      <line x1={pad.left} x2={pad.left + W} y1={idealTop} y2={idealTop} stroke="#0E9F6E" strokeOpacity="0.3" strokeDasharray="3 4" />
-      <line x1={pad.left} x2={pad.left + W} y1={idealBottom} y2={idealBottom} stroke="#0E9F6E" strokeOpacity="0.3" strokeDasharray="3 4" />
+      <rect x={pad.left} y={idealTop} width={W} height={Math.max(0, idealBottom - idealTop)} fill="var(--ios-green)" opacity="0.06" />
+      <line x1={pad.left} x2={pad.left + W} y1={idealTop} y2={idealTop} stroke="var(--ios-green)" strokeOpacity="0.3" strokeDasharray="3 4" />
+      <line x1={pad.left} x2={pad.left + W} y1={idealBottom} y2={idealBottom} stroke="var(--ios-green)" strokeOpacity="0.3" strokeDasharray="3 4" />
       {/* y ticks */}
       {ticks.map((t, i) => (
         <g key={i}>
@@ -229,10 +229,10 @@ function ParameterDetailRow({ paramKey, param, onAskAI, onLog }) {
               // Green when the change moved the reading toward the ideal band, amber when away.
               const target = (param.idealMin + param.idealMax) / 2;
               const deltaColor = delta == null || delta === 0 ? "#7C90A3"
-                : Math.abs(v - target) < Math.abs(prev - target) ? "#0E9F6E" : "#C77F00";
+                : Math.abs(v - target) < Math.abs(prev - target) ? "var(--ios-green)" : "var(--ios-orange)";
               return (
                 <div key={i} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[var(--hover)] transition-colors text-[11.5px]">
-                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: within ? "#0E9F6E" : "#C77F00" }} />
+                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: within ? "var(--ios-green)" : "var(--ios-orange)" }} />
                   <span className="text-[var(--ink-3)] tabular-nums" style={{ fontFamily: "var(--font-mono)" }}>-{i}d</span>
                   <span className="ml-auto text-[var(--ink)] tabular-nums" style={{ fontFamily: "var(--font-mono)" }}>{v.toFixed(decimals)}{param.unit && ` ${param.unit}`}</span>
                   {delta != null && (
@@ -289,8 +289,8 @@ function ParametersPage({ onNavigate }) {
 function InhabitantCard({ item, kind, onOpen }) {
   const s = STATUS_COLOR[item.status];
   const iconByKind = { fish: "Fish", coral: "Flower2", cuc: "Bug" };
-  const placeholderColors = { fish: ["#60A5FA", "#22D3EE"], coral: ["#F87171", "#C77F00"], cuc: ["#0E9F6E", "#22D3EE"] };
-  const [a, b] = placeholderColors[kind] || ["#60A5FA", "#22D3EE"];
+  const placeholderColors = { fish: ["#60A5FA", "var(--accent)"], coral: ["#F87171", "var(--ios-orange)"], cuc: ["var(--ios-green)", "var(--accent)"] };
+  const [a, b] = placeholderColors[kind] || ["#60A5FA", "var(--accent)"];
   const logCount = window.AquaStore.getInhabitantLogs(item.id).length;
   const photo = window.AquaStore.getPhoto(item.id);
 
@@ -534,7 +534,7 @@ function CareSheetView({ care }) {
       </div>
       {care.tip && (
         <div className="mt-2 pt-2 border-t border-[var(--hairline)] flex items-start gap-1.5">
-          <L name="Lightbulb" size={12} className="shrink-0 mt-0.5" style={{ color: "#C77F00" }} />
+          <L name="Lightbulb" size={12} className="shrink-0 mt-0.5" style={{ color: "var(--ios-orange)" }} />
           <span className="text-[11px] text-[var(--ink-2)] leading-relaxed">{care.tip}</span>
         </div>
       )}
@@ -545,9 +545,9 @@ function CareSheetView({ care }) {
 function CompatView({ compat }) {
   if (!compat) return null;
   const meta = {
-    good:    { color: "#0E9F6E", icon: "CheckCircle2", label: T("Buen encaje", "Good fit") },
-    caution: { color: "#C77F00", icon: "AlertTriangle", label: T("Con precaución", "With caution") },
-    bad:     { color: "#DC4458", icon: "XCircle",       label: T("No recomendado", "Not recommended") },
+    good:    { color: "var(--ios-green)", icon: "CheckCircle2", label: T("Buen encaje", "Good fit") },
+    caution: { color: "var(--ios-orange)", icon: "AlertTriangle", label: T("Con precaución", "With caution") },
+    bad:     { color: "var(--ios-red)", icon: "XCircle",       label: T("No recomendado", "Not recommended") },
   }[compat.verdict] || { color: "var(--ink-3)", icon: "HelpCircle", label: T("Sin datos", "No data") };
   return (
     <div className="rounded-xl p-3" style={{ background: `${meta.color}0F`, border: `1px solid ${meta.color}35` }}>
@@ -783,7 +783,7 @@ function AddInhabitantModal({ onClose }) {
                   >
                     <img src={p.url} alt={p.name} className="w-full h-full object-cover" loading="lazy" />
                     {selectedPhoto === p.preview && (
-                      <div className="absolute inset-0 flex items-center justify-center" style={{ background: "rgba(13,148,136,0.35)" }}>
+                      <div className="absolute inset-0 flex items-center justify-center" style={{ background: "var(--accent-border)" }}>
                         <L name="Check" size={18} style={{ color: "white" }} />
                       </div>
                     )}
@@ -930,7 +930,7 @@ function InhabitantDetailModal({ item, kind, onClose, onChanged }) {
           <button onClick={onClose} className="absolute top-3 right-3 grid place-items-center w-8 h-8 rounded-full text-white" style={{ background: "rgba(0,0,0,0.35)", backdropFilter: "blur(6px)" }}><L name="X" size={15} /></button>
           <div className="absolute left-4 bottom-3 right-4">
             <div className="flex items-center gap-2">
-              <L name={iconByKind[kind] || "Fish"} size={14} style={{ color: "#2DD4BF" }} />
+              <L name={iconByKind[kind] || "Fish"} size={14} style={{ color: "var(--accent)" }} />
               <div className="text-[17px] font-semibold text-white leading-tight" style={{ textShadow: "0 1px 6px rgba(0,0,0,0.5)" }}>{item.name}</div>
             </div>
             {item.scientific && <div className="text-[11px] text-white/80 italic">{item.scientific}</div>}
@@ -1011,7 +1011,7 @@ function InhabitantDetailModal({ item, kind, onClose, onChanged }) {
                         <div className="flex items-center gap-2">
                           <span className="text-[9.5px] text-[var(--ink-3)] tabular-nums" style={{ fontFamily: "var(--font-mono)" }}>{fmtLogDate(lg.ts)}</span>
                           {c && <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full" style={{ background: c.bg, color: c.fg }}>{HEALTH_OPTS.find((h) => h.id === lg.status)?.label}</span>}
-                          <button onClick={() => { S.removeInhabitantLog(item.id, lg.ts); force(); }} className="ml-auto text-[var(--ink-3)] hover:text-[#DC4458] transition-colors"><L name="Trash2" size={11} /></button>
+                          <button onClick={() => { S.removeInhabitantLog(item.id, lg.ts); force(); }} className="ml-auto text-[var(--ink-3)] hover:text-[var(--ios-red)] transition-colors"><L name="Trash2" size={11} /></button>
                         </div>
                         {lg.note && <div className="text-[11.5px] text-[var(--ink)] mt-0.5 leading-relaxed">{lg.note}</div>}
                       </div>
@@ -1031,7 +1031,7 @@ function InhabitantDetailModal({ item, kind, onClose, onChanged }) {
                 {T("Preguntar a Aqua Buddy", "Ask Aqua Buddy")}
               </Button>
               <button onClick={() => setConfirmDel(true)} className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11.5px] font-medium transition-all"
-                style={{ background: "rgba(225,29,72,0.10)", border: "1px solid rgba(225,29,72,0.28)", color: "#DC4458" }}>
+                style={{ background: "rgba(255,59,48,0.10)", border: "1px solid rgba(255,59,48,0.28)", color: "var(--ios-red)" }}>
                 <L name="Trash2" size={12} /> {T("Eliminar", "Delete")}
               </button>
             </>
@@ -1039,7 +1039,7 @@ function InhabitantDetailModal({ item, kind, onClose, onChanged }) {
             <>
               <span className="text-[11.5px] text-[var(--ink-2)]">{T("¿Eliminar definitivamente?", "Delete permanently?")}</span>
               <button onClick={() => setConfirmDel(false)} className="ml-auto px-3 py-1.5 rounded-full text-[11.5px] font-medium" style={{ background: "var(--well)", border: "1px solid var(--hairline)", color: "var(--ink-2)" }}>{T("Cancelar", "Cancel")}</button>
-              <button onClick={doDelete} className="px-3 py-1.5 rounded-full text-[11.5px] font-semibold text-white" style={{ background: "#DC4458" }}>{T("Sí, eliminar", "Yes, delete")}</button>
+              <button onClick={doDelete} className="px-3 py-1.5 rounded-full text-[11.5px] font-semibold text-white" style={{ background: "var(--ios-red)" }}>{T("Sí, eliminar", "Yes, delete")}</button>
             </>
           )}
         </div>
@@ -1095,7 +1095,7 @@ function InhabitantsPage() {
       {total === 0 && (
         <div className="py-12 text-center">
           <div className="grid place-items-center w-16 h-16 mx-auto rounded-3xl mb-4" style={{ background: "rgba(34,211,238,0.1)", border: "1px solid rgba(34,211,238,0.25)" }}>
-            <L name="Fish" size={28} style={{ color: "#22D3EE" }} />
+            <L name="Fish" size={28} style={{ color: "var(--accent)" }} />
           </div>
           <div className="text-[15px] text-[var(--ink)] font-medium mb-1">{T("Tu tanque está vacío", "Your tank is empty")}</div>
           <div className="text-[12.5px] text-[var(--ink-2)] mb-4">{T("Agrega tus primeros peces, corales o limpiadores para comenzar", "Add your first fish, corals or clean-up crew to get started")}</div>
@@ -1551,16 +1551,16 @@ function LightFixtureModal({ onClose }) {
 const PAR_ZONES_REEF = [
   { min: 0,   max: 30,   color: "#64748B", label: () => T("Muy bajo", "Very low"),     corals: () => T("Solo peces — sin corales fotosintéticos", "Fish only — no photosynthetic corals") },
   { min: 30,  max: 60,   color: "#3B82F6", label: () => T("Bajo", "Low"),              corals: () => T("Hongos, Discosoma, zoas de sombra", "Mushrooms, Discosoma, shade zoas") },
-  { min: 60,  max: 110,  color: "#0E9F6E", label: () => T("Moderado", "Moderate"),     corals: () => T("Blandos: Zoanthus, Sinularia · LPS fácil: Duncan, Candy Cane", "Softies: Zoanthus, Sinularia · easy LPS: Duncan, Candy Cane") },
+  { min: 60,  max: 110,  color: "var(--ios-green)", label: () => T("Moderado", "Moderate"),     corals: () => T("Blandos: Zoanthus, Sinularia · LPS fácil: Duncan, Candy Cane", "Softies: Zoanthus, Sinularia · easy LPS: Duncan, Candy Cane") },
   { min: 110, max: 160,  color: "#65a30d", label: () => T("Medio-alto", "Medium-high"),corals: () => T("LPS: Euphyllia (hammer/torch), Favia, Acan, Chalice", "LPS: Euphyllia (hammer/torch), Favia, Acans, Chalice") },
   { min: 160, max: 250,  color: "#d97706", label: () => T("Alto", "High"),             corals: () => T("SPS tolerantes: Montipora, Birdsnest, Stylophora · Almejas", "Forgiving SPS: Montipora, Birdsnest, Stylophora · Clams") },
-  { min: 250, max: 400,  color: "#DC4458", label: () => T("Muy alto", "Very high"),    corals: () => T("SPS exigentes: Acropora", "Demanding SPS: Acropora") },
+  { min: 250, max: 400,  color: "var(--ios-red)", label: () => T("Muy alto", "Very high"),    corals: () => T("SPS exigentes: Acropora", "Demanding SPS: Acropora") },
   { min: 400, max: 9999, color: "#9F1239", label: () => T("Extremo", "Extreme"),       corals: () => T("Riesgo de fotoinhibición — solo Acro aclimatada", "Photoinhibition risk — acclimated Acros only") },
 ];
 const PAR_ZONES_PLANTED = [
   { min: 0,  max: 15,   color: "#64748B", label: () => T("Muy bajo", "Very low"),   corals: () => T("Solo musgos y plantas de sombra extrema", "Only mosses and extreme-shade plants") },
   { min: 15, max: 30,   color: "#3B82F6", label: () => T("Bajo", "Low"),            corals: () => T("Anubias, helechos, Cryptocoryne, musgos", "Anubias, ferns, Cryptocoryne, mosses") },
-  { min: 30, max: 50,   color: "#0E9F6E", label: () => T("Medio", "Medium"),        corals: () => T("Mayoría de plantas de tallo, alfombras fáciles", "Most stem plants, easy carpets") },
+  { min: 30, max: 50,   color: "var(--ios-green)", label: () => T("Medio", "Medium"),        corals: () => T("Mayoría de plantas de tallo, alfombras fáciles", "Most stem plants, easy carpets") },
   { min: 50, max: 80,   color: "#65a30d", label: () => T("Alto", "High"),           corals: () => T("Alfombras exigentes, plantas rojas — CO₂ recomendado", "Demanding carpets, red plants — CO₂ recommended") },
   { min: 80, max: 9999, color: "#d97706", label: () => T("Muy alto", "Very high"),  corals: () => T("Riesgo de algas sin CO₂ y fertilización al día", "Algae risk without CO₂ and dialed-in ferts") },
 ];
@@ -1681,8 +1681,8 @@ function ParSliderRow({ icon, label, value, unit, display, min, max, step = 1, o
       <input
         type="range" min={min} max={max} step={step} value={value}
         onChange={(e) => onChange(+e.target.value)}
-        className="w-full"
-        style={{ accentColor: "var(--accent)", height: 22 }}
+        className="w-full aqua-range"
+        style={{ accentColor: "var(--accent)" }}
       />
     </div>
   );
@@ -2139,8 +2139,8 @@ function LightingPage() {
       {/* Fixture info card — shown when configured */}
       {fixture && (
         <Card className="p-4 flex items-center gap-3">
-          <div className="grid place-items-center w-10 h-10 rounded-xl shrink-0" style={{ background: "rgba(13,148,136,0.13)", border: "1px solid rgba(13,148,136,0.3)" }}>
-            <L name="Lamp" size={16} style={{ color: "#0E9F6E" }} />
+          <div className="grid place-items-center w-10 h-10 rounded-xl shrink-0" style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)" }}>
+            <L name="Lamp" size={16} style={{ color: "var(--ios-green)" }} />
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-[13.5px] font-semibold text-[var(--ink)]">{fixture.name}</div>
@@ -2182,7 +2182,7 @@ function LightingPage() {
               >
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-[10px] uppercase tracking-wider text-[var(--ink-3)]">{T("Semana","Week")}</span>
-                  {isNow && <PulsingDot color="#2DD4BF" size={6} />}
+                  {isNow && <PulsingDot color="var(--accent)" size={6} />}
                 </div>
                 <div className="text-[24px] font-medium text-[var(--ink)] tabular-nums leading-none" style={{ fontFamily: "var(--font-mono)" }}>{wk.week}</div>
                 <div className="text-[10.5px] text-[var(--ink-2)] mt-1">{wk.startDate}</div>
@@ -2259,8 +2259,8 @@ function LightingPage() {
           <svg viewBox="0 0 1000 120" className="w-full h-full" preserveAspectRatio="none">
             <defs>
               <linearGradient id="dayfill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#2DD4BF" stopOpacity="0.35" />
-                <stop offset="100%" stopColor="#2DD4BF" stopOpacity="0" />
+                <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.35" />
+                <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
               </linearGradient>
             </defs>
             {/* Sample curve: ramp-up 7-11, peak 11-15, ramp-down 15-21, night */}
@@ -2279,7 +2279,7 @@ function LightingPage() {
               return (
                 <g>
                   <path d={fill} fill="url(#dayfill)" />
-                  <path d={d} fill="none" stroke="#2DD4BF" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d={d} fill="none" stroke="var(--accent)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                 </g>
               );
             })()}
@@ -2431,7 +2431,7 @@ function AquaBotPage() {
           <h1 className="text-[20px] lg:text-[22px] font-semibold text-[var(--ink)] tracking-tight">{T("Aqua Buddy", "Aqua Buddy")}</h1>
         </div>
         <div className="ml-auto hidden md:flex items-center gap-1.5 text-[11px] text-[var(--ink-2)]">
-          <PulsingDot color="#0E9F6E" size={6} />
+          <PulsingDot color="var(--ios-green)" size={6} />
           {T("Contexto de tu tanque cargado", "Your tank context loaded")}
         </div>
       </div>
@@ -2478,7 +2478,7 @@ function AquaBotPage() {
             <Card className="p-4">
               <div className="flex items-start gap-2.5">
                 <div className="grid place-items-center w-8 h-8 rounded-xl shrink-0 mt-0.5" style={{ background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.3)" }}>
-                  <L name="Key" size={14} style={{ color: "#C77F00" }} />
+                  <L name="Key" size={14} style={{ color: "var(--ios-orange)" }} />
                 </div>
                 <div>
                   <div className="text-[12.5px] font-semibold text-[var(--ink)] mb-0.5">{T("API key de Groq requerida", "Groq API key required")}</div>
@@ -2565,8 +2565,8 @@ function AlertsPage({ onNavigate, alerts, onDismissAlert }) {
       <div className="space-y-2.5">
         {list.length === 0 && (
           <Card className="p-6 text-center">
-            <div className="grid place-items-center w-10 h-10 mx-auto rounded-xl mb-2" style={{ background: "rgba(16,185,129,0.13)", border: "1px solid rgba(16,185,129,0.3)" }}>
-              <L name="CheckCircle2" size={18} style={{ color: "#0E9F6E" }} />
+            <div className="grid place-items-center w-10 h-10 mx-auto rounded-xl mb-2" style={{ background: "var(--ios-green-soft)", border: "1px solid var(--ios-green-border)" }}>
+              <L name="CheckCircle2" size={18} style={{ color: "var(--ios-green)" }} />
             </div>
             <div className="text-[13px] text-[var(--ink)] font-medium">{T("Sin alertas activas", "No active alerts")}</div>
             <div className="text-[11.5px] text-[var(--ink-2)] mt-1">{T("Tu reef está estable.", "Your reef is stable.")}</div>
@@ -2584,7 +2584,7 @@ function AlertsPage({ onNavigate, alerts, onDismissAlert }) {
 const SUP_CATEGORIES = [
   { id: "fish_food",   label: () => T("Comida Peces",   "Fish Food"),   icon: "Fish",       color: "#60A5FA" },
   { id: "coral_food",  label: () => T("Comida Corales", "Coral Food"),  icon: "Flower2",    color: "#F87171" },
-  { id: "additive",    label: () => T("Aditivo / Supl.", "Additive"),   icon: "FlaskConical", color: "#0E9F6E" },
+  { id: "additive",    label: () => T("Aditivo / Supl.", "Additive"),   icon: "FlaskConical", color: "var(--ios-green)" },
 ];
 
 function AddSupplementModal({ onClose, editItem }) {
@@ -2735,19 +2735,19 @@ const DIET_KB = [
 ];
 
 const DIET_META = {
-  herbivoro:            { label: () => T("Herbívoro", "Herbivore"),                  icon: "Leaf",      color: "#0E9F6E" },
-  carnivoro:            { label: () => T("Carnívoro", "Carnivore"),                  icon: "Fish",      color: "#DC4458" },
-  carnivoro_frecuente:  { label: () => T("Carnívoro (come muy seguido)", "Carnivore (frequent feeder)"), icon: "Timer", color: "#DC4458" },
-  omnivoro:             { label: () => T("Omnívoro", "Omnivore"),                    icon: "Utensils",  color: "#C77F00" },
-  omnivoro_esponja:     { label: () => T("Omnívoro (necesita esponja)", "Omnivore (needs sponge)"), icon: "Utensils", color: "#C77F00" },
+  herbivoro:            { label: () => T("Herbívoro", "Herbivore"),                  icon: "Leaf",      color: "var(--ios-green)" },
+  carnivoro:            { label: () => T("Carnívoro", "Carnivore"),                  icon: "Fish",      color: "var(--ios-red)" },
+  carnivoro_frecuente:  { label: () => T("Carnívoro (come muy seguido)", "Carnivore (frequent feeder)"), icon: "Timer", color: "var(--ios-red)" },
+  omnivoro:             { label: () => T("Omnívoro", "Omnivore"),                    icon: "Utensils",  color: "var(--ios-orange)" },
+  omnivoro_esponja:     { label: () => T("Omnívoro (necesita esponja)", "Omnivore (needs sponge)"), icon: "Utensils", color: "var(--ios-orange)" },
   copepodos:            { label: () => T("Solo copépodos vivos", "Live copepods only"), icon: "Bug",    color: "#9F1239" },
   coral_lps:            { label: () => T("Coral LPS (se alimenta)", "LPS coral (feeds)"), icon: "Flower2", color: "#7C3AED" },
   coral_sps:            { label: () => T("Coral SPS (partículas finas)", "SPS coral (fine particles)"), icon: "Flower2", color: "#6366F1" },
   coral_blando:         { label: () => T("Coral blando", "Soft coral"),              icon: "Flower2",   color: "#65a30d" },
   coral_nofoto:         { label: () => T("Coral NO fotosintético", "Non-photosynthetic coral"), icon: "Moon", color: "#9F1239" },
-  anemona:              { label: () => T("Anémona", "Anemone"),                      icon: "Flower2",   color: "#DC4458" },
+  anemona:              { label: () => T("Anémona", "Anemone"),                      icon: "Flower2",   color: "var(--ios-red)" },
   filtrador:            { label: () => T("Filtrador", "Filter feeder"),              icon: "Droplets",  color: "#3B82F6" },
-  algivoro:             { label: () => T("Comedor de algas", "Algae grazer"),        icon: "Leaf",      color: "#0E9F6E" },
+  algivoro:             { label: () => T("Comedor de algas", "Algae grazer"),        icon: "Leaf",      color: "var(--ios-green)" },
   detritivoro:          { label: () => T("Detritívoro (limpieza)", "Detritivore (cleanup)"), icon: "Recycle", color: "#7C90A3" },
 };
 
@@ -3099,7 +3099,7 @@ Return (values in ${lang}):
             </div>
           )}
           {Array.isArray(aiPlan.warnings) && aiPlan.warnings.filter(Boolean).map((w, i) => (
-            <div key={i} className="mt-2 flex items-start gap-1.5 text-[11px]" style={{ color: "#C77F00" }}>
+            <div key={i} className="mt-2 flex items-start gap-1.5 text-[11px]" style={{ color: "var(--ios-orange)" }}>
               <L name="AlertTriangle" size={11} className="shrink-0 mt-0.5" /> {String(w)}
             </div>
           ))}

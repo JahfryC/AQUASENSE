@@ -10,11 +10,11 @@ function T(es, en) {
 
 // ---------- status colors (theme-aware via CSS variables where possible) ----------
 const STATUS_COLOR = {
-  ok:     { fg: "#0E9F6E", border: "rgba(16,185,129,0.30)", bg: "rgba(16,185,129,0.13)", text: "text-[#0E9F6E]" },
-  warn:   { fg: "#C77F00", border: "rgba(245,158,11,0.32)", bg: "rgba(245,158,11,0.14)", text: "text-[#C77F00]" },
-  danger: { fg: "#DC4458", border: "rgba(225,29,72,0.30)",  bg: "rgba(225,29,72,0.11)",  text: "text-[#DC4458]" },
+  ok:     { fg: "var(--ios-green)", border: "var(--ios-green-border)", bg: "var(--ios-green-soft)", text: "text-[var(--ios-green)]" },
+  warn:   { fg: "var(--ios-orange)", border: "rgba(255,149,0,0.30)", bg: "rgba(255,149,0,0.12)", text: "text-[var(--ios-orange)]" },
+  danger: { fg: "var(--ios-red)", border: "rgba(255,59,48,0.30)",  bg: "rgba(255,59,48,0.11)",  text: "text-[var(--ios-red)]" },
   info:   { fg: "#3B82F6", border: "rgba(59,130,246,0.30)", bg: "rgba(59,130,246,0.12)", text: "text-[#3B82F6]" },
-  teal:   { fg: "#0E9488", border: "rgba(13,148,136,0.30)", bg: "rgba(13,148,136,0.12)", text: "text-[#0E9488]" },
+  teal:   { fg: "#0E9488", border: "rgba(13,148,136,0.30)", bg: "var(--accent-soft)", text: "text-[#0E9488]" },
   indigo: { fg: "#6366F1", border: "rgba(99,102,241,0.30)", bg: "rgba(99,102,241,0.12)", text: "text-[#6366F1]" },
 };
 
@@ -48,7 +48,7 @@ class ErrorBoundary extends React.Component {
             style={{
               padding: "10px 20px", borderRadius: 999, border: "none", cursor: "pointer",
               fontSize: 13, fontWeight: 600, color: "#fff",
-              background: "linear-gradient(135deg, var(--accent, #0E8C86), var(--accent-strong, #0B6E69))",
+              background: "linear-gradient(135deg, var(--accent), var(--accent-strong))",
             }}
           >
             {t("Volver al inicio", "Back home")}
@@ -103,11 +103,12 @@ function L({ name, size = 16, className = "", strokeWidth = 1.6, style, ...rest 
 }
 
 // ---------- Card (glass panel) ----------
-function Card({ as: As = "div", className = "", children, hover = false, ...rest }) {
+function Card({ as: As = "div", className = "", children, hover = false, style, ...rest }) {
   return (
     <As
-      className={`glass rounded-3xl ${hover ? "transition-all duration-200 hover:shadow-xl" : ""} ${className}`}
+      className={`glass ${hover ? "transition-colors duration-150" : ""} ${className}`}
       {...rest}
+      style={{ borderRadius: "var(--r-card)", ...style }}
     >
       {children}
     </As>
@@ -122,21 +123,22 @@ function Button({ variant = "secondary", size = "md", icon, iconRight, loading, 
     lg: "px-5 py-2.5 text-[13.5px] gap-2 rounded-full min-h-[44px]",
   };
   const variants = {
-    primary:   "text-white border border-transparent shadow-md",
-    secondary: "glass-strong text-[var(--ink)] border border-[var(--glass-border)] hover:brightness-105",
+    primary:   "text-white border border-transparent",
+    secondary: "bg-[var(--well)] text-[var(--accent)] border-0 hover:bg-[var(--hover)]",
     ghost:     "bg-transparent border border-transparent text-[var(--ink-2)] hover:bg-[var(--hover)] hover:text-[var(--ink)]",
-    danger:    "bg-[rgba(225,29,72,0.11)] border border-[rgba(225,29,72,0.30)] text-[#DC4458] hover:bg-[rgba(225,29,72,0.18)]",
+    danger:    "bg-[rgba(255,59,48,0.11)] border border-[rgba(255,59,48,0.30)] text-[var(--ios-red)] hover:bg-[rgba(255,59,48,0.18)]",
     icon:      "bg-transparent border border-transparent text-[var(--ink-2)] hover:bg-[var(--hover)] hover:text-[var(--ink)] !p-2 !rounded-full",
   };
   const primaryStyle = variant === "primary"
-    ? { background: "linear-gradient(160deg, var(--accent) 0%, var(--accent-strong) 100%)", boxShadow: "0 6px 18px rgba(13,148,136,0.35), inset 0 1px 0 rgba(255,255,255,0.35)" }
+    // iOS: relleno plano del color de sistema, sin degradado ni brillo.
+    ? { background: "var(--accent)", boxShadow: "none" }
     : undefined;
   const iconSize = size === "sm" ? 13 : size === "lg" ? 16 : 14;
   return (
     <button
       disabled={disabled || loading}
       style={primaryStyle}
-      className={`inline-flex items-center justify-center font-medium tracking-normal transition-all duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-border)] disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] ${variant === "icon" ? "" : sizes[size]} ${variants[variant]} ${className}`}
+      className={`inline-flex items-center justify-center whitespace-nowrap font-medium tracking-normal transition-all duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-border)] disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] ${variant === "icon" ? "" : sizes[size]} ${variants[variant]} ${className}`}
       {...rest}
     >
       {loading ? <L name="Loader2" size={iconSize} className="animate-spin" /> : icon && <L name={icon} size={iconSize} />}
@@ -166,7 +168,7 @@ function StatusPill({ status = "ok", label, size = "sm", className = "" }) {
 }
 
 // ---------- PulsingDot ----------
-function PulsingDot({ color = "#0E9F6E", size = 8 }) {
+function PulsingDot({ color = "var(--ios-green)", size = 8 }) {
   return (
     <span className="relative inline-flex" style={{ height: size, width: size }}>
       <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60" style={{ background: color }} />
@@ -176,7 +178,7 @@ function PulsingDot({ color = "#0E9F6E", size = 8 }) {
 }
 
 // ---------- Sparkline ----------
-function Sparkline({ data, color = "#0E9F6E", width = 120, height = 40, filled = true, strokeWidth = 1.5 }) {
+function Sparkline({ data, color = "var(--ios-green)", width = 120, height = 40, filled = true, strokeWidth = 1.5 }) {
   const { polyline, fillPath, lastPoint, gradId } = useMemo(() => {
     if (!data || data.length === 0) return { polyline: "", fillPath: "", lastPoint: { x: 0, y: 0 }, gradId: "" };
     const min = Math.min(...data);
@@ -231,7 +233,7 @@ function RangeBar({ value, min, max, status = "ok", domainPad = 0.4 }) {
     <div className="relative h-1 w-full rounded-full bg-[var(--well)] overflow-visible">
       <div
         className="absolute top-0 h-1 rounded-full"
-        style={{ left: `${idealStart}%`, width: `${idealEnd - idealStart}%`, background: "rgba(16,185,129,0.30)" }}
+        style={{ left: `${idealStart}%`, width: `${idealEnd - idealStart}%`, background: "var(--ios-green-border)" }}
       />
       <div
         className="absolute -top-1 h-3 w-[2px] rounded-full"
@@ -331,7 +333,14 @@ function AnimatedNumber({ value, decimals = 0, duration = 600 }) {
 }
 
 // ---------- Atmosphere background (floating aqua blobs behind the glass) ----------
+// iOS usa un fondo plano de sistema. Los tres blobs desenfocados de 600px y la
+// textura de ruido ya no pintan nada (sus tokens son transparentes), pero
+// seguían costando GPU y provocando tirones al hacer scroll en móvil.
 function Atmosphere() {
+  return null;
+}
+
+function AtmosphereLegacy() {
   return (
     <div className="fixed inset-0 overflow-hidden pointer-events-none z-0" aria-hidden="true">
       <div className="absolute -top-48 -left-40 w-[640px] h-[640px] rounded-full" style={{ background: "var(--blob-a)", filter: "blur(110px)" }} />
@@ -394,7 +403,7 @@ function ToastHost() {
     };
     return () => { delete window.toast; };
   }, []);
-  const toneColor = { ok: "#0E9F6E", info: "var(--accent)", warn: "#C77F00", danger: "#DC4458" };
+  const toneColor = { ok: "var(--ios-green)", info: "var(--accent)", warn: "var(--ios-orange)", danger: "var(--ios-red)" };
   return (
     <div className="fixed bottom-24 lg:bottom-6 left-1/2 -translate-x-1/2 z-[70] flex flex-col items-center gap-2 pointer-events-none px-4" role="status" aria-live="polite">
       {items.map((t) => (

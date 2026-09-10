@@ -180,9 +180,13 @@ function loadTweaks(defaults) {
     const saved = JSON.parse(localStorage.getItem(TWEAKS_KEY) || 'null');
     if (saved && typeof saved === 'object') return { ...defaults, ...saved };
   } catch (e) { /* ignorar */ }
+  // Primer arranque: seguir el modo claro/oscuro del sistema, como una app
+  // nativa. En cuanto el usuario elija en Ajustes, su elección manda.
+  const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const base = prefersDark ? { ...defaults, style: 'deep' } : defaults;
   // Migración: respetar el idioma guardado por la versión anterior
   const lang = localStorage.getItem('aqua:lang');
-  return lang ? { ...defaults, lang } : defaults;
+  return lang ? { ...base, lang } : base;
 }
 
 function useTweaks(defaults) {

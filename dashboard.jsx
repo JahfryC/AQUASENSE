@@ -469,7 +469,7 @@ function ReefStatusHero({ onNavigate }) {
   const alertCount = (window.AquaStore?.activeAlerts() || []).length;
   const overallStatus = dangerCount > 0 || alertCount > 0 ? "danger" : warnCount > 0 ? "warn" : "ok";
   const statusBadge = {
-    ok:     { bg: "rgba(16,185,129,0.88)", text: "#fff", label: T("Todo en orden", "All good") },
+    ok:     { bg: "var(--ios-green)", text: "#fff", label: T("Todo en orden", "All good") },
     warn:   { bg: "rgba(245,158,11,0.92)", text: "#3A2A05", label: T("Vigilar parámetros", "Watch parameters") },
     danger: { bg: "rgba(220,68,88,0.92)",  text: "#fff", label: T("Alerta crítica", "Critical alert") },
   }[overallStatus];
@@ -496,7 +496,7 @@ function ReefStatusHero({ onNavigate }) {
 
       {/* Tank banner */}
       <div className="relative mx-4 rounded-3xl overflow-hidden" style={{ height: 150 }}>
-        <div className="absolute inset-0" style={{ background: "linear-gradient(135deg, #0a2a3a 0%, #0e4a6a 40%, #115e5a 70%, #0d3d3a 100%)" }} />
+        <div className="absolute inset-0" style={{ background: "linear-gradient(135deg, #0A3D62 0%, #0E5A8A 45%, #007AFF 100%)" }} />
         <svg className="absolute inset-0 w-full h-full" preserveAspectRatio="none" viewBox="0 0 400 150">
           <path d="M0,75 C100,55 200,95 300,70 C350,57 380,80 400,75 L400,150 L0,150 Z" fill="rgba(255,255,255,0.05)" />
           <path d="M0,105 C80,90 160,115 240,100 C310,87 370,110 400,103 L400,150 L0,150 Z" fill="rgba(255,255,255,0.03)" />
@@ -524,7 +524,7 @@ function ReefStatusHero({ onNavigate }) {
               ].filter(Boolean);
               return bits.length ? (
                 <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10.5px] font-medium text-white/90" style={{ background: "rgba(8,22,34,0.45)", backdropFilter: "blur(8px)" }}>
-                  <L name="Shell" size={10} style={{ color: "#2DD4BF" }} />
+                  <L name="Shell" size={10} style={{ color: "var(--accent)" }} />
                   {bits.join(" · ")}
                 </span>
               ) : null;
@@ -602,7 +602,7 @@ function HeroPhotoSlot() {
     <>
       {photo && <img src={photo} alt="" className="absolute inset-0 w-full h-full object-cover" style={{ borderRadius: "inherit", opacity: 0.55 }} />}
       <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
-      <button onClick={() => fileRef.current?.click()} className="absolute top-3 right-3 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-medium text-white transition-all hover:brightness-110" style={{ background: "rgba(13,148,136,0.7)", border: "1px solid rgba(255,255,255,0.25)", backdropFilter: "blur(8px)" }}>
+      <button onClick={() => fileRef.current?.click()} className="absolute top-3 right-3 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-medium text-white transition-all hover:brightness-110" style={{ background: "var(--accent)", border: "1px solid rgba(255,255,255,0.25)", backdropFilter: "blur(8px)" }}>
         <L name="Camera" size={12} /> {photo ? T("Cambiar foto","Change photo") : T("Agregar foto","Add photo")}
       </button>
     </>
@@ -619,14 +619,14 @@ function TankVitalsStrip() {
   const dangerCount = paramVals.filter((p) => p.status === "danger").length;
   const warnCount = paramVals.filter((p) => p.status === "warn").length;
   const healthScore = Math.max(0, 100 - dangerCount * 25 - warnCount * 10);
-  const healthColor = healthScore >= 80 ? "#0E9F6E" : healthScore >= 60 ? "#C77F00" : "#DC4458";
+  const healthColor = healthScore >= 80 ? "var(--ios-green)" : healthScore >= 60 ? "var(--ios-orange)" : "var(--ios-red)";
 
   // Cycle status
   const ammonia = CURRENT_PARAMETERS.ammonia?.value ?? 0;
   const nitrite = CURRENT_PARAMETERS.nitrite?.value ?? 0;
   const cycled = daysRunning >= 30 && ammonia <= 0.25 && nitrite <= 0.1;
   const cycleLabel = daysRunning === 0 ? T("Nuevo", "New") : cycled ? T("Completo", "Complete") : T("En proceso", "In progress");
-  const cycleColor = cycled ? "#0E9F6E" : daysRunning === 0 ? "var(--ink-3)" : "#C77F00";
+  const cycleColor = cycled ? "var(--ios-green)" : daysRunning === 0 ? "var(--ink-3)" : "var(--ios-orange)";
   const cycleIcon = cycled ? "CheckCircle2" : daysRunning === 0 ? "Clock" : "RefreshCw";
 
   // Sin lecturas propias, los parámetros son solo valores semilla: mostrar
@@ -634,8 +634,8 @@ function TankVitalsStrip() {
   const hasReadings = window.AquaStore?.hasRealReadings;
 
   const stats = [
-    { label: "Temp", value: hasReadings ? `${CURRENT_PARAMETERS.temperature.value}°F` : "—", icon: "Thermometer", color: hasReadings ? "#0E9F6E" : "var(--ink-3)" },
-    { label: T("Salinidad", "Salinity"), value: hasReadings ? CURRENT_PARAMETERS.salinity.value : "—", icon: "Sailboat", color: hasReadings ? "#0E9F6E" : "var(--ink-3)" },
+    { label: "Temp", value: hasReadings ? `${CURRENT_PARAMETERS.temperature.value}°F` : "—", icon: "Thermometer", color: hasReadings ? "var(--ios-green)" : "var(--ink-3)" },
+    { label: T("Salinidad", "Salinity"), value: hasReadings ? CURRENT_PARAMETERS.salinity.value : "—", icon: "Sailboat", color: hasReadings ? "var(--ios-green)" : "var(--ink-3)" },
     { label: T("Volumen", "Volume"), value: TANK_CONFIG.realVolume ? `${TANK_CONFIG.realVolume} gal` : "—", icon: "Container", color: "var(--ink-2)" },
     { label: T("Días activo", "Days running"), value: String(daysRunning), icon: "Calendar", color: "var(--ink-2)" },
     { label: T("Salud", "Health"), value: hasReadings ? `${healthScore} / 100` : T("Sin datos", "No data"), icon: "Heart", color: hasReadings ? healthColor : "var(--ink-3)" },
@@ -671,7 +671,7 @@ function WaterParamsCard({ onNavigate }) {
   ];
   const statusSub = (st) => st === "ok" ? T("Óptimo", "Optimal") : st === "warn" ? T("Vigilar", "Watch") : T("Crítico", "Critical");
   const chartKeys = ["ph", "kh", "phosphate"];
-  const chartColors = { ph: "#3B82F6", kh: "#C77F00", phosphate: "#DC4458" };
+  const chartColors = { ph: "#3B82F6", kh: "var(--ios-orange)", phosphate: "var(--ios-red)" };
 
   return (
     <Card className="p-5">
@@ -764,7 +764,7 @@ function LightingScheduleCard({ onNavigate }) {
       {/* Day cycle bar */}
       <div className="relative h-7 rounded-full overflow-hidden border border-[var(--hairline)]" style={{ background: cycleGradient }}>
         <div className="absolute top-1/2 -translate-y-1/2 grid place-items-center w-5 h-5 rounded-full bg-white shadow-md" style={{ left: "44%" }}>
-          <L name="Sun" size={12} style={{ color: "#C77F00" }} strokeWidth={2} />
+          <L name="Sun" size={12} style={{ color: "var(--ios-orange)" }} strokeWidth={2} />
         </div>
         <div className="absolute top-1/2 -translate-y-1/2 grid place-items-center w-5 h-5 rounded-full shadow-md" style={{ left: "88%", background: "#1E2B52" }}>
           <L name="Moon" size={11} style={{ color: "#BFD0F2" }} strokeWidth={2} />
@@ -817,7 +817,7 @@ function LightingScheduleCard({ onNavigate }) {
           </span>
         ) : (
           <span className="inline-flex items-center gap-1.5">
-            <L name="CheckCircle2" size={12} style={{ color: "#0E9F6E" }} />
+            <L name="CheckCircle2" size={12} style={{ color: "var(--ios-green)" }} />
             {T("Protocolo de aclimatación completado", "Acclimation protocol complete")}
           </span>
         )}
@@ -833,9 +833,9 @@ function LightingScheduleCard({ onNavigate }) {
 
 // ---- Livestock inventory ----
 const KIND_AVATAR_COLOR = {
-  fish: ["#60A5FA", "#22D3EE"],
-  coral: ["#F87171", "#C77F00"],
-  cuc: ["#0E9F6E", "#22D3EE"],
+  fish: ["#60A5FA", "var(--accent)"],
+  coral: ["#F87171", "var(--ios-orange)"],
+  cuc: ["var(--ios-green)", "var(--accent)"],
 };
 function LivestockRow({ item, kind, onNavigate }) {
   const s = STATUS_COLOR[item.status];
@@ -875,7 +875,7 @@ function LivestockInventory({ onNavigate }) {
         />
         <div className="py-6 text-center">
           <div className="grid place-items-center w-12 h-12 mx-auto rounded-2xl mb-3" style={{ background: "rgba(34,211,238,0.1)", border: "1px solid rgba(34,211,238,0.25)" }}>
-            <L name="Fish" size={20} style={{ color: "#22D3EE" }} />
+            <L name="Fish" size={20} style={{ color: "var(--accent)" }} />
           </div>
           <div className="text-[13px] text-[var(--ink)] font-medium mb-1">{T("Aún no hay habitantes", "No inhabitants yet")}</div>
           <div className="text-[11.5px] text-[var(--ink-2)] mb-3">{T("Agrega tus primeros peces, corales o limpiadores", "Add your first fish, corals or clean-up crew")}</div>
@@ -970,7 +970,7 @@ function AlertCard({ alert, onDismiss, onCTA, index = 0 }) {
 function RoutineItem({ routine, done, onToggle, isFirst, isLast, urgent }) {
   const tag = { label: fmtDue(routine.nextDue), color: routine.nextDue === "today" ? "warn" : "info" };
   const ts = STATUS_COLOR[tag.color];
-  const nodeColor = urgent ? "#C77F00" : "var(--ink-3)";
+  const nodeColor = urgent ? "var(--ios-orange)" : "var(--ink-3)";
 
   return (
     <div className="relative flex gap-3 group">
@@ -980,8 +980,8 @@ function RoutineItem({ routine, done, onToggle, isFirst, isLast, urgent }) {
         <span
           className="relative mt-3.5 w-3 h-3 rounded-full transition-all"
           style={{
-            background: done ? "#0E9F6E" : urgent ? nodeColor : "transparent",
-            border: `1.5px solid ${done ? "#0E9F6E" : nodeColor}`,
+            background: done ? "var(--ios-green)" : urgent ? nodeColor : "transparent",
+            border: `1.5px solid ${done ? "var(--ios-green)" : nodeColor}`,
             boxShadow: urgent && !done ? `0 0 0 4px rgba(245,158,11,0.12)` : "none",
           }}
         />
@@ -1004,7 +1004,7 @@ function RoutineItem({ routine, done, onToggle, isFirst, isLast, urgent }) {
           aria-label={done ? T("Desmarcar", "Unmark") : T("Marcar completado", "Mark done")}
           className={`shrink-0 mt-0.5 w-6 h-6 rounded-full border grid place-items-center transition-all ${
             done
-              ? "bg-[rgba(16,185,129,0.16)] border-[rgba(16,185,129,0.4)] text-[#0E9F6E]"
+              ? "bg-[rgba(16,185,129,0.16)] border-[rgba(16,185,129,0.4)] text-[var(--ios-green)]"
               : "border-[var(--hairline-strong)] text-transparent hover:border-[var(--accent-border)] hover:text-[var(--accent)]"
           }`}
         >
@@ -1137,7 +1137,7 @@ function AquaBotWidget({ fullPage = false }) {
             <span className="text-[9px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded-md" style={{ background: "var(--accent-soft)", color: "var(--accent)", border: "1px solid var(--accent-border)" }}>AI</span>
           </div>
           <div className="flex items-center gap-1.5 text-[10px] text-[var(--ink-2)]">
-            <PulsingDot color="#0E9F6E" size={5} /> {T("En línea · Reef2Reef + tu tanque", "Online · Reef2Reef + your tank")}
+            <PulsingDot color="var(--ios-green)" size={5} /> {T("En línea · Reef2Reef + tu tanque", "Online · Reef2Reef + your tank")}
           </div>
         </div>
         {/* Mode toggle */}
@@ -1308,14 +1308,14 @@ function TankInsightsCard({ onNavigate }) {
 
   const catMeta = {
     parameters: { icon: "Activity", color: "#3B82F6", nav: "parameters" },
-    lighting:   { icon: "SunMedium", color: "#C77F00", nav: "lighting" },
-    livestock:  { icon: "Fish",      color: "#0E9F6E", nav: "inhabitants" },
+    lighting:   { icon: "SunMedium", color: "var(--ios-orange)", nav: "lighting" },
+    livestock:  { icon: "Fish",      color: "var(--ios-green)", nav: "inhabitants" },
     maintenance:{ icon: "Wrench",    color: "#6366F1", nav: "routines" },
   };
   const prMeta = {
-    high:   { color: "#DC4458", label: T("Alta", "High") },
-    medium: { color: "#C77F00", label: T("Media", "Medium") },
-    low:    { color: "#0E9F6E", label: T("Baja", "Low") },
+    high:   { color: "var(--ios-red)", label: T("Alta", "High") },
+    medium: { color: "var(--ios-orange)", label: T("Media", "Medium") },
+    low:    { color: "var(--ios-green)", label: T("Baja", "Low") },
   };
 
   return (
@@ -1342,7 +1342,7 @@ function TankInsightsCard({ onNavigate }) {
         </div>
       )}
 
-      {err && <div className="text-[12px] text-[#DC4458] py-2">{err}</div>}
+      {err && <div className="text-[12px] text-[var(--ios-red)] py-2">{err}</div>}
 
       {loading && (
         <div className="flex items-center gap-2 text-[12px] text-[var(--ink-2)] py-3">
@@ -1359,7 +1359,7 @@ function TankInsightsCard({ onNavigate }) {
               <svg viewBox="0 0 36 36" className="w-12 h-12 -rotate-90">
                 <circle cx="18" cy="18" r="15" fill="none" stroke="var(--hairline)" strokeWidth="3" />
                 <circle cx="18" cy="18" r="15" fill="none" strokeWidth="3" strokeLinecap="round"
-                  stroke={data.score >= 80 ? "#0E9F6E" : data.score >= 60 ? "#C77F00" : "#DC4458"}
+                  stroke={data.score >= 80 ? "var(--ios-green)" : data.score >= 60 ? "var(--ios-orange)" : "var(--ios-red)"}
                   strokeDasharray={`${(data.score / 100) * 94.2} 94.2`} />
               </svg>
               <span className="absolute text-[13px] font-semibold tabular-nums" style={{ fontFamily: "var(--font-mono)" }}>{data.score}</span>
@@ -1426,8 +1426,8 @@ function Dashboard({ onNavigate, alerts: allAlerts, onDismissAlert, routinesDone
             <div className="space-y-2.5">
               {alerts.length === 0 && (
                 <Card className="p-6 text-center">
-                  <div className="grid place-items-center w-10 h-10 mx-auto rounded-xl mb-2" style={{ background: "rgba(16,185,129,0.13)", border: "1px solid rgba(16,185,129,0.3)" }}>
-                    <L name="CheckCircle2" size={18} style={{ color: "#0E9F6E" }} />
+                  <div className="grid place-items-center w-10 h-10 mx-auto rounded-xl mb-2" style={{ background: "var(--ios-green-soft)", border: "1px solid var(--ios-green-border)" }}>
+                    <L name="CheckCircle2" size={18} style={{ color: "var(--ios-green)" }} />
                   </div>
                   <div className="text-[13px] text-[var(--ink)] font-medium">{T("Sin alertas activas", "No active alerts")}</div>
                   <div className="text-[11.5px] text-[var(--ink-2)] mt-1">{T("Tu reef está estable. Vuelve a registrar parámetros en 24h.", "Your reef is stable. Log parameters again in 24h.")}</div>

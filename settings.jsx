@@ -3,8 +3,8 @@
 
 // ---------- mock Google account (prototype: no real OAuth) ----------
 const GOOGLE_ACCOUNTS = [
-  { name: "Jeffrey", email: "jeffrey.reef@gmail.com", color: "linear-gradient(150deg, #0E8C86, #5B5BD6)" },
-  { name: "Jeff Work", email: "jeff@columbusaquatics.com", color: "linear-gradient(150deg, #C77F00, #DC4458)" },
+  { name: "Jeffrey", email: "jeffrey.reef@gmail.com", color: "linear-gradient(150deg, var(--accent), #5B5BD6)" },
+  { name: "Jeff Work", email: "jeff@columbusaquatics.com", color: "linear-gradient(150deg, var(--ios-orange), var(--ios-red))" },
 ];
 
 function GoogleG({ size = 18 }) {
@@ -115,7 +115,7 @@ function RecoveryPasswordModal({ onDone }) {
               className="flex-1 bg-transparent border-0 outline-none text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)]" />
           </div>
         </div>
-        {error && <div className="mt-3 text-[11.5px] text-[#DC4458]">{error}</div>}
+        {error && <div className="mt-3 text-[11.5px] text-[var(--ios-red)]">{error}</div>}
         <button type="submit" disabled={loading}
           className="mt-4 w-full rounded-full py-2.5 text-[13px] font-semibold text-white disabled:opacity-50 transition-all active:scale-[0.99]"
           style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-strong))" }}>
@@ -161,7 +161,7 @@ function LoginScreen({ onSignIn, isNew = false }) {
       // No Supabase configured — sign in as demo with the typed email
       await new Promise((r) => setTimeout(r, 700));
       const name = email.split("@")[0];
-      onSignIn({ name, email, color: "linear-gradient(150deg, #0E8C86, #5B5BD6)", provider: "email-demo", remember, since: new Date().toISOString().slice(0, 10) });
+      onSignIn({ name, email, color: "linear-gradient(150deg, var(--accent), #5B5BD6)", provider: "email-demo", remember, since: new Date().toISOString().slice(0, 10) });
       setLoading(false);
       return;
     }
@@ -184,7 +184,7 @@ function LoginScreen({ onSignIn, isNew = false }) {
         } else if (u) {
           // Auto-confirmed: wipe all old data so new account starts truly fresh,
           // save session, then reload (onboarding will trigger on clean load)
-          const newUser = { name: u.email?.split("@")[0] || "User", email: u.email, uid: u.id, color: "linear-gradient(150deg, #0E8C86, #5B5BD6)", provider: "supabase", since: new Date().toISOString().slice(0, 10) };
+          const newUser = { name: u.email?.split("@")[0] || "User", email: u.email, uid: u.id, color: "linear-gradient(150deg, var(--accent), #5B5BD6)", provider: "supabase", since: new Date().toISOString().slice(0, 10) };
           Object.keys(localStorage).filter((k) => k.startsWith("aqua:")).forEach((k) => localStorage.removeItem(k));
           localStorage.setItem("aqua:session", JSON.stringify(newUser));
           location.reload();
@@ -539,7 +539,7 @@ function AquaBuddyKeyRow() {
         </div>
         <button onClick={save} disabled={testing}
           className="px-3 rounded-xl text-[11.5px] font-medium text-white transition-all active:scale-[0.98] disabled:opacity-60 min-h-[38px]"
-          style={{ background: saved ? "#0E9F6E" : "linear-gradient(135deg, var(--accent), var(--accent-strong))" }}>
+          style={{ background: saved ? "var(--ios-green)" : "linear-gradient(135deg, var(--accent), var(--accent-strong))" }}>
           {testing ? <L name="Loader2" size={13} className="animate-spin" /> : saved ? <L name="Check" size={13} /> : T("Guardar", "Save")}
         </button>
       </div>
@@ -556,7 +556,7 @@ function AquaBuddyKeyRow() {
           </button>
           {result && (
             <span className="inline-flex items-start gap-1.5 text-[10.5px] font-medium flex-1 min-w-[160px]"
-              style={{ color: result.ok ? "#0E9F6E" : "#DC4458" }}>
+              style={{ color: result.ok ? "var(--ios-green)" : "var(--ios-red)" }}>
               <L name={result.ok ? "CheckCircle2" : "AlertTriangle"} size={11} className="shrink-0 mt-0.5" />
               {result.text}
             </span>
@@ -680,7 +680,7 @@ function SupabaseConfigRow() {
         </Button>
       </div>
       {configured && !saved && (
-        <div className="flex items-center gap-1.5 text-[10.5px]" style={{ color: "#0E9F6E" }}>
+        <div className="flex items-center gap-1.5 text-[10.5px]" style={{ color: "var(--ios-green)" }}>
           <L name="CheckCircle2" size={11} />
           {T("Supabase configurado", "Supabase configured")}
         </div>
@@ -695,9 +695,9 @@ function SettingRow({ icon, title, sub, children, danger }) {
     <div className="flex items-center gap-3 px-4 py-3.5 border-b border-[var(--hairline)] last:border-b-0">
       <div className="grid place-items-center w-9 h-9 rounded-xl shrink-0"
         style={danger
-          ? { background: "rgba(225,29,72,0.11)", border: "1px solid rgba(225,29,72,0.3)" }
+          ? { background: "rgba(255,59,48,0.11)", border: "1px solid rgba(225,29,72,0.3)" }
           : { background: "var(--well)", border: "1px solid var(--hairline)" }}>
-        <L name={icon} size={15} style={{ color: danger ? "#DC4458" : "var(--ink-2)" }} />
+        <L name={icon} size={15} style={{ color: danger ? "var(--ios-red)" : "var(--ink-2)" }} />
       </div>
       <div className="flex-1 min-w-0">
         <div className="text-[13px] font-medium text-[var(--ink)]">{title}</div>
@@ -719,7 +719,7 @@ function GlassToggle({ on, onChange }) {
         height: 26, width: 44,
         background: on ? "linear-gradient(160deg, var(--accent), var(--accent-strong))" : "var(--well)",
         border: `1px solid ${on ? "transparent" : "var(--hairline-strong)"}`,
-        boxShadow: on ? "0 2px 10px rgba(13,148,136,0.35)" : "none",
+        boxShadow: on ? "0 2px 10px var(--accent-border)" : "none",
       }}
     >
       <span
@@ -871,14 +871,14 @@ function SettingsPage({ session, onSignOut, tweaks, setTweak }) {
                   {/* El badge refleja si hay key de verdad; antes decía ACTIVO
                       aunque abajo dijera "Sin key". */}
                   {(window.AQUAMIND_AI_KEY || localStorage.getItem("aqua:ai_key"))
-                    ? <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-md font-semibold" style={{ background: "rgba(16,185,129,0.13)", color: "#0E9F6E", border: "1px solid rgba(16,185,129,0.3)" }}>{T("ACTIVO", "ACTIVE")}</span>
-                    : <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-md font-semibold" style={{ background: "rgba(245,158,11,0.14)", color: "#C77F00", border: "1px solid rgba(245,158,11,0.32)" }}>{T("SIN KEY", "NO KEY")}</span>}
+                    ? <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-md font-semibold" style={{ background: "var(--ios-green-soft)", color: "var(--ios-green)", border: "1px solid var(--ios-green-border)" }}>{T("ACTIVO", "ACTIVE")}</span>
+                    : <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-md font-semibold" style={{ background: "rgba(255,149,0,0.12)", color: "var(--ios-orange)", border: "1px solid rgba(255,149,0,0.30)" }}>{T("SIN KEY", "NO KEY")}</span>}
                 </div>
                 <div className="text-[11.5px] text-[var(--ink-2)] mt-0.5">
                   {T("Llama 3.3 70B vía Groq · contexto de tu tanque + acciones directas", "Llama 3.3 70B via Groq · your tank context + direct actions")}
                 </div>
               </div>
-              <PulsingDot color="#0E9F6E" size={8} />
+              <PulsingDot color="var(--ios-green)" size={8} />
             </div>
             {/* Optional key override — paste your own key if the default stops working */}
             <AquaBuddyKeyRow />
@@ -956,7 +956,7 @@ function SettingsPage({ session, onSignOut, tweaks, setTweak }) {
               sub={T("Borra tu cuenta y todos los datos del tanque. Irreversible.", "Deletes your account and all tank data. Irreversible.")} danger>
               {confirmDelete ? (
                 <div className="flex items-center gap-2">
-                  <span className="text-[11.5px] text-[#DC4458]">{T("¿Seguro?", "Sure?")}</span>
+                  <span className="text-[11.5px] text-[var(--ios-red)]">{T("¿Seguro?", "Sure?")}</span>
                   <Button variant="danger" size="sm" onClick={doDeleteAccount}>{T("Sí, eliminar", "Yes, delete")}</Button>
                   <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(false)}>{T("No", "No")}</Button>
                 </div>
@@ -1021,7 +1021,7 @@ function SettingsPage({ session, onSignOut, tweaks, setTweak }) {
               </div>
             </div>
             {perm === "denied" && (
-              <p className="text-[11px] mt-3 px-3 py-2 rounded-xl" style={{ background: "rgba(225,29,72,0.10)", border: "1px solid rgba(225,29,72,0.28)", color: "#DC4458" }}>
+              <p className="text-[11px] mt-3 px-3 py-2 rounded-xl" style={{ background: "rgba(255,59,48,0.10)", border: "1px solid rgba(255,59,48,0.28)", color: "var(--ios-red)" }}>
                 {T("Bloqueaste las notificaciones. Actívalas desde los ajustes del sitio en tu navegador (icono del candado en la barra de direcciones).",
                    "You blocked notifications. Re-enable them in your browser's site settings (lock icon in the address bar).")}
               </p>

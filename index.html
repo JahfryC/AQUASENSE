@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
   <title>AquaMind · Aquarium Intelligence</title>
   <meta name="description" content="AquaMind — intelligent aquarium management with AI. Track parameters, livestock, equipment and get personalized advice from Aqua Buddy." />
-  <meta name="theme-color" content="#DCEAF2" />
+  <meta name="theme-color" content="#F2F2F7" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23D8E8EE'/%3E%3Cpath d='M50 18 C50 18 28 44 28 60 a22 22 0 0 0 44 0 C72 44 50 18 50 18 Z' fill='%230E8C86'/%3E%3C/svg%3E" />
   <link rel="apple-touch-icon" href="icon-180.png" />
   <link rel="manifest" href="manifest.webmanifest" />
@@ -911,134 +911,126 @@ input:where([type='button'], [type='reset'], [type='submit']),
 </script>
 
   <style>
-    /* ============ Liquid Glass theme tokens ============ */
+
+    /* ============ iOS system theme tokens ============ */
     :root, html[data-style="frost"] {
       --font-mono: 'DM Mono', ui-monospace, monospace;
-      --ink:    #14283A;
-      --ink-2:  #46607A;
-      --ink-3:  #7C90A3;
-      --surface:        rgba(255,255,255,0.56);
-      --surface-strong: rgba(255,255,255,0.78);
-      --well:           rgba(14,59,84,0.06);
-      --hover:          rgba(14,59,84,0.07);
-      --hairline:        rgba(16,56,84,0.10);
-      --hairline-strong: rgba(16,56,84,0.17);
-      --glass-border: rgba(255,255,255,0.70);
-      --glass-inner:  rgba(255,255,255,0.85);
-      --glass-shadow: 0 14px 42px rgba(14,50,76,0.12), 0 2px 8px rgba(14,50,76,0.06);
-      --glass-blur: 26px;
-      --accent:        #0E8C86;
-      --accent-strong: #0B6E69;
-      --accent-soft:   rgba(13,148,136,0.12);
-      --accent-border: rgba(13,148,136,0.30);
-      --indigo:      #5B5BD6;
-      --scrim: rgba(20,40,58,0.38);
-      --bg-0: #E6EFF3; --bg-1: #D8E8EE; --bg-2: #CDE2E6;
-      --blob-a: rgba(85,180,190,0.40);
-      --blob-b: rgba(110,150,235,0.26);
-      --blob-c: rgba(60,200,170,0.28);
-      --noise-ink: #14283A;
+      --ink:#000000; --ink-2:#55555A; --ink-3:#6E6E73;
+      --surface:#FFFFFF; --surface-strong:#FFFFFF;
+      --well:#F2F2F7; --hover:rgba(0,0,0,0.045);
+      --hairline:rgba(60,60,67,0.16); --hairline-strong:rgba(60,60,67,0.29);
+      --glass-border:rgba(60,60,67,0.13); --glass-inner:transparent;
+      --glass-shadow:0 1px 2px rgba(0,0,0,0.05), 0 6px 18px rgba(0,0,0,0.05);
+      --glass-blur:0px;
+      --chrome:rgba(249,249,249,0.82);
+      --accent:#007AFF; --accent-strong:#0060DF;
+      --accent-soft:rgba(0,122,255,0.10); --accent-border:rgba(0,122,255,0.22);
+      --indigo:#5856D6;
+      --scrim:rgba(0,0,0,0.32);
+      --bg-0:#F2F2F7; --bg-1:#F2F2F7; --bg-2:#F2F2F7;
+      --blob-a:transparent; --blob-b:transparent; --blob-c:transparent;
+      --noise-ink:transparent;
+      --ios-green:#34C759; --ios-green-soft:rgba(52,199,89,0.12); --ios-green-border:rgba(52,199,89,0.28);
+      --ios-orange:#FF9500; --ios-red:#FF3B30;
+      --r-card:18px;
       color-scheme: light;
     }
     html[data-style="aqua"] {
-      --surface:        rgba(255,255,255,0.42);
-      --surface-strong: rgba(255,255,255,0.66);
-      --glass-border: rgba(255,255,255,0.58);
-      --glass-blur: 34px;
-      --bg-0: #CBEAEC; --bg-1: #ACDDE4; --bg-2: #9FD2E2;
-      --blob-a: rgba(35,170,190,0.55);
-      --blob-b: rgba(90,130,240,0.38);
-      --blob-c: rgba(40,205,165,0.42);
-      --glass-shadow: 0 16px 48px rgba(10,60,80,0.16), 0 2px 8px rgba(10,60,80,0.07);
+      --bg-0:#EDF3FA; --bg-1:#EDF3FA; --bg-2:#EDF3FA;
+      --well:#EAF0F8;
     }
     html[data-style="deep"] {
-      --ink:    #EAF4F8;
-      --ink-2:  #A9BECD;
-      --ink-3:  #69839A;
-      --surface:        rgba(22,38,56,0.55);
-      --surface-strong: rgba(26,44,64,0.78);
-      --well:           rgba(255,255,255,0.055);
-      --hover:          rgba(255,255,255,0.08);
-      --hairline:        rgba(255,255,255,0.10);
-      --hairline-strong: rgba(255,255,255,0.18);
-      --glass-border: rgba(255,255,255,0.12);
-      --glass-inner:  rgba(255,255,255,0.16);
-      --glass-shadow: 0 16px 48px rgba(0,8,18,0.45), 0 2px 8px rgba(0,8,18,0.30);
-      --glass-blur: 26px;
-      --accent:        #2DD4BF;
-      --accent-strong: #5EEAD4;
-      --accent-soft:   rgba(45,212,191,0.14);
-      --accent-border: rgba(45,212,191,0.32);
-      --indigo:      #818CF8;
-      --scrim: rgba(2,12,22,0.62);
-      --bg-0: #0A1726; --bg-1: #0C1E30; --bg-2: #0A2233;
-      --blob-a: rgba(20,140,150,0.30);
-      --blob-b: rgba(70,90,200,0.22);
-      --blob-c: rgba(20,160,130,0.20);
-      --noise-ink: #EAF4F8;
+      --ink:#FFFFFF; --ink-2:#AEAEB2; --ink-3:#98989E;
+      --surface:#1C1C1E; --surface-strong:#2C2C2E;
+      --well:#2C2C2E; --hover:rgba(255,255,255,0.07);
+      --hairline:rgba(84,84,88,0.55); --hairline-strong:rgba(120,120,128,0.6);
+      --glass-border:rgba(84,84,88,0.45);
+      --glass-shadow:0 1px 2px rgba(0,0,0,0.5);
+      --chrome:rgba(28,28,30,0.84);
+      --accent:#0A84FF; --accent-strong:#409CFF;
+      --accent-soft:rgba(10,132,255,0.18); --accent-border:rgba(10,132,255,0.34);
+      --indigo:#5E5CE6;
+      --scrim:rgba(0,0,0,0.56);
+      --ios-green:#30D158; --ios-green-soft:rgba(48,209,88,0.18); --ios-green-border:rgba(48,209,88,0.35);
+      --ios-orange:#FF9F0A; --ios-red:#FF453A;
+      --bg-0:#000000; --bg-1:#000000; --bg-2:#000000;
       color-scheme: dark;
     }
 
     html, body {
-      background: linear-gradient(168deg, var(--bg-0) 0%, var(--bg-1) 45%, var(--bg-2) 100%) fixed;
+      background: var(--bg-0);
       color: var(--ink);
       font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+      letter-spacing: -0.014em;
       -webkit-font-smoothing: antialiased;
     }
     body { margin: 0; min-height: 100vh; }
     * { box-sizing: border-box; }
     button { font-family: inherit; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { color: var(--accent-strong); }
 
-    /* ============ Glass panel ============ */
-    .glass {
+    /* ============ Surfaces (opaque, iOS grouped-list style) ============ */
+    .glass, .glass-strong {
       background: var(--surface);
-      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(165%);
-      backdrop-filter: blur(var(--glass-blur)) saturate(165%);
-      border: 1px solid var(--glass-border);
-      box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-inner);
+      border: 0.5px solid var(--glass-border);
+      box-shadow: var(--glass-shadow);
     }
-    .glass-strong {
-      background: var(--surface-strong);
-      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(165%);
-      backdrop-filter: blur(var(--glass-blur)) saturate(165%);
-      border: 1px solid var(--glass-border);
-      box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-inner);
+    .glass-strong { background: var(--surface-strong); }
+    /* translucent chrome — the only blur left, like iOS bars */
+    .chrome {
+      background: var(--chrome);
+      -webkit-backdrop-filter: saturate(180%) blur(20px);
+      backdrop-filter: saturate(180%) blur(20px);
+      border: 0.5px solid var(--glass-border);
     }
+    .hairline-t { border-top: 0.5px solid var(--hairline); }
+    .hairline-b { border-bottom: 0.5px solid var(--hairline); }
 
-    /* ============ Density ============ */
+    /* Grouped list rows */
+    .ios-row + .ios-row { border-top: 0.5px solid var(--hairline); }
+
     html[data-density="compact"] main.app-main { zoom: 0.88; }
 
-    /* Custom scrollbars */
     *::-webkit-scrollbar { width: 8px; height: 8px; }
     *::-webkit-scrollbar-track { background: transparent; }
     *::-webkit-scrollbar-thumb { background: var(--hairline-strong); border-radius: 4px; }
     .scroller::-webkit-scrollbar { height: 4px; }
 
-    @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(12px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
+    @keyframes fadeUp { from { opacity:0; transform: translateY(12px);} to { opacity:1; transform:none;} }
+    @keyframes sheetUp { from { transform: translateY(100%);} to { transform:none;} }
 
     :focus-visible { outline: none; }
-
     image-slot { display: block; }
 
-    /* ============ Mobile fit (iPhone / iPad) ============ */
+    input[type="range"].aqua-range {
+      -webkit-appearance: none; appearance: none;
+      height: 4px; border-radius: 4px; background: var(--well);
+      border: 0.5px solid var(--hairline); cursor: pointer;
+    }
+    input[type="range"].aqua-range::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none;
+      width: 22px; height: 22px; border-radius: 50%;
+      background: #fff; border: 0.5px solid rgba(0,0,0,0.06);
+      box-shadow: 0 3px 8px rgba(0,0,0,0.15), 0 1px 1px rgba(0,0,0,0.16);
+    }
+    input[type="range"].aqua-range::-moz-range-thumb {
+      width: 22px; height: 22px; border-radius: 50%; border: 0.5px solid rgba(0,0,0,0.06);
+      background: #fff; box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+    }
+
+    /* ============ Mobile fit (iPhone / iPad) — propio de AquaMind ============ */
     body { overflow-x: clip; }
     svg, img, video, canvas { max-width: 100%; }
-    /* PWA standalone: keep content below the notch / status bar */
     @media (display-mode: standalone) {
       main.app-main, .app-main { padding-top: env(safe-area-inset-top); }
     }
-    /* Bigger touch targets + comfortable form controls on touch devices */
     @media (pointer: coarse) {
       input[type="range"] { min-height: 28px; }
       select, input[type="date"], input[type="time"] { min-height: 38px; }
+      button, a[href], [role="button"] { touch-action: manipulation; }
     }
-    @media (max-width: 480px) {
-      /* keep page gutters tight so cards get the full width */
-      main.app-main > div > div { --page-pad: 12px; }
-    }
+
   </style>
 </head>
 <body>
@@ -2569,12 +2561,19 @@ function loadTweaks(defaults) {
       ...saved
     };
   } catch (e) {/* ignorar */}
+  // Primer arranque: seguir el modo claro/oscuro del sistema, como una app
+  // nativa. En cuanto el usuario elija en Ajustes, su elección manda.
+  const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const base = prefersDark ? {
+    ...defaults,
+    style: 'deep'
+  } : defaults;
   // Migración: respetar el idioma guardado por la versión anterior
   const lang = localStorage.getItem('aqua:lang');
   return lang ? {
-    ...defaults,
+    ...base,
     lang
-  } : defaults;
+  } : base;
 }
 function useTweaks(defaults) {
   const [values, setValues] = React.useState(() => loadTweaks(defaults));
@@ -3094,22 +3093,22 @@ function T(es, en) {
 // ---------- status colors (theme-aware via CSS variables where possible) ----------
 const STATUS_COLOR = {
   ok: {
-    fg: "#0E9F6E",
-    border: "rgba(16,185,129,0.30)",
-    bg: "rgba(16,185,129,0.13)",
-    text: "text-[#0E9F6E]"
+    fg: "var(--ios-green)",
+    border: "var(--ios-green-border)",
+    bg: "var(--ios-green-soft)",
+    text: "text-[var(--ios-green)]"
   },
   warn: {
-    fg: "#C77F00",
-    border: "rgba(245,158,11,0.32)",
-    bg: "rgba(245,158,11,0.14)",
-    text: "text-[#C77F00]"
+    fg: "var(--ios-orange)",
+    border: "rgba(255,149,0,0.30)",
+    bg: "rgba(255,149,0,0.12)",
+    text: "text-[var(--ios-orange)]"
   },
   danger: {
-    fg: "#DC4458",
-    border: "rgba(225,29,72,0.30)",
-    bg: "rgba(225,29,72,0.11)",
-    text: "text-[#DC4458]"
+    fg: "var(--ios-red)",
+    border: "rgba(255,59,48,0.30)",
+    bg: "rgba(255,59,48,0.11)",
+    text: "text-[var(--ios-red)]"
   },
   info: {
     fg: "#3B82F6",
@@ -3120,7 +3119,7 @@ const STATUS_COLOR = {
   teal: {
     fg: "#0E9488",
     border: "rgba(13,148,136,0.30)",
-    bg: "rgba(13,148,136,0.12)",
+    bg: "var(--accent-soft)",
     text: "text-[#0E9488]"
   },
   indigo: {
@@ -3202,7 +3201,7 @@ class ErrorBoundary extends React.Component {
         fontSize: 13,
         fontWeight: 600,
         color: "#fff",
-        background: "linear-gradient(135deg, var(--accent, #0E8C86), var(--accent-strong, #0B6E69))"
+        background: "linear-gradient(135deg, var(--accent), var(--accent-strong))"
       }
     }, t("Volver al inicio", "Back home")), /*#__PURE__*/React.createElement("details", {
       style: {
@@ -3287,11 +3286,17 @@ function Card({
   className = "",
   children,
   hover = false,
+  style,
   ...rest
 }) {
   return /*#__PURE__*/React.createElement(As, _extends({
-    className: `glass rounded-3xl ${hover ? "transition-all duration-200 hover:shadow-xl" : ""} ${className}`
-  }, rest), children);
+    className: `glass ${hover ? "transition-colors duration-150" : ""} ${className}`
+  }, rest, {
+    style: {
+      borderRadius: "var(--r-card)",
+      ...style
+    }
+  }), children);
 }
 
 // ---------- Button ----------
@@ -3312,21 +3317,23 @@ function Button({
     lg: "px-5 py-2.5 text-[13.5px] gap-2 rounded-full min-h-[44px]"
   };
   const variants = {
-    primary: "text-white border border-transparent shadow-md",
-    secondary: "glass-strong text-[var(--ink)] border border-[var(--glass-border)] hover:brightness-105",
+    primary: "text-white border border-transparent",
+    secondary: "bg-[var(--well)] text-[var(--accent)] border-0 hover:bg-[var(--hover)]",
     ghost: "bg-transparent border border-transparent text-[var(--ink-2)] hover:bg-[var(--hover)] hover:text-[var(--ink)]",
-    danger: "bg-[rgba(225,29,72,0.11)] border border-[rgba(225,29,72,0.30)] text-[#DC4458] hover:bg-[rgba(225,29,72,0.18)]",
+    danger: "bg-[rgba(255,59,48,0.11)] border border-[rgba(255,59,48,0.30)] text-[var(--ios-red)] hover:bg-[rgba(255,59,48,0.18)]",
     icon: "bg-transparent border border-transparent text-[var(--ink-2)] hover:bg-[var(--hover)] hover:text-[var(--ink)] !p-2 !rounded-full"
   };
-  const primaryStyle = variant === "primary" ? {
-    background: "linear-gradient(160deg, var(--accent) 0%, var(--accent-strong) 100%)",
-    boxShadow: "0 6px 18px rgba(13,148,136,0.35), inset 0 1px 0 rgba(255,255,255,0.35)"
+  const primaryStyle = variant === "primary"
+  // iOS: relleno plano del color de sistema, sin degradado ni brillo.
+  ? {
+    background: "var(--accent)",
+    boxShadow: "none"
   } : undefined;
   const iconSize = size === "sm" ? 13 : size === "lg" ? 16 : 14;
   return /*#__PURE__*/React.createElement("button", _extends({
     disabled: disabled || loading,
     style: primaryStyle,
-    className: `inline-flex items-center justify-center font-medium tracking-normal transition-all duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-border)] disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] ${variant === "icon" ? "" : sizes[size]} ${variants[variant]} ${className}`
+    className: `inline-flex items-center justify-center whitespace-nowrap font-medium tracking-normal transition-all duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-border)] disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] ${variant === "icon" ? "" : sizes[size]} ${variants[variant]} ${className}`
   }, rest), loading ? /*#__PURE__*/React.createElement(L, {
     name: "Loader2",
     size: iconSize,
@@ -3373,7 +3380,7 @@ function StatusPill({
 
 // ---------- PulsingDot ----------
 function PulsingDot({
-  color = "#0E9F6E",
+  color = "var(--ios-green)",
   size = 8
 }) {
   return /*#__PURE__*/React.createElement("span", {
@@ -3400,7 +3407,7 @@ function PulsingDot({
 // ---------- Sparkline ----------
 function Sparkline({
   data,
-  color = "#0E9F6E",
+  color = "var(--ios-green)",
   width = 120,
   height = 40,
   filled = true,
@@ -3507,7 +3514,7 @@ function RangeBar({
     style: {
       left: `${idealStart}%`,
       width: `${idealEnd - idealStart}%`,
-      background: "rgba(16,185,129,0.30)"
+      background: "var(--ios-green-border)"
     }
   }), /*#__PURE__*/React.createElement("div", {
     className: "absolute -top-1 h-3 w-[2px] rounded-full",
@@ -3651,7 +3658,13 @@ function AnimatedNumber({
 }
 
 // ---------- Atmosphere background (floating aqua blobs behind the glass) ----------
+// iOS usa un fondo plano de sistema. Los tres blobs desenfocados de 600px y la
+// textura de ruido ya no pintan nada (sus tokens son transparentes), pero
+// seguían costando GPU y provocando tirones al hacer scroll en móvil.
 function Atmosphere() {
+  return null;
+}
+function AtmosphereLegacy() {
   return /*#__PURE__*/React.createElement("div", {
     className: "fixed inset-0 overflow-hidden pointer-events-none z-0",
     "aria-hidden": "true"
@@ -3735,10 +3748,10 @@ function ToastHost() {
     };
   }, []);
   const toneColor = {
-    ok: "#0E9F6E",
+    ok: "var(--ios-green)",
     info: "var(--accent)",
-    warn: "#C77F00",
-    danger: "#DC4458"
+    warn: "var(--ios-orange)",
+    danger: "var(--ios-red)"
   };
   return /*#__PURE__*/React.createElement("div", {
     className: "fixed bottom-24 lg:bottom-6 left-1/2 -translate-x-1/2 z-[70] flex flex-col items-center gap-2 pointer-events-none px-4",
@@ -3960,17 +3973,17 @@ function Logo({
     style: {
       width: size,
       height: size,
-      background: "linear-gradient(150deg, rgba(255,255,255,0.85), rgba(255,255,255,0.25))",
-      border: "1px solid var(--glass-border)",
-      boxShadow: "0 4px 14px rgba(13,148,136,0.25), inset 0 1px 0 rgba(255,255,255,0.7)"
+      background: "var(--accent)",
+      border: "none",
+      boxShadow: "none"
     }
   }, /*#__PURE__*/React.createElement(L, {
     name: "Droplet",
     size: size * 0.5,
     style: {
-      color: "var(--accent)"
+      color: "#fff"
     },
-    strokeWidth: 1.8
+    strokeWidth: 2
   }));
 }
 function NavItem({
@@ -3994,9 +4007,9 @@ function NavItem({
   }, item.label), badge > 0 && /*#__PURE__*/React.createElement("span", {
     className: "text-[10px] font-semibold tabular-nums px-1.5 py-0.5 rounded-full",
     style: {
-      background: "rgba(225,29,72,0.13)",
-      color: "#DC4458",
-      border: "1px solid rgba(225,29,72,0.28)"
+      background: "rgba(255,59,48,0.13)",
+      color: "var(--ios-red)",
+      border: "1px solid rgba(255,59,48,0.28)"
     }
   }, badge));
 }
@@ -4015,7 +4028,7 @@ function Sidebar({
   return /*#__PURE__*/React.createElement("aside", {
     className: "hidden lg:flex flex-col w-[240px] shrink-0 sticky top-0 h-screen p-4 pr-0"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "glass rounded-[28px] flex flex-col flex-1 overflow-hidden"
+    className: "chrome rounded-[28px] flex flex-col flex-1 overflow-hidden"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-3 px-5 pt-5 pb-4"
   }, /*#__PURE__*/React.createElement(Logo, null), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
@@ -4862,7 +4875,7 @@ const TYPE_META = {
     label: () => T("Reef", "Reef"),
     icon: "Shell",
     bg: "rgba(13,148,136,0.1)",
-    border: "rgba(13,148,136,0.25)",
+    border: "var(--accent-border)",
     color: "var(--accent)"
   },
   saltwater: {
@@ -5337,7 +5350,7 @@ function TankSelector() {
     "aria-expanded": open,
     className: "glass-strong inline-flex items-center gap-2 rounded-full pl-2.5 pr-3 py-1.5 text-[12.5px] font-medium text-[var(--ink)] hover:brightness-105 transition-all"
   }, /*#__PURE__*/React.createElement(PulsingDot, {
-    color: "#0E9F6E",
+    color: "var(--ios-green)",
     size: 7
   }), activeTank?.name || "Tank", /*#__PURE__*/React.createElement("span", {
     className: "hidden sm:inline text-[var(--ink-3)]"
@@ -5373,7 +5386,7 @@ function TankSelector() {
       onClick: () => switchTank(tank.id),
       className: "flex-1 flex items-center gap-2.5 px-3 py-2.5 text-left min-w-0"
     }, /*#__PURE__*/React.createElement(PulsingDot, {
-      color: tank.type === "freshwater" ? "#16a34a" : "#0E9F6E",
+      color: tank.type === "freshwater" ? "#16a34a" : "var(--ios-green)",
       size: 7
     }), /*#__PURE__*/React.createElement("span", {
       className: "flex-1 min-w-0"
@@ -5390,7 +5403,7 @@ function TankSelector() {
     })), canDelete && /*#__PURE__*/React.createElement("button", {
       onClick: e => deleteTank(e, tank.id),
       "aria-label": T("Eliminar tanque", "Delete tank"),
-      className: "p-1.5 mr-1 rounded-lg text-[var(--ink-3)] hover:text-[#DC4458] hover:bg-[rgba(225,29,72,0.1)] transition-all",
+      className: "p-1.5 mr-1 rounded-lg text-[var(--ink-3)] hover:text-[var(--ios-red)] hover:bg-[rgba(225,29,72,0.1)] transition-all",
       title: T("Eliminar este tanque", "Delete this tank")
     }, /*#__PURE__*/React.createElement(L, {
       name: "Trash2",
@@ -5435,7 +5448,7 @@ function Header({
   return /*#__PURE__*/React.createElement("header", {
     className: "sticky top-0 z-30 px-4 lg:px-6 pt-4 pb-2"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "glass rounded-full flex items-center gap-2 pl-4 pr-2 py-2"
+    className: "chrome rounded-full flex items-center gap-2 pl-4 pr-2 py-2"
   }, /*#__PURE__*/React.createElement("div", {
     className: "lg:hidden flex items-center gap-2"
   }, /*#__PURE__*/React.createElement(Logo, {
@@ -5460,7 +5473,7 @@ function Header({
   }), alertCount > 0 && /*#__PURE__*/React.createElement("span", {
     className: "absolute top-1 right-1 w-2 h-2 rounded-full",
     style: {
-      background: "#DC4458",
+      background: "var(--ios-red)",
       boxShadow: "0 0 0 2px var(--surface-strong)"
     }
   })), /*#__PURE__*/React.createElement("button", {
@@ -5502,7 +5515,7 @@ function MobileTabBar({
   onNavigate
 }) {
   return /*#__PURE__*/React.createElement("nav", {
-    className: "lg:hidden fixed bottom-3 left-3 right-3 z-40 glass rounded-[26px] px-2 pb-[max(6px,env(safe-area-inset-bottom))] pt-2 grid grid-cols-5 gap-1"
+    className: "lg:hidden fixed bottom-3 left-3 right-3 z-40 chrome rounded-[26px] px-2 pb-[max(6px,env(safe-area-inset-bottom))] pt-2 grid grid-cols-5 gap-1"
   }, MOBILE_TABS().map(t => {
     const active = activePage === t.id;
     return /*#__PURE__*/React.createElement("button", {
@@ -6103,7 +6116,7 @@ function ReefStatusHero({
   const overallStatus = dangerCount > 0 || alertCount > 0 ? "danger" : warnCount > 0 ? "warn" : "ok";
   const statusBadge = {
     ok: {
-      bg: "rgba(16,185,129,0.88)",
+      bg: "var(--ios-green)",
       text: "#fff",
       label: T("Todo en orden", "All good")
     },
@@ -6144,7 +6157,7 @@ function ReefStatusHero({
   }, /*#__PURE__*/React.createElement("div", {
     className: "absolute inset-0",
     style: {
-      background: "linear-gradient(135deg, #0a2a3a 0%, #0e4a6a 40%, #115e5a 70%, #0d3d3a 100%)"
+      background: "linear-gradient(135deg, #0A3D62 0%, #0E5A8A 45%, #007AFF 100%)"
     }
   }), /*#__PURE__*/React.createElement("svg", {
     className: "absolute inset-0 w-full h-full",
@@ -6201,7 +6214,7 @@ function ReefStatusHero({
       name: "Shell",
       size: 10,
       style: {
-        color: "#2DD4BF"
+        color: "var(--accent)"
       }
     }), bits.join(" · ")) : null;
   })())), !isNewTank && dangerCount + warnCount + alertCount > 0 && /*#__PURE__*/React.createElement("div", {
@@ -6300,7 +6313,7 @@ function HeroPhotoSlot() {
     onClick: () => fileRef.current?.click(),
     className: "absolute top-3 right-3 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-medium text-white transition-all hover:brightness-110",
     style: {
-      background: "rgba(13,148,136,0.7)",
+      background: "var(--accent)",
       border: "1px solid rgba(255,255,255,0.25)",
       backdropFilter: "blur(8px)"
     }
@@ -6324,14 +6337,14 @@ function TankVitalsStrip() {
   const dangerCount = paramVals.filter(p => p.status === "danger").length;
   const warnCount = paramVals.filter(p => p.status === "warn").length;
   const healthScore = Math.max(0, 100 - dangerCount * 25 - warnCount * 10);
-  const healthColor = healthScore >= 80 ? "#0E9F6E" : healthScore >= 60 ? "#C77F00" : "#DC4458";
+  const healthColor = healthScore >= 80 ? "var(--ios-green)" : healthScore >= 60 ? "var(--ios-orange)" : "var(--ios-red)";
 
   // Cycle status
   const ammonia = CURRENT_PARAMETERS.ammonia?.value ?? 0;
   const nitrite = CURRENT_PARAMETERS.nitrite?.value ?? 0;
   const cycled = daysRunning >= 30 && ammonia <= 0.25 && nitrite <= 0.1;
   const cycleLabel = daysRunning === 0 ? T("Nuevo", "New") : cycled ? T("Completo", "Complete") : T("En proceso", "In progress");
-  const cycleColor = cycled ? "#0E9F6E" : daysRunning === 0 ? "var(--ink-3)" : "#C77F00";
+  const cycleColor = cycled ? "var(--ios-green)" : daysRunning === 0 ? "var(--ink-3)" : "var(--ios-orange)";
   const cycleIcon = cycled ? "CheckCircle2" : daysRunning === 0 ? "Clock" : "RefreshCw";
 
   // Sin lecturas propias, los parámetros son solo valores semilla: mostrar
@@ -6341,12 +6354,12 @@ function TankVitalsStrip() {
     label: "Temp",
     value: hasReadings ? `${CURRENT_PARAMETERS.temperature.value}°F` : "—",
     icon: "Thermometer",
-    color: hasReadings ? "#0E9F6E" : "var(--ink-3)"
+    color: hasReadings ? "var(--ios-green)" : "var(--ink-3)"
   }, {
     label: T("Salinidad", "Salinity"),
     value: hasReadings ? CURRENT_PARAMETERS.salinity.value : "—",
     icon: "Sailboat",
-    color: hasReadings ? "#0E9F6E" : "var(--ink-3)"
+    color: hasReadings ? "var(--ios-green)" : "var(--ink-3)"
   }, {
     label: T("Volumen", "Volume"),
     value: TANK_CONFIG.realVolume ? `${TANK_CONFIG.realVolume} gal` : "—",
@@ -6430,8 +6443,8 @@ function WaterParamsCard({
   const chartKeys = ["ph", "kh", "phosphate"];
   const chartColors = {
     ph: "#3B82F6",
-    kh: "#C77F00",
-    phosphate: "#DC4458"
+    kh: "var(--ios-orange)",
+    phosphate: "var(--ios-red)"
   };
   return /*#__PURE__*/React.createElement(Card, {
     className: "p-5"
@@ -6560,7 +6573,7 @@ function LightingScheduleCard({
     name: "Sun",
     size: 12,
     style: {
-      color: "#C77F00"
+      color: "var(--ios-orange)"
     },
     strokeWidth: 2
   })), /*#__PURE__*/React.createElement("div", {
@@ -6640,7 +6653,7 @@ function LightingScheduleCard({
     name: "CheckCircle2",
     size: 12,
     style: {
-      color: "#0E9F6E"
+      color: "var(--ios-green)"
     }
   }), T("Protocolo de aclimatación completado", "Acclimation protocol complete")), hasNextWeek && deltaB !== 0 && /*#__PURE__*/React.createElement("span", {
     className: "tabular-nums",
@@ -6652,9 +6665,9 @@ function LightingScheduleCard({
 
 // ---- Livestock inventory ----
 const KIND_AVATAR_COLOR = {
-  fish: ["#60A5FA", "#22D3EE"],
-  coral: ["#F87171", "#C77F00"],
-  cuc: ["#0E9F6E", "#22D3EE"]
+  fish: ["#60A5FA", "var(--accent)"],
+  coral: ["#F87171", "var(--ios-orange)"],
+  cuc: ["var(--ios-green)", "var(--accent)"]
 };
 function LivestockRow({
   item,
@@ -6736,7 +6749,7 @@ function LivestockInventory({
       name: "Fish",
       size: 20,
       style: {
-        color: "#22D3EE"
+        color: "var(--accent)"
       }
     })), /*#__PURE__*/React.createElement("div", {
       className: "text-[13px] text-[var(--ink)] font-medium mb-1"
@@ -6889,7 +6902,7 @@ function RoutineItem({
     color: routine.nextDue === "today" ? "warn" : "info"
   };
   const ts = STATUS_COLOR[tag.color];
-  const nodeColor = urgent ? "#C77F00" : "var(--ink-3)";
+  const nodeColor = urgent ? "var(--ios-orange)" : "var(--ink-3)";
   return /*#__PURE__*/React.createElement("div", {
     className: "relative flex gap-3 group"
   }, /*#__PURE__*/React.createElement("div", {
@@ -6901,8 +6914,8 @@ function RoutineItem({
   }), /*#__PURE__*/React.createElement("span", {
     className: "relative mt-3.5 w-3 h-3 rounded-full transition-all",
     style: {
-      background: done ? "#0E9F6E" : urgent ? nodeColor : "transparent",
-      border: `1.5px solid ${done ? "#0E9F6E" : nodeColor}`,
+      background: done ? "var(--ios-green)" : urgent ? nodeColor : "transparent",
+      border: `1.5px solid ${done ? "var(--ios-green)" : nodeColor}`,
       boxShadow: urgent && !done ? `0 0 0 4px rgba(245,158,11,0.12)` : "none"
     }
   })), /*#__PURE__*/React.createElement("div", {
@@ -6936,7 +6949,7 @@ function RoutineItem({
   }, routine.time)), /*#__PURE__*/React.createElement("button", {
     onClick: onToggle,
     "aria-label": done ? T("Desmarcar", "Unmark") : T("Marcar completado", "Mark done"),
-    className: `shrink-0 mt-0.5 w-6 h-6 rounded-full border grid place-items-center transition-all ${done ? "bg-[rgba(16,185,129,0.16)] border-[rgba(16,185,129,0.4)] text-[#0E9F6E]" : "border-[var(--hairline-strong)] text-transparent hover:border-[var(--accent-border)] hover:text-[var(--accent)]"}`
+    className: `shrink-0 mt-0.5 w-6 h-6 rounded-full border grid place-items-center transition-all ${done ? "bg-[rgba(16,185,129,0.16)] border-[rgba(16,185,129,0.4)] text-[var(--ios-green)]" : "border-[var(--hairline-strong)] text-transparent hover:border-[var(--accent-border)] hover:text-[var(--accent)]"}`
   }, /*#__PURE__*/React.createElement(L, {
     name: "Check",
     size: 12,
@@ -7092,7 +7105,7 @@ function AquaBotWidget({
   }, "AI")), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-1.5 text-[10px] text-[var(--ink-2)]"
   }, /*#__PURE__*/React.createElement(PulsingDot, {
-    color: "#0E9F6E",
+    color: "var(--ios-green)",
     size: 5
   }), " ", T("En línea · Reef2Reef + tu tanque", "Online · Reef2Reef + your tank"))), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-1 p-0.5 rounded-lg",
@@ -7298,12 +7311,12 @@ function TankInsightsCard({
     },
     lighting: {
       icon: "SunMedium",
-      color: "#C77F00",
+      color: "var(--ios-orange)",
       nav: "lighting"
     },
     livestock: {
       icon: "Fish",
-      color: "#0E9F6E",
+      color: "var(--ios-green)",
       nav: "inhabitants"
     },
     maintenance: {
@@ -7314,15 +7327,15 @@ function TankInsightsCard({
   };
   const prMeta = {
     high: {
-      color: "#DC4458",
+      color: "var(--ios-red)",
       label: T("Alta", "High")
     },
     medium: {
-      color: "#C77F00",
+      color: "var(--ios-orange)",
       label: T("Media", "Medium")
     },
     low: {
-      color: "#0E9F6E",
+      color: "var(--ios-green)",
       label: T("Baja", "Low")
     }
   };
@@ -7355,7 +7368,7 @@ function TankInsightsCard({
   })), /*#__PURE__*/React.createElement("div", {
     className: "text-[12px] text-[var(--ink-2)] leading-relaxed"
   }, T("Cruzo tus parámetros, PAR de la luz, habitantes, rutinas y alertas para darte las acciones más importantes ahora mismo.", "I cross-reference your parameters, light PAR, livestock, routines and alerts to give you the most important actions right now."))), err && /*#__PURE__*/React.createElement("div", {
-    className: "text-[12px] text-[#DC4458] py-2"
+    className: "text-[12px] text-[var(--ios-red)] py-2"
   }, err), loading && /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-2 text-[12px] text-[var(--ink-2)] py-3"
   }, /*#__PURE__*/React.createElement(L, {
@@ -7392,7 +7405,7 @@ function TankInsightsCard({
     fill: "none",
     strokeWidth: "3",
     strokeLinecap: "round",
-    stroke: data.score >= 80 ? "#0E9F6E" : data.score >= 60 ? "#C77F00" : "#DC4458",
+    stroke: data.score >= 80 ? "var(--ios-green)" : data.score >= 60 ? "var(--ios-orange)" : "var(--ios-red)",
     strokeDasharray: `${data.score / 100 * 94.2} 94.2`
   })), /*#__PURE__*/React.createElement("span", {
     className: "absolute text-[13px] font-semibold tabular-nums",
@@ -7494,14 +7507,14 @@ function Dashboard({
   }, /*#__PURE__*/React.createElement("div", {
     className: "grid place-items-center w-10 h-10 mx-auto rounded-xl mb-2",
     style: {
-      background: "rgba(16,185,129,0.13)",
-      border: "1px solid rgba(16,185,129,0.3)"
+      background: "var(--ios-green-soft)",
+      border: "1px solid var(--ios-green-border)"
     }
   }, /*#__PURE__*/React.createElement(L, {
     name: "CheckCircle2",
     size: 18,
     style: {
-      color: "#0E9F6E"
+      color: "var(--ios-green)"
     }
   })), /*#__PURE__*/React.createElement("div", {
     className: "text-[13px] text-[var(--ink)] font-medium"
@@ -7748,7 +7761,7 @@ function exportParamsCSV() {
 // ---------------------------- PARAMETERS PAGE ----------------------------
 function LineChartFull({
   data,
-  color = "#0E9F6E",
+  color = "var(--ios-green)",
   idealMin,
   idealMax,
   height = 220,
@@ -7800,14 +7813,14 @@ function LineChartFull({
     y: idealTop,
     width: W,
     height: Math.max(0, idealBottom - idealTop),
-    fill: "#0E9F6E",
+    fill: "var(--ios-green)",
     opacity: "0.06"
   }), /*#__PURE__*/React.createElement("line", {
     x1: pad.left,
     x2: pad.left + W,
     y1: idealTop,
     y2: idealTop,
-    stroke: "#0E9F6E",
+    stroke: "var(--ios-green)",
     strokeOpacity: "0.3",
     strokeDasharray: "3 4"
   }), /*#__PURE__*/React.createElement("line", {
@@ -7815,7 +7828,7 @@ function LineChartFull({
     x2: pad.left + W,
     y1: idealBottom,
     y2: idealBottom,
-    stroke: "#0E9F6E",
+    stroke: "var(--ios-green)",
     strokeOpacity: "0.3",
     strokeDasharray: "3 4"
   }), ticks.map((t, i) => /*#__PURE__*/React.createElement("g", {
@@ -7952,14 +7965,14 @@ function ParameterDetailRow({
     const within = v >= param.idealMin && v <= param.idealMax;
     // Green when the change moved the reading toward the ideal band, amber when away.
     const target = (param.idealMin + param.idealMax) / 2;
-    const deltaColor = delta == null || delta === 0 ? "#7C90A3" : Math.abs(v - target) < Math.abs(prev - target) ? "#0E9F6E" : "#C77F00";
+    const deltaColor = delta == null || delta === 0 ? "#7C90A3" : Math.abs(v - target) < Math.abs(prev - target) ? "var(--ios-green)" : "var(--ios-orange)";
     return /*#__PURE__*/React.createElement("div", {
       key: i,
       className: "flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[var(--hover)] transition-colors text-[11.5px]"
     }, /*#__PURE__*/React.createElement("span", {
       className: "w-1.5 h-1.5 rounded-full shrink-0",
       style: {
-        background: within ? "#0E9F6E" : "#C77F00"
+        background: within ? "var(--ios-green)" : "var(--ios-orange)"
       }
     }), /*#__PURE__*/React.createElement("span", {
       className: "text-[var(--ink-3)] tabular-nums",
@@ -8036,11 +8049,11 @@ function InhabitantCard({
     cuc: "Bug"
   };
   const placeholderColors = {
-    fish: ["#60A5FA", "#22D3EE"],
-    coral: ["#F87171", "#C77F00"],
-    cuc: ["#0E9F6E", "#22D3EE"]
+    fish: ["#60A5FA", "var(--accent)"],
+    coral: ["#F87171", "var(--ios-orange)"],
+    cuc: ["var(--ios-green)", "var(--accent)"]
   };
-  const [a, b] = placeholderColors[kind] || ["#60A5FA", "#22D3EE"];
+  const [a, b] = placeholderColors[kind] || ["#60A5FA", "var(--accent)"];
   const logCount = window.AquaStore.getInhabitantLogs(item.id).length;
   const photo = window.AquaStore.getPhoto(item.id);
   return /*#__PURE__*/React.createElement(Card, {
@@ -8400,7 +8413,7 @@ function CareSheetView({
     size: 12,
     className: "shrink-0 mt-0.5",
     style: {
-      color: "#C77F00"
+      color: "var(--ios-orange)"
     }
   }), /*#__PURE__*/React.createElement("span", {
     className: "text-[11px] text-[var(--ink-2)] leading-relaxed"
@@ -8412,17 +8425,17 @@ function CompatView({
   if (!compat) return null;
   const meta = {
     good: {
-      color: "#0E9F6E",
+      color: "var(--ios-green)",
       icon: "CheckCircle2",
       label: T("Buen encaje", "Good fit")
     },
     caution: {
-      color: "#C77F00",
+      color: "var(--ios-orange)",
       icon: "AlertTriangle",
       label: T("Con precaución", "With caution")
     },
     bad: {
-      color: "#DC4458",
+      color: "var(--ios-red)",
       icon: "XCircle",
       label: T("No recomendado", "Not recommended")
     }
@@ -8742,7 +8755,7 @@ function AddInhabitantModal({
   }), selectedPhoto === p.preview && /*#__PURE__*/React.createElement("div", {
     className: "absolute inset-0 flex items-center justify-center",
     style: {
-      background: "rgba(13,148,136,0.35)"
+      background: "var(--accent-border)"
     }
   }, /*#__PURE__*/React.createElement(L, {
     name: "Check",
@@ -8962,7 +8975,7 @@ function InhabitantDetailModal({
     name: iconByKind[kind] || "Fish",
     size: 14,
     style: {
-      color: "#2DD4BF"
+      color: "var(--accent)"
     }
   }), /*#__PURE__*/React.createElement("div", {
     className: "text-[17px] font-semibold text-white leading-tight",
@@ -9114,7 +9127,7 @@ function InhabitantDetailModal({
         S.removeInhabitantLog(item.id, lg.ts);
         force();
       },
-      className: "ml-auto text-[var(--ink-3)] hover:text-[#DC4458] transition-colors"
+      className: "ml-auto text-[var(--ink-3)] hover:text-[var(--ios-red)] transition-colors"
     }, /*#__PURE__*/React.createElement(L, {
       name: "Trash2",
       size: 11
@@ -9137,9 +9150,9 @@ function InhabitantDetailModal({
     onClick: () => setConfirmDel(true),
     className: "ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11.5px] font-medium transition-all",
     style: {
-      background: "rgba(225,29,72,0.10)",
-      border: "1px solid rgba(225,29,72,0.28)",
-      color: "#DC4458"
+      background: "rgba(255,59,48,0.10)",
+      border: "1px solid rgba(255,59,48,0.28)",
+      color: "var(--ios-red)"
     }
   }, /*#__PURE__*/React.createElement(L, {
     name: "Trash2",
@@ -9158,7 +9171,7 @@ function InhabitantDetailModal({
     onClick: doDelete,
     className: "px-3 py-1.5 rounded-full text-[11.5px] font-semibold text-white",
     style: {
-      background: "#DC4458"
+      background: "var(--ios-red)"
     }
   }, T("Sí, eliminar", "Yes, delete")))))), document.body);
 }
@@ -9223,7 +9236,7 @@ function InhabitantsPage() {
     name: "Fish",
     size: 28,
     style: {
-      color: "#22D3EE"
+      color: "var(--accent)"
     }
   })), /*#__PURE__*/React.createElement("div", {
     className: "text-[15px] text-[var(--ink)] font-medium mb-1"
@@ -10257,7 +10270,7 @@ const PAR_ZONES_REEF = [{
 }, {
   min: 60,
   max: 110,
-  color: "#0E9F6E",
+  color: "var(--ios-green)",
   label: () => T("Moderado", "Moderate"),
   corals: () => T("Blandos: Zoanthus, Sinularia · LPS fácil: Duncan, Candy Cane", "Softies: Zoanthus, Sinularia · easy LPS: Duncan, Candy Cane")
 }, {
@@ -10275,7 +10288,7 @@ const PAR_ZONES_REEF = [{
 }, {
   min: 250,
   max: 400,
-  color: "#DC4458",
+  color: "var(--ios-red)",
   label: () => T("Muy alto", "Very high"),
   corals: () => T("SPS exigentes: Acropora", "Demanding SPS: Acropora")
 }, {
@@ -10300,7 +10313,7 @@ const PAR_ZONES_PLANTED = [{
 }, {
   min: 30,
   max: 50,
-  color: "#0E9F6E",
+  color: "var(--ios-green)",
   label: () => T("Medio", "Medium"),
   corals: () => T("Mayoría de plantas de tallo, alfombras fáciles", "Most stem plants, easy carpets")
 }, {
@@ -10467,10 +10480,9 @@ function ParSliderRow({
     step: step,
     value: value,
     onChange: e => onChange(+e.target.value),
-    className: "w-full",
+    className: "w-full aqua-range",
     style: {
-      accentColor: "var(--accent)",
-      height: 22
+      accentColor: "var(--accent)"
     }
   }));
 }
@@ -11160,14 +11172,14 @@ function LightingPage() {
   }, /*#__PURE__*/React.createElement("div", {
     className: "grid place-items-center w-10 h-10 rounded-xl shrink-0",
     style: {
-      background: "rgba(13,148,136,0.13)",
-      border: "1px solid rgba(13,148,136,0.3)"
+      background: "var(--accent-soft)",
+      border: "1px solid var(--accent-border)"
     }
   }, /*#__PURE__*/React.createElement(L, {
     name: "Lamp",
     size: 16,
     style: {
-      color: "#0E9F6E"
+      color: "var(--ios-green)"
     }
   })), /*#__PURE__*/React.createElement("div", {
     className: "flex-1 min-w-0"
@@ -11224,7 +11236,7 @@ function LightingPage() {
     }, /*#__PURE__*/React.createElement("span", {
       className: "text-[10px] uppercase tracking-wider text-[var(--ink-3)]"
     }, T("Semana", "Week")), isNow && /*#__PURE__*/React.createElement(PulsingDot, {
-      color: "#2DD4BF",
+      color: "var(--accent)",
       size: 6
     })), /*#__PURE__*/React.createElement("div", {
       className: "text-[24px] font-medium text-[var(--ink)] tabular-nums leading-none",
@@ -11351,11 +11363,11 @@ function LightingPage() {
     y2: "1"
   }, /*#__PURE__*/React.createElement("stop", {
     offset: "0%",
-    stopColor: "#2DD4BF",
+    stopColor: "var(--accent)",
     stopOpacity: "0.35"
   }), /*#__PURE__*/React.createElement("stop", {
     offset: "100%",
-    stopColor: "#2DD4BF",
+    stopColor: "var(--accent)",
     stopOpacity: "0"
   }))), (() => {
     const pts = [];
@@ -11375,7 +11387,7 @@ function LightingPage() {
     }), /*#__PURE__*/React.createElement("path", {
       d: d,
       fill: "none",
-      stroke: "#2DD4BF",
+      stroke: "var(--accent)",
       strokeWidth: "1.6",
       strokeLinecap: "round",
       strokeLinejoin: "round"
@@ -11604,7 +11616,7 @@ function AquaBotPage() {
   }, T("Aqua Buddy", "Aqua Buddy"))), /*#__PURE__*/React.createElement("div", {
     className: "ml-auto hidden md:flex items-center gap-1.5 text-[11px] text-[var(--ink-2)]"
   }, /*#__PURE__*/React.createElement(PulsingDot, {
-    color: "#0E9F6E",
+    color: "var(--ios-green)",
     size: 6
   }), T("Contexto de tu tanque cargado", "Your tank context loaded"))), /*#__PURE__*/React.createElement("button", {
     onClick: () => window.dispatchEvent(new CustomEvent("aquabot:ask", {
@@ -11677,7 +11689,7 @@ function AquaBotPage() {
     name: "Key",
     size: 14,
     style: {
-      color: "#C77F00"
+      color: "var(--ios-orange)"
     }
   })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "text-[12.5px] font-semibold text-[var(--ink)] mb-0.5"
@@ -11775,14 +11787,14 @@ function AlertsPage({
   }, /*#__PURE__*/React.createElement("div", {
     className: "grid place-items-center w-10 h-10 mx-auto rounded-xl mb-2",
     style: {
-      background: "rgba(16,185,129,0.13)",
-      border: "1px solid rgba(16,185,129,0.3)"
+      background: "var(--ios-green-soft)",
+      border: "1px solid var(--ios-green-border)"
     }
   }, /*#__PURE__*/React.createElement(L, {
     name: "CheckCircle2",
     size: 18,
     style: {
-      color: "#0E9F6E"
+      color: "var(--ios-green)"
     }
   })), /*#__PURE__*/React.createElement("div", {
     className: "text-[13px] text-[var(--ink)] font-medium"
@@ -11812,7 +11824,7 @@ const SUP_CATEGORIES = [{
   id: "additive",
   label: () => T("Aditivo / Supl.", "Additive"),
   icon: "FlaskConical",
-  color: "#0E9F6E"
+  color: "var(--ios-green)"
 }];
 function AddSupplementModal({
   onClose,
@@ -12110,27 +12122,27 @@ const DIET_META = {
   herbivoro: {
     label: () => T("Herbívoro", "Herbivore"),
     icon: "Leaf",
-    color: "#0E9F6E"
+    color: "var(--ios-green)"
   },
   carnivoro: {
     label: () => T("Carnívoro", "Carnivore"),
     icon: "Fish",
-    color: "#DC4458"
+    color: "var(--ios-red)"
   },
   carnivoro_frecuente: {
     label: () => T("Carnívoro (come muy seguido)", "Carnivore (frequent feeder)"),
     icon: "Timer",
-    color: "#DC4458"
+    color: "var(--ios-red)"
   },
   omnivoro: {
     label: () => T("Omnívoro", "Omnivore"),
     icon: "Utensils",
-    color: "#C77F00"
+    color: "var(--ios-orange)"
   },
   omnivoro_esponja: {
     label: () => T("Omnívoro (necesita esponja)", "Omnivore (needs sponge)"),
     icon: "Utensils",
-    color: "#C77F00"
+    color: "var(--ios-orange)"
   },
   copepodos: {
     label: () => T("Solo copépodos vivos", "Live copepods only"),
@@ -12160,7 +12172,7 @@ const DIET_META = {
   anemona: {
     label: () => T("Anémona", "Anemone"),
     icon: "Flower2",
-    color: "#DC4458"
+    color: "var(--ios-red)"
   },
   filtrador: {
     label: () => T("Filtrador", "Filter feeder"),
@@ -12170,7 +12182,7 @@ const DIET_META = {
   algivoro: {
     label: () => T("Comedor de algas", "Algae grazer"),
     icon: "Leaf",
-    color: "#0E9F6E"
+    color: "var(--ios-green)"
   },
   detritivoro: {
     label: () => T("Detritívoro (limpieza)", "Detritivore (cleanup)"),
@@ -12621,7 +12633,7 @@ Return (values in ${lang}):
     key: i,
     className: "mt-2 flex items-start gap-1.5 text-[11px]",
     style: {
-      color: "#C77F00"
+      color: "var(--ios-orange)"
     }
   }, /*#__PURE__*/React.createElement(L, {
     name: "AlertTriangle",
@@ -12811,11 +12823,11 @@ Object.assign(window, {
 const GOOGLE_ACCOUNTS = [{
   name: "Jeffrey",
   email: "jeffrey.reef@gmail.com",
-  color: "linear-gradient(150deg, #0E8C86, #5B5BD6)"
+  color: "linear-gradient(150deg, var(--accent), #5B5BD6)"
 }, {
   name: "Jeff Work",
   email: "jeff@columbusaquatics.com",
-  color: "linear-gradient(150deg, #C77F00, #DC4458)"
+  color: "linear-gradient(150deg, var(--ios-orange), var(--ios-red))"
 }];
 function GoogleG({
   size = 18
@@ -12981,7 +12993,7 @@ function RecoveryPasswordModal({
     placeholder: T("Repite la contraseña", "Repeat password"),
     className: "flex-1 bg-transparent border-0 outline-none text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)]"
   }))), error && /*#__PURE__*/React.createElement("div", {
-    className: "mt-3 text-[11.5px] text-[#DC4458]"
+    className: "mt-3 text-[11.5px] text-[var(--ios-red)]"
   }, error), /*#__PURE__*/React.createElement("button", {
     type: "submit",
     disabled: loading,
@@ -13039,7 +13051,7 @@ function LoginScreen({
       onSignIn({
         name,
         email,
-        color: "linear-gradient(150deg, #0E8C86, #5B5BD6)",
+        color: "linear-gradient(150deg, var(--accent), #5B5BD6)",
         provider: "email-demo",
         remember,
         since: new Date().toISOString().slice(0, 10)
@@ -13072,7 +13084,7 @@ function LoginScreen({
             name: u.email?.split("@")[0] || "User",
             email: u.email,
             uid: u.id,
-            color: "linear-gradient(150deg, #0E8C86, #5B5BD6)",
+            color: "linear-gradient(150deg, var(--accent), #5B5BD6)",
             provider: "supabase",
             since: new Date().toISOString().slice(0, 10)
           };
@@ -13457,7 +13469,7 @@ function AquaBuddyKeyRow() {
     disabled: testing,
     className: "px-3 rounded-xl text-[11.5px] font-medium text-white transition-all active:scale-[0.98] disabled:opacity-60 min-h-[38px]",
     style: {
-      background: saved ? "#0E9F6E" : "linear-gradient(135deg, var(--accent), var(--accent-strong))"
+      background: saved ? "var(--ios-green)" : "linear-gradient(135deg, var(--accent), var(--accent-strong))"
     }
   }, testing ? /*#__PURE__*/React.createElement(L, {
     name: "Loader2",
@@ -13484,7 +13496,7 @@ function AquaBuddyKeyRow() {
   }), testing ? T("Probando…", "Testing…") : T("Probar conexión", "Test connection")), result && /*#__PURE__*/React.createElement("span", {
     className: "inline-flex items-start gap-1.5 text-[10.5px] font-medium flex-1 min-w-[160px]",
     style: {
-      color: result.ok ? "#0E9F6E" : "#DC4458"
+      color: result.ok ? "var(--ios-green)" : "var(--ios-red)"
     }
   }, /*#__PURE__*/React.createElement(L, {
     name: result.ok ? "CheckCircle2" : "AlertTriangle",
@@ -13630,7 +13642,7 @@ function SupabaseConfigRow() {
   }, saved ? T("Guardado", "Saved") : T("Guardar", "Save"))), configured && !saved && /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-1.5 text-[10.5px]",
     style: {
-      color: "#0E9F6E"
+      color: "var(--ios-green)"
     }
   }, /*#__PURE__*/React.createElement(L, {
     name: "CheckCircle2",
@@ -13651,7 +13663,7 @@ function SettingRow({
   }, /*#__PURE__*/React.createElement("div", {
     className: "grid place-items-center w-9 h-9 rounded-xl shrink-0",
     style: danger ? {
-      background: "rgba(225,29,72,0.11)",
+      background: "rgba(255,59,48,0.11)",
       border: "1px solid rgba(225,29,72,0.3)"
     } : {
       background: "var(--well)",
@@ -13661,7 +13673,7 @@ function SettingRow({
     name: icon,
     size: 15,
     style: {
-      color: danger ? "#DC4458" : "var(--ink-2)"
+      color: danger ? "var(--ios-red)" : "var(--ink-2)"
     }
   })), /*#__PURE__*/React.createElement("div", {
     className: "flex-1 min-w-0"
@@ -13687,7 +13699,7 @@ function GlassToggle({
       width: 44,
       background: on ? "linear-gradient(160deg, var(--accent), var(--accent-strong))" : "var(--well)",
       border: `1px solid ${on ? "transparent" : "var(--hairline-strong)"}`,
-      boxShadow: on ? "0 2px 10px rgba(13,148,136,0.35)" : "none"
+      boxShadow: on ? "0 2px 10px var(--accent-border)" : "none"
     }
   }, /*#__PURE__*/React.createElement("span", {
     className: "absolute top-1/2 -translate-y-1/2 rounded-full bg-white shadow-md transition-all",
@@ -13898,21 +13910,21 @@ function SettingsPage({
   }, "Aqua Buddy \xB7 Groq AI"), window.AQUAMIND_AI_KEY || localStorage.getItem("aqua:ai_key") ? /*#__PURE__*/React.createElement("span", {
     className: "text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-md font-semibold",
     style: {
-      background: "rgba(16,185,129,0.13)",
-      color: "#0E9F6E",
-      border: "1px solid rgba(16,185,129,0.3)"
+      background: "var(--ios-green-soft)",
+      color: "var(--ios-green)",
+      border: "1px solid var(--ios-green-border)"
     }
   }, T("ACTIVO", "ACTIVE")) : /*#__PURE__*/React.createElement("span", {
     className: "text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-md font-semibold",
     style: {
-      background: "rgba(245,158,11,0.14)",
-      color: "#C77F00",
-      border: "1px solid rgba(245,158,11,0.32)"
+      background: "rgba(255,149,0,0.12)",
+      color: "var(--ios-orange)",
+      border: "1px solid rgba(255,149,0,0.30)"
     }
   }, T("SIN KEY", "NO KEY"))), /*#__PURE__*/React.createElement("div", {
     className: "text-[11.5px] text-[var(--ink-2)] mt-0.5"
   }, T("Llama 3.3 70B vía Groq · contexto de tu tanque + acciones directas", "Llama 3.3 70B via Groq · your tank context + direct actions"))), /*#__PURE__*/React.createElement(PulsingDot, {
-    color: "#0E9F6E",
+    color: "var(--ios-green)",
     size: 8
   })), /*#__PURE__*/React.createElement(AquaBuddyKeyRow, null)), /*#__PURE__*/React.createElement(Card, {
     className: "overflow-hidden"
@@ -14016,7 +14028,7 @@ function SettingsPage({
   }, confirmDelete ? /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-2"
   }, /*#__PURE__*/React.createElement("span", {
-    className: "text-[11.5px] text-[#DC4458]"
+    className: "text-[11.5px] text-[var(--ios-red)]"
   }, T("¿Seguro?", "Sure?")), /*#__PURE__*/React.createElement(Button, {
     variant: "danger",
     size: "sm",
@@ -14129,9 +14141,9 @@ function SettingsPage({
   }, T("Probar", "Test")))), perm === "denied" && /*#__PURE__*/React.createElement("p", {
     className: "text-[11px] mt-3 px-3 py-2 rounded-xl",
     style: {
-      background: "rgba(225,29,72,0.10)",
-      border: "1px solid rgba(225,29,72,0.28)",
-      color: "#DC4458"
+      background: "rgba(255,59,48,0.10)",
+      border: "1px solid rgba(255,59,48,0.28)",
+      color: "var(--ios-red)"
     }
   }, T("Bloqueaste las notificaciones. Actívalas desde los ajustes del sitio en tu navegador (icono del candado en la barra de direcciones).", "You blocked notifications. Re-enable them in your browser's site settings (lock icon in the address bar).")), /*#__PURE__*/React.createElement("div", {
     className: "mt-3 rounded-xl px-3 py-2.5",
@@ -14673,14 +14685,14 @@ function OnboardingFlow({
   }, /*#__PURE__*/React.createElement("div", {
     className: "grid place-items-center w-7 h-7 rounded-lg shrink-0",
     style: {
-      background: "rgba(16,185,129,0.13)",
-      border: "1px solid rgba(16,185,129,0.3)"
+      background: "var(--ios-green-soft)",
+      border: "1px solid var(--ios-green-border)"
     }
   }, /*#__PURE__*/React.createElement(L, {
     name: item.icon,
     size: 13,
     style: {
-      color: "#0E9F6E"
+      color: "var(--ios-green)"
     }
   })), item.label))), /*#__PURE__*/React.createElement(Dots, null), /*#__PURE__*/React.createElement(Button, {
     variant: "primary",
